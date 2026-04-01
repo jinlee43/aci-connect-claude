@@ -1,0 +1,258 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.WeeklyPlan.IndexModel
+@{
+    ViewData["Title"] = "Weekly Work Plan";
+    ViewData["ActiveMenu"] = "weekly";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-calendar-week me-2 text-primary"></i>Weekly Work Plan</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+                <li class="breadcrumb-item active">@Model.ProjectName</li>
+            </ol>
+        </nav>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <!-- Week Navigator -->
+        <div class="d-flex align-items-center gap-2">
+            <a class="btn btn-sm btn-outline-secondary" asp-page asp-route-projectId="@Model.ProjectId"
+               asp-route-planId="@Model.PrevPlanId">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <span class="fw-semibold text-nowrap">
+                @Model.Plan?.WeekStartDate.ToString("MMM d") – @Model.Plan?.WeekEndDate.ToString("MMM d, yyyy")
+                <span class="text-muted ms-1 small">W@(Model.Plan?.WeekNumber)</span>
+            </span>
+            <a class="btn btn-sm btn-outline-secondary" asp-page asp-route-projectId="@Model.ProjectId"
+               asp-route-planId="@Model.NextPlanId">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        <span class="badge @(Model.Plan?.Status == WeeklyPlanStatus.Committed ? "bg-success" : "bg-warning text-dark")">
+            @Model.Plan?.Status
+        </span>
+        <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addWeeklyTaskModal">
+            <i class="bi bi-plus-lg me-1"></i>Add Task
+        </button>
+        <button class="btn btn-sm btn-outline-primary" id="btnCloseWeek"
+                hx-post="?handler=CloseWeek" hx-vals='{"planId":"@Model.Plan?.Id"}'
+                hx-confirm="Close this week and calculate PPC?">
+            <i class="bi bi-check2-all me-1"></i>Close Week
+        </button>
+    </div>
+</div>
+
+<div class="p-3">
+    <div class="row g-3">
+
+        <!-- Task List (left 75%) -->
+        <div class="col-lg-9">
+            <div class="aci-card">
+                <div class="card-header bg-white border-bottom py-2 px-3 d-flex justify-content-between">
+                    <span class="fw-semibold">Committed Tasks</span>
+                    <span class="text-muted small">
+                        @Model.CommittedCount committed / @Model.TotalTaskCount total
+                    </span>
+                </div>
+                @if (Model.Plan != null)
+                {
+                    <!-- Day columns header -->
+                    <div class="row g-0 bg-light border-bottom">
+                        <div class="col-4 p-2 fw-semibold small text-muted">Activity</div>
+                        @{
+                            string[] days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+                        }
+                        @for (int d = 0; d < 5; d++)
+                        {
+                            var date = Model.Plan.WeekStartDate.AddDays(d);
+                            var isToday = date.Date == DateTime.Today;
+                            <div class="col p-2 text-center @(isToday ? "bg-primary bg-opacity-10" : "")">
+                                <div class="fw-semibold small">@days[d]</div>
+                                <div class="text-muted" style="font-size:.7rem">@date.ToString("M/d")</div>
+                            </div>
+                        }
+                        <div class="col-1 p-2"></div>
+                    </div>
+
+                    <!-- Task rows -->
+                    @foreach (var task in Model.Tasks)
+                    {
+                        <div class="wwp-task-item @(task.IsCommitted ? "committed" : "") @(task.IsCompleted ? "completed" : "")"
+                             id="task-@task.Id">
+                            <div class="col-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    @if (task.TradeColor != null)
+                                    {
+                                        <div class="rounded-circle" style="width:8px;height:8px;background:@task.TradeColor;flex-shrink:0"></div>
+                                    }
+                                    <div>
+                                        <div class="task-text fw-medium small">@task.Text</div>
+                                        @if (!string.IsNullOrEmpty(task.AssigneeName))
+                                        {
+                                            <div class="text-muted" style="font-size:.7rem">@task.AssigneeName</div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Day checkmarks -->
+                            @for (int d = 0; d < 5; d++)
+                            {
+                                var date = Model.Plan.WeekStartDate.AddDays(d);
+                                var isTaskDay = task.PlannedDate.Date == date.Date;
+                                <div class="col text-center">
+                                    @if (isTaskDay)
+                                    {
+                                        <button class="btn btn-sm @(task.IsCompleted ? "btn-success" : task.IsCommitted ? "btn-outline-success" : "btn-outline-secondary")"
+                                                style="width:32px;height:32px;padding:0"
+                                                hx-post="?handler=ToggleComplete"
+                                                hx-vals='{"taskId":"@task.Id","completed":"@(!task.IsCompleted)"}'
+                                                hx-target="#task-@task.Id"
+                                                hx-swap="outerHTML">
+                                            <i class="bi @(task.IsCompleted ? "bi-check-lg" : "bi-circle")"></i>
+                                        </button>
+                                    }
+                                </div>
+                            }
+
+                            <!-- Commit toggle -->
+                            <div class="col-1 text-center">
+                                @if (!task.IsCommitted)
+                                {
+                                    <button class="btn btn-sm btn-outline-primary p-1"
+                                            hx-post="?handler=Commit" hx-vals='{"taskId":"@task.Id"}'
+                                            hx-target="#task-@task.Id" hx-swap="outerHTML"
+                                            title="Commit this task">
+                                        <i class="bi bi-hand-thumbs-up"></i>
+                                    </button>
+                                }
+                                else if (!task.IsCompleted && task.VarianceCategory.HasValue)
+                                {
+                                    <span class="badge bg-warning text-dark" title="@task.VarianceNote">
+                                        <i class="bi bi-exclamation"></i>
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!Model.Tasks.Any())
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-calendar-x fs-2"></i>
+                            <div class="mt-2 small">No tasks yet. Add tasks or pull from Lookahead.</div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <!-- PPC Stats (right 25%) -->
+        <div class="col-lg-3">
+            <div class="aci-card p-3 mb-3 text-center">
+                <div class="fw-semibold mb-2">Percent Plan Complete</div>
+                <div id="ppc-chart"></div>
+                <div class="fw-bold fs-3">@Model.PPC%</div>
+                <div class="text-muted small">@Model.CommittedCount committed / @Model.CompletedCount done</div>
+            </div>
+
+            @if (Model.VarianceStats.Any())
+            {
+                <div class="aci-card p-3">
+                    <div class="fw-semibold mb-2">Reason for Variance</div>
+                    <div id="variance-chart"></div>
+                </div>
+            }
+
+            <!-- History -->
+            <div class="aci-card p-3 mt-3">
+                <div class="fw-semibold mb-2 small text-muted">RECENT WEEKS</div>
+                @foreach (var hist in Model.RecentPlans)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
+                        <span class="small">W@hist.WeekNumber</span>
+                        <div class="aci-progress flex-fill mx-2" style="height:6px">
+                            <div class="aci-progress-bar" style="width:@hist.PPC%"></div>
+                        </div>
+                        <span class="small fw-bold @(hist.PPC >= 80 ? "text-success" : hist.PPC >= 60 ? "text-warning" : "text-danger")">
+                            @hist.PPC%
+                        </span>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal fade" id="addWeeklyTaskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Weekly Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="AddTask">
+                <div class="modal-body">
+                    <input type="hidden" name="PlanId" value="@Model.Plan?.Id" />
+                    <div class="mb-3">
+                        <label class="form-label">Activity Name *</label>
+                        <input type="text" name="Text" class="form-control" required />
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col">
+                            <label class="form-label">Planned Date *</label>
+                            <input type="date" name="PlannedDate" class="form-control"
+                                   min="@Model.Plan?.WeekStartDate.ToString("yyyy-MM-dd")"
+                                   max="@Model.Plan?.WeekEndDate.ToString("yyyy-MM-dd")" required />
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Trade</label>
+                            <select name="TradeId" class="form-select">
+                                <option value="">-- Select --</option>
+                                @foreach (var t in Model.Trades)
+                                {
+                                    <option value="@t.Id">@t.Name</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col">
+                            <label class="form-label">Assignee</label>
+                            <input type="text" name="AssigneeName" class="form-control" />
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Crew Size</label>
+                            <input type="number" name="CrewSize" class="form-control" min="0" value="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    ACICharts.renderPPC('ppc-chart', @Model.PPC);
+    @if (Model.VarianceStats.Any())
+    {
+        @:ACICharts.renderVarianceBar('variance-chart', @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+            Model.VarianceStats.Select(v => new { category = v.Category.ToString(), count = v.Count })
+        )));
+    }
+});
+</script>
+}

@@ -1,0 +1,181 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.Schedule.IndexModel
+@{
+    ViewData["Title"] = "Master Schedule";
+    ViewData["ActiveMenu"] = "schedule";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+@section Styles {
+<style>
+/* Gantt 페이지는 전체 높이 사용 */
+html, body { height: 100%; }
+#gantt-chart { width: 100%; height: calc(100vh - 130px); }
+.gantt_task_line { border-radius: 4px; }
+.gantt_critical_task { background: #ef4444 !important; border-color: #dc2626 !important; }
+.today-marker { background: rgba(239,68,68,.8); width: 2px; }
+.today-marker .gantt_marker_content {
+    background: #ef4444; color: #fff;
+    padding: 2px 6px; border-radius: 4px; font-size: .7rem;
+}
+</style>
+}
+
+<!-- Page Header -->
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-bar-chart-steps me-2 text-primary"></i>Master Schedule</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+                <li class="breadcrumb-item active">@Model.ProjectName</li>
+            </ol>
+        </nav>
+    </div>
+    <div class="d-flex gap-2">
+        <!-- Zoom controls -->
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" onclick="gantt.ext.zoom.zoomIn()">
+                <i class="bi bi-zoom-in"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="gantt.ext.zoom.zoomOut()">
+                <i class="bi bi-zoom-out"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="ACIGantt.fitToScreen()">
+                <i class="bi bi-arrows-angle-contract"></i>
+            </button>
+        </div>
+        <!-- View options -->
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary active" onclick="ACIGantt.setScale('week')">Week</button>
+            <button class="btn btn-outline-secondary" onclick="ACIGantt.setScale('month')">Month</button>
+            <button class="btn btn-outline-secondary" onclick="ACIGantt.setScale('quarter')">Quarter</button>
+        </div>
+        <!-- Critical Path toggle -->
+        <button class="btn btn-sm btn-outline-danger" onclick="ACIGantt.toggleCriticalPath()" id="btnCritical">
+            <i class="bi bi-diagram-3 me-1"></i>Critical Path
+        </button>
+        <!-- Export -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" onclick="gantt.exportToPDF()">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
+                </a></li>
+                <li><a class="dropdown-item" onclick="gantt.exportToMSProject()">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export MS Project
+                </a></li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Gantt Chart Container -->
+<div id="gantt-chart"></div>
+
+@section Scripts {
+<script>
+const PROJECT_ID = @Model.ProjectId;
+
+// ─── Gantt 초기화 ─────────────────────────────────────────
+gantt.config.date_format = "%m-%d-%Y %H:%i";
+gantt.config.work_time = true;
+gantt.config.fit_tasks = true;
+gantt.config.show_progress = true;
+gantt.config.open_tree_initially = true;
+
+// 그리드 컬럼
+gantt.config.columns = [
+    {
+        name: "text", label: "Activity", tree: true, width: 220, resize: true,
+        template: t => `<span class="text-truncate" title="${t.text}">${t.text}</span>`
+    },
+    { name: "start_date", label: "Start", align: "center", width: 90 },
+    { name: "duration",   label: "Days",  align: "center", width: 55 },
+    {
+        name: "progress", label: "%", align: "center", width: 55,
+        template: t => `<span class="fw-semibold">${Math.round(t.progress * 100)}%</span>`
+    },
+    {
+        name: "add", label: "", width: 44
+    }
+];
+
+// 타임스케일
+gantt.config.scales = [
+    { unit: "month", step: 1, format: "%B %Y" },
+    { unit: "week",  step: 1, format: "W%W" },
+];
+
+// 크리티컬 패스
+gantt.plugins({ critical_path: true, tooltip: true, marker: true, zoom: true });
+gantt.config.highlight_critical_path = false;
+
+// Today marker
+gantt.addMarker({
+    start_date: new Date(),
+    css: "today-marker",
+    text: "Today"
+});
+
+// 툴팁
+gantt.templates.tooltip_text = (start, end, task) =>
+    `<b>${task.text}</b><br>
+     Start: ${gantt.templates.tooltip_date_format(start)}<br>
+     End: ${gantt.templates.tooltip_date_format(end)}<br>
+     Progress: ${Math.round(task.progress * 100)}%`;
+
+// 태스크 색상 (공종별)
+gantt.templates.task_class = (start, end, task) => {
+    if (task.type === 'project') return 'gantt_project';
+    return '';
+};
+
+// 초기화
+gantt.init("gantt-chart");
+gantt.load(`/api/gantt/projects/${PROJECT_ID}/data`);
+
+// DataProcessor (자동 저장)
+const dp = gantt.createDataProcessor({
+    url: `/api/gantt/projects/${PROJECT_ID}`,
+    mode: "REST"
+});
+
+// ─── ACI Gantt Helper ─────────────────────────────────────
+window.ACIGantt = {
+    setScale(unit) {
+        if (unit === 'week') {
+            gantt.config.scales = [
+                { unit: "month", step: 1, format: "%B %Y" },
+                { unit: "week",  step: 1, format: "W%W" }
+            ];
+        } else if (unit === 'month') {
+            gantt.config.scales = [
+                { unit: "year",  step: 1, format: "%Y" },
+                { unit: "month", step: 1, format: "%M" }
+            ];
+        } else if (unit === 'quarter') {
+            gantt.config.scales = [
+                { unit: "year",    step: 1, format: "%Y" },
+                { unit: "quarter", step: 1, format: "Q%q" }
+            ];
+        }
+        gantt.render();
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    },
+
+    fitToScreen() { gantt.fit(); },
+
+    toggleCriticalPath() {
+        gantt.config.highlight_critical_path = !gantt.config.highlight_critical_path;
+        gantt.render();
+        document.getElementById('btnCritical').classList.toggle('btn-danger');
+        document.getElementById('btnCritical').classList.toggle('btn-outline-danger');
+    }
+};
+</script>
+}

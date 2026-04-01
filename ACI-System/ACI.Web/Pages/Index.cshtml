@@ -1,0 +1,132 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+    ViewData["ActiveMenu"] = "dashboard";
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-grid-1x2 me-2 text-primary"></i>Project Dashboard</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb"><li class="breadcrumb-item active">Dashboard</li></ol>
+        </nav>
+    </div>
+    <a class="btn btn-primary btn-sm" asp-page="/Projects/Create">
+        <i class="bi bi-plus-lg me-1"></i>New Project
+    </a>
+</div>
+
+<div class="p-3">
+
+    <!-- Portfolio Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-xl-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+                <div>
+                    <div class="stat-value text-primary">@Model.TotalProjects</div>
+                    <div class="stat-label">Total Projects</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-play-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-value text-success">@Model.ActiveProjects</div>
+                    <div class="stat-label">Active</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <div class="stat-value text-warning">@Model.OverdueTasksTotal</div>
+                    <div class="stat-label">Overdue Tasks</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-xl-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-currency-dollar"></i>
+                </div>
+                <div>
+                    <div class="stat-value text-info">$@Model.TotalContractValue.ToString("N0")</div>
+                    <div class="stat-label">Total Contract Value</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project List -->
+    <div class="aci-card">
+        <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-2 px-3">
+            <span class="fw-semibold">Active Projects</span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Project</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                        <th>Contract</th>
+                        <th>End Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in Model.Projects)
+                    {
+                        <tr>
+                            <td>
+                                <div class="fw-semibold">@p.Name</div>
+                                <div class="text-muted small">@p.ProjectNumber</div>
+                            </td>
+                            <td><span class="badge bg-secondary">@p.Type</span></td>
+                            <td>
+                                <span class="badge @GetStatusBadge(p.Status)">@p.Status</span>
+                            </td>
+                            <td style="min-width:120px">
+                                <div class="aci-progress">
+                                    <div class="aci-progress-bar" style="width:@(p.OverallProgress)%"></div>
+                                </div>
+                                <small class="text-muted">@p.OverallProgress%</small>
+                            </td>
+                            <td>$@p.ContractAmount.ToString("N0")</td>
+                            <td>@p.PlannedEndDate.ToString("MMM d, yyyy")</td>
+                            <td>
+                                <a class="btn btn-sm btn-outline-primary"
+                                   asp-page="/Schedule/Index" asp-route-projectId="@p.Id">
+                                    <i class="bi bi-bar-chart-steps me-1"></i>Schedule
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+@functions {
+    string GetStatusBadge(ProjectStatus s) => s switch {
+        ProjectStatus.Planning   => "badge-planning",
+        ProjectStatus.Active     => "badge-active",
+        ProjectStatus.OnHold     => "badge-on-hold",
+        ProjectStatus.Completed  => "badge-completed",
+        ProjectStatus.Cancelled  => "badge-cancelled",
+        _ => "bg-secondary"
+    };
+}

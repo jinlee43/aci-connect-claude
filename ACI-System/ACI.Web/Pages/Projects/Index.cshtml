@@ -1,0 +1,84 @@
+@page
+@model ACI.Web.Pages.Projects.IndexModel
+@{
+    ViewData["Title"] = "Projects";
+    ViewData["ActiveMenu"] = "projects";
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-folder2 me-2 text-primary"></i>Projects</h1>
+    </div>
+    <a class="btn btn-primary btn-sm" asp-page="Create">
+        <i class="bi bi-plus-lg me-1"></i>New Project
+    </a>
+</div>
+
+<div class="p-3">
+    <div class="row g-3">
+        @foreach (var p in Model.Projects)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="aci-card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h6 class="fw-bold mb-0">@p.Name</h6>
+                                <small class="text-muted">@p.ProjectNumber</small>
+                            </div>
+                            <span class="badge @GetStatusBadge(p.Status) ms-2">@p.Status</span>
+                        </div>
+
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between small text-muted mb-1">
+                                <span>Progress</span><span>@p.OverallProgress%</span>
+                            </div>
+                            <div class="aci-progress">
+                                <div class="aci-progress-bar" style="width:@p.OverallProgress%"></div>
+                            </div>
+                        </div>
+
+                        <div class="small text-muted mb-3">
+                            <i class="bi bi-geo-alt me-1"></i>@(p.City ?? "–")<br />
+                            <i class="bi bi-calendar me-1"></i>@p.PlannedStartDate.ToString("MMM d") – @p.PlannedEndDate.ToString("MMM d, yyyy")<br />
+                            <i class="bi bi-currency-dollar me-1"></i>$@p.ContractAmount.ToString("N0") (@p.Type)
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-primary flex-fill"
+                               asp-page="/Schedule/Index" asp-route-projectId="@p.Id">
+                                <i class="bi bi-bar-chart-steps me-1"></i>Schedule
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               asp-page="Detail" asp-route-id="@p.Id">
+                                <i class="bi bi-gear"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (!Model.Projects.Any())
+        {
+            <div class="col-12 text-center text-muted py-5">
+                <i class="bi bi-folder2-open fs-1"></i>
+                <div class="mt-2">No projects yet. Create your first project.</div>
+                <a class="btn btn-primary mt-3" asp-page="Create">
+                    <i class="bi bi-plus-lg me-1"></i>New Project
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    string GetStatusBadge(ProjectStatus s) => s switch {
+        ProjectStatus.Planning  => "badge-planning",
+        ProjectStatus.Active    => "badge-active",
+        ProjectStatus.OnHold    => "badge-on-hold",
+        ProjectStatus.Completed => "badge-completed",
+        ProjectStatus.Cancelled => "badge-cancelled",
+        _ => "bg-secondary"
+    };
+}

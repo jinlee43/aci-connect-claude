@@ -1,0 +1,221 @@
+/* ================================================================
+   ACI Project System – Site Stylesheet
+   Angeles Contractor Inc. | Los Angeles, CA
+   ================================================================ */
+
+:root {
+    --aci-primary:    #1a56db;
+    --aci-sidebar-bg: #1e2330;
+    --aci-sidebar-w:  240px;
+    --aci-topbar-h:   56px;
+    --aci-text-muted: #8a95a3;
+    --aci-border:     #2d3446;
+    --aci-hover:      #2a3147;
+    --aci-active:     #1a56db;
+}
+
+/* ─── Base ──────────────────────────────────────────────── */
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f4f6fb;
+    overflow-x: hidden;
+}
+
+/* ─── Top Navbar ────────────────────────────────────────── */
+.aci-topbar {
+    height: var(--aci-topbar-h);
+    background: var(--aci-primary) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    z-index: 1050;
+}
+.aci-topbar .navbar-brand { font-size: 1.1rem; letter-spacing: 1px; }
+
+/* ─── Sidebar ───────────────────────────────────────────── */
+.aci-sidebar {
+    position: fixed;
+    top: var(--aci-topbar-h);
+    left: 0;
+    width: var(--aci-sidebar-w);
+    height: calc(100vh - var(--aci-topbar-h));
+    background: var(--aci-sidebar-bg);
+    overflow-y: auto;
+    overflow-x: hidden;
+    transition: width .25s ease, transform .25s ease;
+    z-index: 1040;
+    scrollbar-width: thin;
+    scrollbar-color: var(--aci-border) transparent;
+}
+.aci-sidebar.collapsed { width: 60px; }
+.aci-sidebar.collapsed .sidebar-section-title,
+.aci-sidebar.collapsed .sidebar-link span { display: none; }
+.aci-sidebar.collapsed .sidebar-link { justify-content: center; padding: .6rem; }
+
+.sidebar-section { padding: .75rem 0 .25rem; }
+.sidebar-section-title {
+    padding: .25rem 1rem;
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--aci-text-muted);
+    text-transform: uppercase;
+}
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .55rem 1rem;
+    color: #b8c0cc;
+    text-decoration: none;
+    font-size: .875rem;
+    border-left: 3px solid transparent;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.sidebar-link i { font-size: 1rem; min-width: 20px; }
+.sidebar-link:hover {
+    background: var(--aci-hover);
+    color: #fff;
+}
+.sidebar-link.active {
+    background: rgba(26, 86, 219, .15);
+    color: #fff;
+    border-left-color: var(--aci-active);
+    font-weight: 600;
+}
+
+/* ─── Main Content ──────────────────────────────────────── */
+.aci-main-content {
+    margin-left: var(--aci-sidebar-w);
+    margin-top: var(--aci-topbar-h);
+    min-height: calc(100vh - var(--aci-topbar-h));
+    transition: margin-left .25s ease;
+}
+.aci-main-content.expanded { margin-left: 60px; }
+
+/* ─── Page Header ───────────────────────────────────────── */
+.aci-page-header {
+    background: #fff;
+    border-bottom: 1px solid #e5e9f0;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.aci-page-header h1 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0;
+    color: #1a1f36;
+}
+.aci-page-header .breadcrumb { margin-bottom: 0; font-size: .8rem; }
+
+/* ─── Cards ─────────────────────────────────────────────── */
+.aci-card {
+    background: #fff;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.aci-stat-card {
+    background: #fff;
+    border: 1px solid #e5e9f0;
+    border-radius: 8px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.aci-stat-card .stat-icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+}
+.aci-stat-card .stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1; }
+.aci-stat-card .stat-label { font-size: .75rem; color: #6c757d; margin-top: .2rem; }
+
+/* ─── Status Badges ─────────────────────────────────────── */
+.badge-planning    { background: #e8f0fe; color: #1a56db; }
+.badge-active      { background: #d1fae5; color: #065f46; }
+.badge-on-hold     { background: #fef3c7; color: #92400e; }
+.badge-completed   { background: #f0fdf4; color: #166534; }
+.badge-cancelled   { background: #fee2e2; color: #991b1b; }
+
+/* ─── Gantt Container ───────────────────────────────────── */
+.gantt-container {
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid #e5e9f0;
+    border-radius: 0 0 8px 8px;
+}
+/* dhtmlxGantt 기본 스타일 오버라이드 */
+.gantt_grid_head_cell,
+.gantt_scale_cell { background: #f8fafc; color: #374151; font-weight: 600; font-size: .8rem; }
+.gantt_task_line { border-radius: 4px; }
+.gantt_task_line.gantt_project { background: #374151; }
+.gantt_task_line.gantt_milestone { background: #6366f1; }
+
+/* ─── Lookahead Grid ────────────────────────────────────── */
+.lookahead-week-col { min-width: 160px; border-right: 2px solid #e5e9f0; }
+.lookahead-task-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: .6rem .75rem;
+    margin-bottom: .4rem;
+    font-size: .82rem;
+    cursor: pointer;
+    transition: box-shadow .15s;
+}
+.lookahead-task-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.lookahead-task-card .trade-badge {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-right: .4rem;
+}
+.lookahead-task-card.has-constraint { border-left: 3px solid #f59e0b; }
+.lookahead-task-card.status-completed { opacity: .6; }
+
+/* ─── Weekly Work Plan ──────────────────────────────────── */
+.wwp-day-col { border-right: 1px solid #e5e9f0; min-width: 140px; }
+.wwp-task-item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem .75rem;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .83rem;
+    transition: background .1s;
+}
+.wwp-task-item:hover { background: #f8fafc; }
+.wwp-task-item.committed { background: #f0fdf4; }
+.wwp-task-item.completed .task-text { text-decoration: line-through; color: #94a3b8; }
+.ppc-circle {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: conic-gradient(var(--aci-primary) 0%, #e5e9f0 0%);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1.1rem;
+}
+
+/* ─── Progress Bar ──────────────────────────────────────── */
+.aci-progress { height: 6px; border-radius: 3px; background: #e5e9f0; }
+.aci-progress-bar { height: 100%; border-radius: 3px; background: var(--aci-primary); transition: width .3s; }
+
+/* ─── Utility ───────────────────────────────────────────── */
+.cursor-pointer { cursor: pointer; }
+.text-truncate-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.border-start-4 { border-left-width: 4px !important; }
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .aci-sidebar { transform: translateX(-100%); width: var(--aci-sidebar-w); }
+    .aci-sidebar.mobile-open { transform: translateX(0); }
+    .aci-main-content { margin-left: 0; }
+}

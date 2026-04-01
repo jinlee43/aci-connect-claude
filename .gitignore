@@ -1,0 +1,9 @@
+# DB backups & archives (절대 커밋 금지)
+*.dat
+*.zip
+*.bak
+*.backup
+
+# OS
+.DS_Store
+Thumbs.db
