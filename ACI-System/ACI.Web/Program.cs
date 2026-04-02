@@ -21,7 +21,7 @@ builder.Services.AddAuthentication("AciCookies")
         options.Cookie.SameSite   = Microsoft.AspNetCore.Http.SameSiteMode.Lax;
     });
 
-builder.Services.AddAuthorization();
+// AddAuthorization은 아래 정책 설정에서 처리함
 
 // ─── Razor Pages + MVC ────────────────────────────────────────────────────
 builder.Services.AddRazorPages()
@@ -29,7 +29,20 @@ builder.Services.AddRazorPages()
 
 builder.Services.AddControllers();
 
+// ─── Authorization Policies ───────────────────────────────────────────────
+builder.Services.AddAuthorization(options =>
+{
+    // HR Admin 전용 페이지: Admin(0) 또는 HrAdmin(6) 롤만 접근 가능
+    options.AddPolicy("HrAdmin", policy =>
+        policy.RequireAssertion(ctx =>
+        {
+            var roleClaim = ctx.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+            return roleClaim == "Admin" || roleClaim == "HrAdmin";
+        }));
+});
+
 // ─── Application Services ─────────────────────────────────────────────────
+builder.Services.AddSingleton<ACI.Web.Services.IEncryptionService, ACI.Web.Services.EncryptionService>();
 builder.Services.AddScoped<IGanttDataService, GanttDataService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILookaheadService, LookaheadService>();

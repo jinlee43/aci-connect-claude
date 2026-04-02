@@ -35,22 +35,22 @@ public static class DbInitializer
             await db.SaveChangesAsync();
         }
 
-        // ── Departments ───────────────────────────────────────────────────
-        if (!db.Departments.Any())
+        // ── OrgUnits ──────────────────────────────────────────────────────
+        if (!db.OrgUnits.Any())
         {
-            var company = new Department { Code = "ACI",  Name = "Angeles Contractor Inc.", Type = DepartmentType.Company };
-            db.Departments.Add(company);
+            var company = new OrgUnit { Code = "ACI", Name = "Angeles Contractor Inc.", Type = OrgUnitType.Company };
+            db.OrgUnits.Add(company);
             await db.SaveChangesAsync();
 
-            var depts = new List<Department>
+            var units = new List<OrgUnit>
             {
-                new() { Code = "LS",   Name = "Lumpsum Division",     Type = DepartmentType.Division,   ParentDeptId = company.Id },
-                new() { Code = "JOC",  Name = "JOC Division",         Type = DepartmentType.Division,   ParentDeptId = company.Id },
-                new() { Code = "ADM",  Name = "Administration",       Type = DepartmentType.Department, ParentDeptId = company.Id },
-                new() { Code = "SAF",  Name = "Safety Department",    Type = DepartmentType.Department, ParentDeptId = company.Id },
-                new() { Code = "IT",   Name = "IT Division",          Type = DepartmentType.Team,       ParentDeptId = company.Id },
+                new() { Code = "LS",   Name = "Lumpsum Division",     Type = OrgUnitType.Division,   ParentId = company.Id },
+                new() { Code = "JOC",  Name = "JOC Division",         Type = OrgUnitType.Division,   ParentId = company.Id },
+                new() { Code = "ADM",  Name = "Administration",       Type = OrgUnitType.Department, ParentId = company.Id },
+                new() { Code = "SAF",  Name = "Safety Department",    Type = OrgUnitType.Department, ParentId = company.Id },
+                new() { Code = "IT",   Name = "IT Division",          Type = OrgUnitType.Team,       ParentId = company.Id },
             };
-            db.Departments.AddRange(depts);
+            db.OrgUnits.AddRange(units);
             await db.SaveChangesAsync();
         }
 

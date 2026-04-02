@@ -24,7 +24,7 @@
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
                                 <h6 class="fw-bold mb-0">@p.Name</h6>
-                                <small class="text-muted">@p.ProjectNumber</small>
+                                <small class="text-muted">@p.ProjectCode</small>
                             </div>
                             <span class="badge @GetStatusBadge(p.Status) ms-2">@p.Status</span>
                         </div>
@@ -40,7 +40,7 @@
 
                         <div class="small text-muted mb-3">
                             <i class="bi bi-geo-alt me-1"></i>@(p.City ?? "–")<br />
-                            <i class="bi bi-calendar me-1"></i>@p.PlannedStartDate.ToString("MMM d") – @p.PlannedEndDate.ToString("MMM d, yyyy")<br />
+                            <i class="bi bi-calendar me-1"></i>@p.SchdStartDate?.ToString("MMM d") – @p.SchdEndDate?.ToString("MMM d, yyyy")<br />
                             <i class="bi bi-currency-dollar me-1"></i>$@p.ContractAmount.ToString("N0") (@p.Type)
                         </div>
 

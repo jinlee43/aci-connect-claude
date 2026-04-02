@@ -73,8 +73,9 @@ public class Project : BaseEntity
     public DateOnly? InspectReportStartDate { get; set; }
 
     // Navigation
-    public ICollection<ProjectMember>  Members       { get; set; } = [];
-    public ICollection<Trade>          Trades        { get; set; } = [];
+    public ICollection<OrgUnit>              OrgUnits          { get; set; } = [];
+    public ICollection<ProjectExternalParty> ExternalParties   { get; set; } = [];
+    public ICollection<Trade>                Trades            { get; set; } = [];
     public ICollection<ScheduleTask>   Tasks         { get; set; } = [];
     public ICollection<Lookahead>      Lookaheads    { get; set; } = [];
     public ICollection<WeeklyWorkPlan> WeeklyPlans   { get; set; } = [];

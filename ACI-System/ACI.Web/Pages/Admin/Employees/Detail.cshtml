@@ -1,0 +1,385 @@
+@page "{id:int}"
+@model ACI.Web.Pages.Admin.Employees.DetailModel
+@{
+    ViewData["Title"] = Model.IsNew ? "New Employee" : Model.Emp.DisplayName;
+    ViewData["ActiveMenu"] = "employees";
+}
+
+<div class="p-3">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-page="Index">Employees</a></li>
+            <li class="breadcrumb-item active">@(Model.IsNew ? "New Employee" : Model.Emp.DisplayName)</li>
+        </ol>
+    </nav>
+
+    <form method="post" asp-page-handler="Save">
+        <input type="hidden" asp-for="Emp.Id" />
+        <input type="hidden" asp-for="Emp.CreatedAt" />
+
+        <div class="row g-3">
+            <!-- ── Left Column ─────────────────── -->
+            <div class="col-lg-8">
+
+                <!-- Basic Info Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-person me-2 text-primary"></i>Basic Information
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Emp #</label>
+                                <input asp-for="Emp.EmpNum" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Known Name <span class="text-primary">(표시명)</span></label>
+                                <input asp-for="Emp.KnownName" class="form-control form-control-sm" placeholder="e.g. John Park" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Gender</label>
+                                <select asp-for="Emp.Gender" class="form-select form-select-sm">
+                                    <option value="">-</option>
+                                    <option value="0">Male</option>
+                                    <option value="1">Female</option>
+                                    <option value="2">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">First Name <span class="text-danger">*</span></label>
+                                <input asp-for="Emp.FirstName" class="form-control form-control-sm" />
+                                <span asp-validation-for="Emp.FirstName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Middle Name</label>
+                                <input asp-for="Emp.MiddleName" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Last Name <span class="text-danger">*</span></label>
+                                <input asp-for="Emp.LastName" class="form-control form-control-sm" />
+                                <span asp-validation-for="Emp.LastName" class="text-danger small"></span>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Suffix</label>
+                                <input asp-for="Emp.NameSuffix" class="form-control form-control-sm" placeholder="Jr., Sr., III" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-telephone me-2 text-primary"></i>Contact
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Work</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Company Cell</label>
+                                <input asp-for="Emp.Phone" class="form-control form-control-sm" placeholder="(714) 000-0000" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Work Email</label>
+                                <input asp-for="Emp.WorkEmail" class="form-control form-control-sm" placeholder="name@angelescontractor.com" />
+                            </div>
+                        </div>
+                        <hr class="my-3" />
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Private</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Home Phone</label>
+                                <input asp-for="Emp.PrivHomePhone" class="form-control form-control-sm" placeholder="(714) 000-0000" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Personal Cell</label>
+                                <input asp-for="Emp.PrivCellPhone" class="form-control form-control-sm" placeholder="(714) 000-0000" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Personal Email</label>
+                                <input asp-for="Emp.PersonalEmail" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+                        <hr class="my-3" />
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Home Address</p>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Address Line 1</label>
+                                <input asp-for="Emp.HomeAddress1" class="form-control form-control-sm" placeholder="Street address" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Address Line 2</label>
+                                <input asp-for="Emp.HomeAddress2" class="form-control form-control-sm" placeholder="Apt, Suite, etc." />
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">City</label>
+                                <input asp-for="Emp.HomeAddressCity" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">State</label>
+                                <input asp-for="Emp.HomeAddressState" class="form-control form-control-sm" placeholder="CA" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold">Zip</label>
+                                <input asp-for="Emp.HomeAddressZip" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">County</label>
+                                <input asp-for="Emp.HomeAddressCounty" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Emergency Contacts Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-heart-pulse me-2 text-danger"></i>Emergency Contacts
+                    </div>
+                    <div class="card-body">
+
+                        <!-- Contact #1 -->
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Contact #1</p>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small">Name</label>
+                                <input asp-for="Emp.EmgContact1Name" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Relation</label>
+                                <input asp-for="Emp.EmgContact1Relation" class="form-control form-control-sm" placeholder="Spouse, Parent..." />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small">Email</label>
+                                <input asp-for="Emp.EmgContact1Email" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Tel</label>
+                                <input asp-for="Emp.EmgContact1Tel" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Cell</label>
+                                <input asp-for="Emp.EmgContact1Cell" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Contact #2 -->
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Contact #2</p>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label small">Name</label>
+                                <input asp-for="Emp.EmgContact2Name" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Relation</label>
+                                <input asp-for="Emp.EmgContact2Relation" class="form-control form-control-sm" placeholder="Spouse, Parent..." />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small">Email</label>
+                                <input asp-for="Emp.EmgContact2Email" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Tel</label>
+                                <input asp-for="Emp.EmgContact2Tel" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Cell</label>
+                                <input asp-for="Emp.EmgContact2Cell" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Contact #3 -->
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Contact #3</p>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label small">Name</label>
+                                <input asp-for="Emp.EmgContact3Name" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Relation</label>
+                                <input asp-for="Emp.EmgContact3Relation" class="form-control form-control-sm" placeholder="Spouse, Parent..." />
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label small">Email</label>
+                                <input asp-for="Emp.EmgContact3Email" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Tel</label>
+                                <input asp-for="Emp.EmgContact3Tel" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Cell</label>
+                                <input asp-for="Emp.EmgContact3Cell" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Employment Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-briefcase me-2 text-primary"></i>Employment
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Hire Date</label>
+                                <input asp-for="Emp.HireDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Termination Date</label>
+                                <input asp-for="Emp.TerminationDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end pb-1">
+                                <div class="form-check">
+                                    <input asp-for="Emp.IsActive" class="form-check-input" type="checkbox" />
+                                    <label asp-for="Emp.IsActive" class="form-check-label small fw-semibold">Active</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-10">
+                                <label class="form-label small fw-semibold">Notes</label>
+                                <textarea asp-for="Emp.Notes" class="form-control form-control-sm" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="d-flex gap-2 align-items-center">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i>Save
+                    </button>
+                    <a asp-page="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                    @if (!Model.IsNew)
+                    {
+                        <a asp-page="AdminDetail" asp-route-id="@Model.Emp.Id"
+                           class="btn btn-outline-danger btn-sm ms-auto">
+                            <i class="bi bi-shield-lock me-1"></i>HR Admin
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <!-- ── Right Column: EmpRoles ──────── -->
+            @if (!Model.IsNew)
+            {
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-diagram-3 me-2 text-primary"></i>Roles</span>
+                        <button class="btn btn-sm btn-outline-primary py-0 px-2"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#addRoleForm">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                    </div>
+
+                    <!-- Add Role Form -->
+                    <div class="collapse" id="addRoleForm">
+                        <div class="card-body border-bottom bg-light">
+                            <form method="post" asp-page-handler="AddRole" asp-route-id="@Model.Emp.Id">
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Department / Team</label>
+                                    <select name="NewRoleOrgUnitId" class="form-select form-select-sm">
+                                        <option value="0">-- select --</option>
+                                        @foreach (var o in Model.OrgUnitOptions)
+                                        {
+                                            <option value="@o.Value">@o.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small fw-semibold">Position</label>
+                                    <select name="NewRoleJobPositionId" class="form-select form-select-sm">
+                                        <option value="">-- select --</option>
+                                        @foreach (var p in Model.JobPositionOptions)
+                                        {
+                                            <option value="@p.Value">@p.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col">
+                                        <label class="form-label small">Start</label>
+                                        <input type="date" name="NewRoleStartDate" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col">
+                                        <label class="form-label small">End</label>
+                                        <input type="date" name="NewRoleEndDate" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input type="checkbox" name="NewRoleIsPrimary" value="true"
+                                           class="form-check-input" id="chkPrimary" />
+                                    <label class="form-check-label small" for="chkPrimary">Primary (home dept)</label>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-sm w-100">Add Role</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Roles List -->
+                    <div class="list-group list-group-flush">
+                        @if (!Model.Roles.Any())
+                        {
+                            <div class="list-group-item text-muted small text-center py-3">
+                                No roles assigned.
+                            </div>
+                        }
+                        @foreach (var role in Model.Roles)
+                        {
+                            <div class="list-group-item py-2 px-3">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        @if (role.IsPrimary)
+                                        {
+                                            <span class="badge bg-primary me-1" style="font-size:0.65rem">PRIMARY</span>
+                                        }
+                                        <span class="fw-semibold small">@role.OrgUnit?.Name</span>
+                                        @if (role.JobPosition != null)
+                                        {
+                                            <br /><small class="text-muted">@role.JobPosition.Name</small>
+                                        }
+                                        @if (role.StartDate.HasValue || role.EndDate.HasValue)
+                                        {
+                                            <br /><small class="text-muted">
+                                                @role.StartDate?.ToString("yyyy-MM-dd") – @(role.EndDate?.ToString("yyyy-MM-dd") ?? "present")
+                                            </small>
+                                        }
+                                    </div>
+                                    <div class="d-flex gap-1">
+                                        @if (!role.IsPrimary)
+                                        {
+                                            <form method="post" asp-page-handler="SetPrimary"
+                                                  asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id">
+                                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"
+                                                        title="Set as Primary">
+                                                    <i class="bi bi-star" style="font-size:0.7rem"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                        <form method="post" asp-page-handler="DeleteRole"
+                                              asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id"
+                                              onsubmit="return confirm('Remove this role?')">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1">
+                                                <i class="bi bi-trash" style="font-size:0.7rem"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            }
+        </div>
+    </form>
+</div>

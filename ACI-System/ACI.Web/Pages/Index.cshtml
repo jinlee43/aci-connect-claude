@@ -91,7 +91,7 @@
                         <tr>
                             <td>
                                 <div class="fw-semibold">@p.Name</div>
-                                <div class="text-muted small">@p.ProjectNumber</div>
+                                <div class="text-muted small">@p.ProjectCode</div>
                             </td>
                             <td><span class="badge bg-secondary">@p.Type</span></td>
                             <td>
@@ -104,7 +104,7 @@
                                 <small class="text-muted">@p.OverallProgress%</small>
                             </td>
                             <td>$@p.ContractAmount.ToString("N0")</td>
-                            <td>@p.PlannedEndDate.ToString("MMM d, yyyy")</td>
+                            <td>@p.SchdEndDate?.ToString("MMM d, yyyy")</td>
                             <td>
                                 <a class="btn btn-sm btn-outline-primary"
                                    asp-page="/Schedule/Index" asp-route-projectId="@p.Id">

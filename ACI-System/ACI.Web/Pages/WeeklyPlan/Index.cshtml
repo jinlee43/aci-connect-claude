@@ -20,7 +20,7 @@
     <div class="d-flex gap-2 align-items-center">
         <!-- Week Navigator -->
         <div class="d-flex align-items-center gap-2">
-            <a class="btn btn-sm btn-outline-secondary" asp-page asp-route-projectId="@Model.ProjectId"
+            <a class="btn btn-sm btn-outline-secondary" asp-page="/WeeklyPlan/Index" asp-route-projectId="@Model.ProjectId"
                asp-route-planId="@Model.PrevPlanId">
                 <i class="bi bi-chevron-left"></i>
             </a>
@@ -28,7 +28,7 @@
                 @Model.Plan?.WeekStartDate.ToString("MMM d") – @Model.Plan?.WeekEndDate.ToString("MMM d, yyyy")
                 <span class="text-muted ms-1 small">W@(Model.Plan?.WeekNumber)</span>
             </span>
-            <a class="btn btn-sm btn-outline-secondary" asp-page asp-route-projectId="@Model.ProjectId"
+            <a class="btn btn-sm btn-outline-secondary" asp-page="/WeeklyPlan/Index" asp-route-projectId="@Model.ProjectId"
                asp-route-planId="@Model.NextPlanId">
                 <i class="bi bi-chevron-right"></i>
             </a>
@@ -70,7 +70,7 @@
                         @for (int d = 0; d < 5; d++)
                         {
                             var date = Model.Plan.WeekStartDate.AddDays(d);
-                            var isToday = date.Date == DateTime.Today;
+                            var isToday = date == DateOnly.FromDateTime(DateTime.Today);
                             <div class="col p-2 text-center @(isToday ? "bg-primary bg-opacity-10" : "")">
                                 <div class="fw-semibold small">@days[d]</div>
                                 <div class="text-muted" style="font-size:.7rem">@date.ToString("M/d")</div>
@@ -104,7 +104,7 @@
                             @for (int d = 0; d < 5; d++)
                             {
                                 var date = Model.Plan.WeekStartDate.AddDays(d);
-                                var isTaskDay = task.PlannedDate.Date == date.Date;
+                                var isTaskDay = task.PlannedDate == date;
                                 <div class="col text-center">
                                     @if (isTaskDay)
                                     {

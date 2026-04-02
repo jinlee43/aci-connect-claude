@@ -4,12 +4,13 @@ namespace ACI.Web.Data.Entities;
 
 public enum UserRole
 {
-    Admin          = 0,  // 시스템 관리자
+    Admin          = 0,  // 시스템 관리자 (HR Admin 포함)
     ProjectManager = 1,  // PM - 전체 편집권
     Superintendent = 2,  // 현장소장 - 룩어헤드/주간계획 편집
     SafetyOfficer  = 3,  // 안전관리자
     TradePartner   = 4,  // 하도급 - 본인 작업만
-    Viewer         = 5   // 읽기 전용
+    Viewer         = 5,  // 읽기 전용
+    HrAdmin        = 6   // HR 관리자 - 직원 민감정보 접근
 }
 
 /// <summary>
@@ -48,6 +49,10 @@ public class ApplicationUser
         UserRole.SafetyOfficer  => "Safety Officer",
         UserRole.TradePartner   => "Trade Partner",
         UserRole.Viewer         => "Viewer",
+        UserRole.HrAdmin        => "HR Admin",
         _                       => Role.ToString()
     };
+
+    /// <summary>True if this user can access HR Admin (sensitive employee data).</summary>
+    public bool IsHrAdmin => Role == UserRole.Admin || Role == UserRole.HrAdmin;
 }

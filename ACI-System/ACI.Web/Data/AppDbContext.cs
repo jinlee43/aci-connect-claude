@@ -12,29 +12,33 @@ public class AppDbContext : DbContext
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
     // ─── Auth ──────────────────────────────────────────────────────────────
-    public DbSet<ApplicationUser> Users         => Set<ApplicationUser>();
+    public DbSet<ApplicationUser>      Users                => Set<ApplicationUser>();
 
     // ─── HR ───────────────────────────────────────────────────────────────
-    public DbSet<Employee>        Employees      => Set<Employee>();
-    public DbSet<Department>      Departments    => Set<Department>();
-    public DbSet<JobPosition>     JobPositions   => Set<JobPosition>();
+    public DbSet<Employee>             Employees            => Set<Employee>();
+    public DbSet<OrgUnit>              OrgUnits             => Set<OrgUnit>();
+    public DbSet<JobPosition>          JobPositions         => Set<JobPosition>();
+    public DbSet<EmpRole>              EmpRoles             => Set<EmpRole>();
+
+    // ─── External ─────────────────────────────────────────────────────────
+    public DbSet<ExternalParty>        ExternalParties      => Set<ExternalParty>();
+    public DbSet<ProjectExternalParty> ProjectExternalParties => Set<ProjectExternalParty>();
 
     // ─── Projects ─────────────────────────────────────────────────────────
-    public DbSet<Project>         Projects       => Set<Project>();
-    public DbSet<ProjectMember>   ProjectMembers => Set<ProjectMember>();
-    public DbSet<Trade>           Trades         => Set<Trade>();
+    public DbSet<Project>              Projects             => Set<Project>();
+    public DbSet<Trade>                Trades               => Set<Trade>();
 
     // ─── Scheduling ───────────────────────────────────────────────────────
-    public DbSet<ScheduleTask>    ScheduleTasks    => Set<ScheduleTask>();
-    public DbSet<TaskDependency>  TaskDependencies => Set<TaskDependency>();
+    public DbSet<ScheduleTask>         ScheduleTasks        => Set<ScheduleTask>();
+    public DbSet<TaskDependency>       TaskDependencies     => Set<TaskDependency>();
 
-    // ─── Lookahead ─────────────────────────────────────────────────────────
-    public DbSet<Lookahead>       Lookaheads     => Set<Lookahead>();
-    public DbSet<LookaheadTask>   LookaheadTasks => Set<LookaheadTask>();
+    // ─── Lookahead ────────────────────────────────────────────────────────
+    public DbSet<Lookahead>            Lookaheads           => Set<Lookahead>();
+    public DbSet<LookaheadTask>        LookaheadTasks       => Set<LookaheadTask>();
 
-    // ─── Weekly Work Plan ──────────────────────────────────────────────────
-    public DbSet<WeeklyWorkPlan>  WeeklyWorkPlans => Set<WeeklyWorkPlan>();
-    public DbSet<WeeklyTask>      WeeklyTasks     => Set<WeeklyTask>();
+    // ─── Weekly Work Plan ─────────────────────────────────────────────────
+    public DbSet<WeeklyWorkPlan>       WeeklyWorkPlans      => Set<WeeklyWorkPlan>();
+    public DbSet<WeeklyTask>           WeeklyTasks          => Set<WeeklyTask>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -60,32 +64,76 @@ public class AppDbContext : DbContext
             e.HasKey(emp => emp.Id);
             e.HasIndex(emp => emp.EmpNum).IsUnique();
 
-            e.HasOne(emp => emp.JobPosition)
-             .WithMany(p => p.Employees)
-             .HasForeignKey(emp => emp.JobPositionId)
-             .OnDelete(DeleteBehavior.SetNull);
-
-            e.HasOne(emp => emp.Department)
-             .WithMany(d => d.Employees)
-             .HasForeignKey(emp => emp.DepartmentId)
-             .OnDelete(DeleteBehavior.SetNull);
+            e.HasMany(emp => emp.EmpRoles)
+             .WithOne(r => r.Employee)
+             .HasForeignKey(r => r.EmployeeId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // ── Department (self-referencing) ─────────────────────────────────
-        builder.Entity<Department>(e =>
+        // ── OrgUnit (self-referencing) ────────────────────────────────────
+        builder.Entity<OrgUnit>(e =>
         {
-            e.HasKey(d => d.Id);
+            e.HasKey(o => o.Id);
 
-            e.HasOne(d => d.ParentDept)
-             .WithMany(d => d.ChildDepts)
-             .HasForeignKey(d => d.ParentDeptId)
+            e.HasOne(o => o.Parent)
+             .WithMany(o => o.Children)
+             .HasForeignKey(o => o.ParentId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            // ProjectTeam → Project link
+            e.HasOne(o => o.Project)
+             .WithMany(p => p.OrgUnits)
+             .HasForeignKey(o => o.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(o => o.EmpRoles)
+             .WithOne(r => r.OrgUnit)
+             .HasForeignKey(r => r.OrgUnitId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── JobPosition ───────────────────────────────────────────────────
         builder.Entity<JobPosition>(e =>
         {
             e.HasKey(p => p.Id);
+
+            e.HasMany(p => p.EmpRoles)
+             .WithOne(r => r.JobPosition)
+             .HasForeignKey(r => r.JobPositionId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── EmpRole ───────────────────────────────────────────────────────
+        builder.Entity<EmpRole>(e =>
+        {
+            e.HasKey(r => r.Id);
+
+            // Only one primary role per employee
+            e.HasIndex(r => new { r.EmployeeId, r.IsPrimary })
+             .HasFilter("\"IsPrimary\" = true")
+             .IsUnique();
+        });
+
+        // ── ExternalParty ─────────────────────────────────────────────────
+        builder.Entity<ExternalParty>(e =>
+        {
+            e.HasKey(ep => ep.Id);
+
+            e.HasMany(ep => ep.ProjectParticipations)
+             .WithOne(pep => pep.ExternalParty)
+             .HasForeignKey(pep => pep.ExternalPartyId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── ProjectExternalParty ──────────────────────────────────────────
+        builder.Entity<ProjectExternalParty>(e =>
+        {
+            e.HasKey(pep => pep.Id);
+
+            e.HasOne(pep => pep.Project)
+             .WithMany(p => p.ExternalParties)
+             .HasForeignKey(pep => pep.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── Project ───────────────────────────────────────────────────────
@@ -96,11 +144,6 @@ public class AppDbContext : DbContext
             e.Property(p => p.Name).IsRequired().HasMaxLength(200);
             e.Property(p => p.ContractAmount).HasPrecision(18, 2);
             e.HasIndex(p => p.ProjectCode).IsUnique();
-
-            e.HasMany(p => p.Members)
-             .WithOne(m => m.Project)
-             .HasForeignKey(m => m.ProjectId)
-             .OnDelete(DeleteBehavior.Cascade);
 
             e.HasMany(p => p.Trades)
              .WithOne(t => t.Project)
@@ -121,25 +164,6 @@ public class AppDbContext : DbContext
              .WithOne(w => w.Project)
              .HasForeignKey(w => w.ProjectId)
              .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ── ProjectMember ─────────────────────────────────────────────────
-        builder.Entity<ProjectMember>(e =>
-        {
-            e.HasKey(m => m.Id);
-
-            e.HasOne(m => m.Employee)
-             .WithMany(emp => emp.ProjectMemberships)
-             .HasForeignKey(m => m.EmployeeId)
-             .OnDelete(DeleteBehavior.Cascade);
-
-            e.HasOne(m => m.User)
-             .WithMany()
-             .HasForeignKey(m => m.UserId)
-             .OnDelete(DeleteBehavior.SetNull);
-
-            // One employee can have only one role per project
-            e.HasIndex(m => new { m.ProjectId, m.EmployeeId }).IsUnique();
         });
 
         // ── Trade ─────────────────────────────────────────────────────────

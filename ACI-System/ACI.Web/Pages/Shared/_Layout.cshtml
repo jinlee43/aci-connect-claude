@@ -108,15 +108,38 @@
 
     <div class="sidebar-section">
         <div class="sidebar-section-title">ADMIN</div>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "trades" ? "active" : "")"
-           asp-page="/Admin/Trades">
-            <i class="bi bi-people"></i><span>Trades & Subs</span>
+        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "employees" ? "active" : "")"
+           asp-page="/Admin/Employees/Index">
+            <i class="bi bi-people"></i><span>Employees</span>
+        </a>
+        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "orgunits" ? "active" : "")"
+           asp-page="/Admin/OrgUnits/Index">
+            <i class="bi bi-diagram-3"></i><span>Org Units</span>
+        </a>
+        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "jobpositions" ? "active" : "")"
+           asp-page="/Admin/JobPositions/Index">
+            <i class="bi bi-person-badge"></i><span>Job Positions</span>
         </a>
         <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "users" ? "active" : "")"
            asp-page="/Admin/Users">
             <i class="bi bi-person-gear"></i><span>Users</span>
         </a>
+        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "trades" ? "active" : "")"
+           asp-page="/Admin/Trades">
+            <i class="bi bi-tools"></i><span>Trades & Subs</span>
+        </a>
     </div>
+
+    @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+    {
+    <div class="sidebar-section">
+        <div class="sidebar-section-title" style="color:#dc3545;">HR ADMIN</div>
+        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "employees" ? "active" : "")"
+           asp-page="/Admin/Employees/Index">
+            <i class="bi bi-people text-danger"></i><span>Employee List</span>
+        </a>
+    </div>
+    }
 </div>
 
 <!-- ─── Main Content ───────────────────────────────────── -->

@@ -10,12 +10,8 @@
         <div class="card-body p-4">
             <!-- Logo -->
             <div class="text-center mb-4">
-                <div class="bg-primary d-inline-flex align-items-center justify-content-center rounded-3 mb-3"
-                     style="width:56px;height:56px">
-                    <i class="bi bi-building text-white fs-3"></i>
-                </div>
-                <h4 class="fw-bold mb-0">ACI Project System</h4>
-                <p class="text-muted small">Angeles Contractor Inc.</p>
+                <img src="/images/logo.jpg" alt="ACI Logo" style="height:80px; object-fit:contain;" class="mb-3" />
+                <h4 class="fw-bold mb-0">Angeles Contractor Inc.</h4>
             </div>
 
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -27,10 +23,10 @@
 
             <form method="post">
                 <div class="mb-3">
-                    <label asp-for="Input.Email" class="form-label">Email</label>
-                    <input asp-for="Input.Email" type="email" class="form-control"
-                           placeholder="you@aci-la.com" autofocus />
-                    <span asp-validation-for="Input.Email" class="text-danger small"></span>
+                    <label asp-for="Input.Username" class="form-label">Username</label>
+                    <input asp-for="Input.Username" type="text" class="form-control"
+                           placeholder="username" autofocus />
+                    <span asp-validation-for="Input.Username" class="text-danger small"></span>
                 </div>
                 <div class="mb-3">
                     <label asp-for="Input.Password" class="form-label">Password</label>

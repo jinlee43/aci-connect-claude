@@ -24,14 +24,14 @@ public class ProjectService : IProjectService
     public async Task<List<Project>> GetAllProjectsAsync() =>
         await _db.Projects
             .Where(p => p.IsActive)
-            .Include(p => p.Members).ThenInclude(m => m.Employee)
+            .Include(p => p.OrgUnits).ThenInclude(o => o.EmpRoles).ThenInclude(r => r.Employee)
             .Include(p => p.Trades)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
 
     public async Task<Project?> GetProjectAsync(int id) =>
         await _db.Projects
-            .Include(p => p.Members).ThenInclude(m => m.Employee)
+            .Include(p => p.OrgUnits).ThenInclude(o => o.EmpRoles).ThenInclude(r => r.Employee)
             .Include(p => p.Trades)
             .FirstOrDefaultAsync(p => p.Id == id && p.IsActive);
 

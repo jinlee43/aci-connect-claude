@@ -23,10 +23,10 @@
                         <div class="row g-3">
                             <!-- Project Number -->
                             <div class="col-md-4">
-                                <label asp-for="Input.ProjectNumber" class="form-label">Project Number *</label>
-                                <input asp-for="Input.ProjectNumber" class="form-control"
+                                <label asp-for="Input.ProjectCode" class="form-label">Project Number *</label>
+                                <input asp-for="Input.ProjectCode" class="form-control"
                                        placeholder="ACI-2024-001" />
-                                <span asp-validation-for="Input.ProjectNumber" class="text-danger small"></span>
+                                <span asp-validation-for="Input.ProjectCode" class="text-danger small"></span>
                             </div>
                             <!-- Project Name -->
                             <div class="col-md-8">
@@ -55,8 +55,8 @@
                             </div>
                             <!-- Address -->
                             <div class="col-md-8">
-                                <label asp-for="Input.Address" class="form-label">Address</label>
-                                <input asp-for="Input.Address" class="form-control" />
+                                <label asp-for="Input.SiteAddress" class="form-label">Address</label>
+                                <input asp-for="Input.SiteAddress" class="form-control" />
                             </div>
                             <!-- City -->
                             <div class="col-md-4">
@@ -66,12 +66,12 @@
                             </div>
                             <!-- Dates -->
                             <div class="col-md-6">
-                                <label asp-for="Input.PlannedStartDate" class="form-label">Planned Start *</label>
-                                <input asp-for="Input.PlannedStartDate" type="date" class="form-control" />
+                                <label asp-for="Input.SchdStartDate" class="form-label">Planned Start *</label>
+                                <input asp-for="Input.SchdStartDate" type="date" class="form-control" />
                             </div>
                             <div class="col-md-6">
-                                <label asp-for="Input.PlannedEndDate" class="form-label">Planned End *</label>
-                                <input asp-for="Input.PlannedEndDate" type="date" class="form-control" />
+                                <label asp-for="Input.SchdEndDate" class="form-label">Planned End *</label>
+                                <input asp-for="Input.SchdEndDate" type="date" class="form-control" />
                             </div>
                             <!-- Owner -->
                             <div class="col-md-6">
@@ -79,8 +79,8 @@
                                 <input asp-for="Input.OwnerName" class="form-control" />
                             </div>
                             <div class="col-md-6">
-                                <label asp-for="Input.OwnerContact" class="form-label">Owner Contact</label>
-                                <input asp-for="Input.OwnerContact" class="form-control"
+                                <label asp-for="Input.OwnerEmail" class="form-label">Owner Contact</label>
+                                <input asp-for="Input.OwnerEmail" class="form-control"
                                        placeholder="email or phone" />
                             </div>
                             <!-- Description -->

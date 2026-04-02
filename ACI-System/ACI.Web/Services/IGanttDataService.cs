@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ACI.Web.Services;
 
 /// <summary>dhtmlxGantt 전용 데이터 서비스 인터페이스</summary>
@@ -13,6 +15,8 @@ public interface IGanttDataService
 }
 
 // ─── DTOs (dhtmlxGantt JSON 형식과 정확히 매칭) ────────────────────
+// dhtmlxGantt는 snake_case를 사용 (start_date, planned_start 등)
+// ASP.NET Core 기본값은 camelCase이므로 [JsonPropertyName]으로 명시
 
 public class GanttDataDto
 {
@@ -24,7 +28,10 @@ public class GanttTaskDto
 {
     public int Id { get; set; }
     public string Text { get; set; } = string.Empty;
-    public string StartDate { get; set; } = string.Empty;    // "MM-dd-yyyy HH:mm"
+
+    [JsonPropertyName("start_date")]
+    public string StartDate { get; set; } = string.Empty;   // "MM-dd-yyyy HH:mm"
+
     public int Duration { get; set; }
     public double Progress { get; set; }
     public int? Parent { get; set; }
@@ -36,8 +43,12 @@ public class GanttTaskDto
     public string? Location { get; set; }
     public string? Description { get; set; }
     public int SortOrder { get; set; }
+
     // 베이스라인 (dhtmlxGantt extension)
+    [JsonPropertyName("planned_start")]
     public string? PlannedStart { get; set; }
+
+    [JsonPropertyName("planned_end")]
     public string? PlannedEnd { get; set; }
 }
 

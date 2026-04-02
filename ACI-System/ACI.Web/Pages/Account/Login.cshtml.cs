@@ -26,7 +26,7 @@ public class LoginModel : PageModel
 
         var user = await _db.Users
             .Include(u => u.Employee)
-            .FirstOrDefaultAsync(u => u.Email == Input.Email && u.IsActive);
+            .FirstOrDefaultAsync(u => u.Name == Input.Username && u.IsActive);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(Input.Password, user.PasswordHash))
         {
@@ -68,8 +68,8 @@ public class LoginModel : PageModel
 
     public class InputModel
     {
-        [Required, EmailAddress]
-        public string Email { get; set; } = string.Empty;
+        [Required]
+        public string Username { get; set; } = string.Empty;
 
         [Required]
         public string Password { get; set; } = string.Empty;

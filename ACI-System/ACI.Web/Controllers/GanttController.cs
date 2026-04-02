@@ -1,6 +1,10 @@
+using ACI.Web.Data;
 using ACI.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Text;
+using System.Xml.Linq;
 
 namespace ACI.Web.Controllers;
 
@@ -15,11 +19,13 @@ public class GanttController : ControllerBase
 {
     private readonly IGanttDataService _gantt;
     private readonly ILogger<GanttController> _logger;
+    private readonly AppDbContext _db;
 
-    public GanttController(IGanttDataService gantt, ILogger<GanttController> logger)
+    public GanttController(IGanttDataService gantt, ILogger<GanttController> logger, AppDbContext db)
     {
-        _gantt = gantt;
+        _gantt  = gantt;
         _logger = logger;
+        _db     = db;
     }
 
     // ─── 프로젝트 전체 데이터 로드 ────────────────────────────
@@ -81,5 +87,81 @@ public class GanttController : ControllerBase
     {
         await _gantt.DeleteLinkAsync(id);
         return Ok(new { action = "deleted" });
+    }
+
+    // ─── MS Project XML Export ─────────────────────────────────
+    // GET /api/gantt/projects/{projectId}/export-xml
+    [HttpGet("projects/{projectId:int}/export-xml")]
+    public async Task<IActionResult> ExportXml(int projectId)
+    {
+        var project = await _db.Projects.FindAsync(projectId);
+        if (project == null) return NotFound();
+
+        var tasks = await _db.ScheduleTasks
+            .Where(t => t.ProjectId == projectId && t.IsActive)
+            .OrderBy(t => t.SortOrder)
+            .ToListAsync();
+
+        var links = await _db.TaskDependencies
+            .Where(d => d.Source.ProjectId == projectId)
+            .ToListAsync();
+
+        // task Id → UID (MS Project uses 1-based sequential UIDs)
+        var idToUid = tasks.Select((t, i) => (t.Id, Uid: i + 1))
+                           .ToDictionary(x => x.Id, x => x.Uid);
+
+        XNamespace ns = "http://schemas.microsoft.com/project";
+
+        var taskElements = tasks.Select(t =>
+        {
+            var uid = idToUid[t.Id];
+            var el  = new XElement(ns + "Task",
+                new XElement(ns + "UID",              uid),
+                new XElement(ns + "ID",               uid),
+                new XElement(ns + "Name",             t.Text),
+                new XElement(ns + "OutlineNumber",    t.WbsCode ?? uid.ToString()),
+                new XElement(ns + "Start",            t.StartDate.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss")),
+                new XElement(ns + "Finish",           t.EndDate.ToDateTime(new TimeOnly(17, 0)).ToString("yyyy-MM-ddTHH:mm:ss")),
+                new XElement(ns + "Duration",         $"PT{t.Duration * 8}H0M0S"),
+                new XElement(ns + "PercentComplete",  (int)(t.Progress * 100)),
+                new XElement(ns + "Summary",          t.TaskType == ACI.Web.Data.Entities.GanttTaskType.Project ? "1" : "0"),
+                new XElement(ns + "Milestone",        t.TaskType == ACI.Web.Data.Entities.GanttTaskType.Milestone ? "1" : "0"),
+                new XElement(ns + "Notes",            t.Notes ?? "")
+            );
+
+            // Predecessors
+            foreach (var link in links.Where(l => l.TargetId == t.Id))
+            {
+                if (!idToUid.TryGetValue(link.SourceId, out var predUid)) continue;
+                // MS Project type: 0=FF,1=FS,2=SF,3=SS
+                int msType = link.Type switch
+                {
+                    ACI.Web.Data.Entities.DependencyType.FinishToFinish => 0,
+                    ACI.Web.Data.Entities.DependencyType.FinishToStart  => 1,
+                    ACI.Web.Data.Entities.DependencyType.StartToFinish  => 2,
+                    ACI.Web.Data.Entities.DependencyType.StartToStart   => 3,
+                    _ => 1
+                };
+                el.Add(new XElement(ns + "PredecessorLink",
+                    new XElement(ns + "PredecessorUID", predUid),
+                    new XElement(ns + "Type",           msType),
+                    new XElement(ns + "LinkLag",        link.Lag * 60 * 8 * 10)
+                ));
+            }
+            return el;
+        });
+
+        var xml = new XDocument(
+            new XDeclaration("1.0", "UTF-8", "yes"),
+            new XElement(ns + "Project",
+                new XElement(ns + "Name",    project.Name),
+                new XElement(ns + "Title",   project.Name),
+                new XElement(ns + "Tasks",   taskElements)
+            )
+        );
+
+        var bytes = Encoding.UTF8.GetBytes(xml.ToString());
+        var fileName = $"{project.Name.Replace(" ", "_")}_schedule.xml";
+        return File(bytes, "application/xml", fileName);
     }
 }

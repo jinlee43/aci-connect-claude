@@ -1,0 +1,339 @@
+@page "{id:int}"
+@model ACI.Web.Pages.Admin.Employees.AdminDetailModel
+@{
+    ViewData["Title"] = $"HR Admin — {Model.EmpDisplayName}";
+    ViewData["ActiveMenu"] = "employees";
+}
+
+<div class="p-3">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-page="Index">Employees</a></li>
+            <li class="breadcrumb-item"><a asp-page="Detail" asp-route-id="@Model.Emp.Id">@Model.EmpDisplayName</a></li>
+            <li class="breadcrumb-item active">HR Admin</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-danger fs-6 px-3 py-2">
+            <i class="bi bi-shield-lock me-1"></i>HR Admin Only
+        </span>
+        <h5 class="mb-0 fw-bold">@Model.EmpDisplayName</h5>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+            <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <form method="post" asp-page-handler="Save" asp-route-id="@Model.Emp.Id">
+
+        <div class="row g-3">
+            <div class="col-lg-8">
+
+                <!-- Employment Admin Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-briefcase me-2 text-primary"></i>Employment Detail
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Application Date</label>
+                                <input asp-for="Emp.ApplyDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Hire Date</label>
+                                <input asp-for="Emp.HireDate" type="date" class="form-control form-control-sm" readonly style="background:#f8f9fa" title="Edit on main page" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end pb-1">
+                                <div class="form-check">
+                                    <input asp-for="Emp.IsReEmp" class="form-check-input" type="checkbox" id="chkReEmp" />
+                                    <label class="form-check-label small fw-semibold" for="chkReEmp">Re-hired?</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Old Hire Date</label>
+                                <input asp-for="Emp.OldStartDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Live Scan Date</label>
+                                <input asp-for="Emp.BkgrndCheckDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end pb-1">
+                                <div class="form-check">
+                                    <input asp-for="Emp.BackgroudCheckOk" class="form-check-input" type="checkbox" />
+                                    <label class="form-check-label small">OK</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Pre-Placement Drug Test</label>
+                                <input asp-for="Emp.DrugScreeningDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end pb-1">
+                                <div class="form-check">
+                                    <input asp-for="Emp.DrugScreeningOk" class="form-check-input" type="checkbox" />
+                                    <label class="form-check-label small">OK</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Termination Date</label>
+                                <input asp-for="Emp.TerminationDate" type="date" class="form-control form-control-sm" readonly style="background:#f8f9fa" title="Edit on main page" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Termination Type</label>
+                                <select asp-for="Emp.TerminationType" class="form-select form-select-sm">
+                                    <option value="">—</option>
+                                    <option value="Resignation">Resignation</option>
+                                    <option value="LaidOff">Laid Off</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Benefits Card -->
+                <div class="card shadow-sm mb-3">
+                    <div class="card-header py-2 fw-semibold">
+                        <i class="bi bi-heart me-2 text-danger"></i>Benefits
+                    </div>
+                    <div class="card-body">
+                        @{
+                            var benefits = new[] {
+                                ("Health Insurance",  "Emp.HealthStartDate",  "Emp.HealthEndDate"),
+                                ("Dental Insurance",  "Emp.DentalStartDate",  "Emp.DentalEndDate"),
+                                ("Vision Insurance",  "Emp.VisionStartDate",  "Emp.VisionEndDate"),
+                            };
+                        }
+                        <div class="row g-2 mb-1">
+                            <div class="col-md-4"></div>
+                            <div class="col-md-3 text-center small text-muted fw-semibold">Start</div>
+                            <div class="col-md-3 text-center small text-muted fw-semibold">End</div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4 d-flex align-items-center small fw-semibold">Health Insurance</div>
+                            <div class="col-md-3"><input asp-for="Emp.HealthStartDate" type="date" class="form-control form-control-sm" /></div>
+                            <div class="col-md-3"><input asp-for="Emp.HealthEndDate" type="date" class="form-control form-control-sm" /></div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4 d-flex align-items-center small fw-semibold">Dental Insurance</div>
+                            <div class="col-md-3"><input asp-for="Emp.DentalStartDate" type="date" class="form-control form-control-sm" /></div>
+                            <div class="col-md-3"><input asp-for="Emp.DentalEndDate" type="date" class="form-control form-control-sm" /></div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4 d-flex align-items-center small fw-semibold">Vision Insurance</div>
+                            <div class="col-md-3"><input asp-for="Emp.VisionStartDate" type="date" class="form-control form-control-sm" /></div>
+                            <div class="col-md-3"><input asp-for="Emp.VisionEndDate" type="date" class="form-control form-control-sm" /></div>
+                        </div>
+                        <hr class="my-2" />
+                        <div class="row g-2 mb-2">
+                            <div class="col-md-4 d-flex align-items-center small fw-semibold">401K Eligible</div>
+                            <div class="col-md-3"><input asp-for="Emp.Eligible401kDate" type="date" class="form-control form-control-sm" /></div>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4 d-flex align-items-center small fw-semibold">401K Enrolled</div>
+                            <div class="col-md-3"><input asp-for="Emp.Enrolled401kDate" type="date" class="form-control form-control-sm" /></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status & Private ID Card -->
+                <div class="card shadow-sm mb-3 border-danger">
+                    <div class="card-header py-2 fw-semibold bg-danger bg-opacity-10">
+                        <i class="bi bi-person-vcard me-2 text-danger"></i>Status &amp; Private Identification
+                        <span class="badge bg-danger ms-2" style="font-size:0.65rem">ENCRYPTED</span>
+                    </div>
+                    <div class="card-body">
+                        <!-- Citizenship -->
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">Citizenship Status</p>
+                        <div class="row g-3 mb-3">
+                            @foreach (var status in new[] {
+                                "A citizen of the U.S.",
+                                "A noncitizen national of the U.S.",
+                                "A lawful permanent resident",
+                                "A noncitizen (other)"
+                            })
+                            {
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               name="Emp.StatusName" value="@status"
+                                               @(Model.Emp.StatusName == status ? "checked" : "") />
+                                        <label class="form-check-label small">@status</label>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <hr class="my-3" />
+                        <p class="text-muted small mb-2 fw-semibold text-uppercase" style="font-size:0.7rem;letter-spacing:.05em">
+                            Sensitive IDs — stored AES-256 encrypted
+                            <i class="bi bi-info-circle ms-1" title="Values are encrypted before saving to DB. Masked by default."></i>
+                        </p>
+
+                        <!-- SSN -->
+                        <div class="row g-3 mb-2 align-items-center">
+                            <div class="col-md-3 text-end">
+                                <label class="form-label small fw-semibold mb-0">SSN</label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="SsnPlain"
+                                       value="@(string.IsNullOrEmpty(Model.SsnPlain) ? "" : Model.SsnPlain)"
+                                       class="form-control form-control-sm font-monospace sensitive-field"
+                                       placeholder="@(Model.Emp.SsnEncrypted != null ? "••••••••• (stored)" : "Not set")"
+                                       autocomplete="off" />
+                            </div>
+                            @if (Model.Emp.SsnEncrypted != null)
+                            {
+                                <div class="col-auto">
+                                    <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
+                                          onsubmit="return confirm('Clear SSN?')" class="d-inline">
+                                        <input type="hidden" name="field" value="ssn" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                            <i class="bi bi-trash" style="font-size:0.75rem"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- TIN -->
+                        <div class="row g-3 mb-2 align-items-center">
+                            <div class="col-md-3 text-end">
+                                <label class="form-label small fw-semibold mb-0">TIN</label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="TinPlain"
+                                       value="@(string.IsNullOrEmpty(Model.TinPlain) ? "" : Model.TinPlain)"
+                                       class="form-control form-control-sm font-monospace sensitive-field"
+                                       placeholder="@(Model.Emp.TinEncrypted != null ? "••••••••• (stored)" : "Not set")"
+                                       autocomplete="off" />
+                            </div>
+                            @if (Model.Emp.TinEncrypted != null)
+                            {
+                                <div class="col-auto">
+                                    <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
+                                          onsubmit="return confirm('Clear TIN?')" class="d-inline">
+                                        <input type="hidden" name="field" value="tin" />
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                            <i class="bi bi-trash" style="font-size:0.75rem"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+
+                        <hr class="my-3" />
+
+                        <!-- Driver's License -->
+                        <div class="row g-3 mb-2 align-items-center">
+                            <div class="col-md-3 text-end">
+                                <label class="form-label small fw-semibold mb-0">Driver's Lic #</label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="DriversLicPlain"
+                                       value="@(string.IsNullOrEmpty(Model.DriversLicPlain) ? "" : Model.DriversLicPlain)"
+                                       class="form-control form-control-sm font-monospace sensitive-field"
+                                       placeholder="@(Model.Emp.DriversLicNumEncrypted != null ? "••••••••• (stored)" : "Not set")"
+                                       autocomplete="off" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Issued</label>
+                                <input asp-for="Emp.DriversLicIssuedDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Expires</label>
+                                <input asp-for="Emp.DriversLicExpiration" type="date" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Alien Number -->
+                        <div class="row g-3 mb-2 align-items-center">
+                            <div class="col-md-3 text-end">
+                                <label class="form-label small fw-semibold mb-0">Alien # (A-Number)</label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="AlienNumPlain"
+                                       value="@(string.IsNullOrEmpty(Model.AlienNumPlain) ? "" : Model.AlienNumPlain)"
+                                       class="form-control form-control-sm font-monospace sensitive-field"
+                                       placeholder="@(Model.Emp.AlienNumberEncrypted != null ? "••••••••• (stored)" : "Not set")"
+                                       autocomplete="off" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Card Issued</label>
+                                <input asp-for="Emp.AlienCardIssuedDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Card Expires</label>
+                                <input asp-for="Emp.AlienCardExpirationDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Passport -->
+                        <div class="row g-3 mb-2 align-items-center">
+                            <div class="col-md-3 text-end">
+                                <label class="form-label small fw-semibold mb-0">Passport #</label>
+                            </div>
+                            <div class="col-md-4">
+                                <input type="password" name="PassportNumPlain"
+                                       value="@(string.IsNullOrEmpty(Model.PassportNumPlain) ? "" : Model.PassportNumPlain)"
+                                       class="form-control form-control-sm font-monospace sensitive-field"
+                                       placeholder="@(Model.Emp.PassportNumberEncrypted != null ? "••••••••• (stored)" : "Not set")"
+                                       autocomplete="off" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Issued</label>
+                                <input asp-for="Emp.PassportIssedDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Expires</label>
+                                <input asp-for="Emp.PassportExpiredDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+
+                        <!-- Toggle show/hide sensitive fields -->
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleSensitive()">
+                                <i class="bi bi-eye" id="sensitiveIcon"></i>
+                                <span id="sensitiveLabel">Show Values</span>
+                            </button>
+                            <span class="small text-muted ms-2">Click to reveal sensitive ID fields</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save -->
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="bi bi-shield-lock me-1"></i>Save HR Admin Data
+                    </button>
+                    <a asp-page="Detail" asp-route-id="@Model.Emp.Id" class="btn btn-outline-secondary btn-sm">
+                        Back to Employee
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleSensitive() {
+    const fields = document.querySelectorAll('.sensitive-field');
+    const icon   = document.getElementById('sensitiveIcon');
+    const label  = document.getElementById('sensitiveLabel');
+    const isHidden = fields[0]?.type === 'password';
+    fields.forEach(f => f.type = isHidden ? 'text' : 'password');
+    icon.className  = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+    label.textContent = isHidden ? 'Hide Values' : 'Show Values';
+}
+</script>

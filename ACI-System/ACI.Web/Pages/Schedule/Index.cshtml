@@ -9,15 +9,117 @@
 
 @section Styles {
 <style>
-/* Gantt 페이지는 전체 높이 사용 */
+/* ── 레이아웃 ─────────────────────────────── */
 html, body { height: 100%; }
 #gantt-chart { width: 100%; height: calc(100vh - 130px); }
-.gantt_task_line { border-radius: 4px; }
-.gantt_critical_task { background: #ef4444 !important; border-color: #dc2626 !important; }
-.today-marker { background: rgba(239,68,68,.8); width: 2px; }
+
+/* ── 그리드 헤더 (Outbuild: 연회색) ──────── */
+.gantt_grid_head_cell {
+    background: #f5f5f5;
+    color: #6b7280 !important;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    border-right: 1px solid #e5e7eb !important;
+}
+.gantt_grid_scale {
+    background: #f5f5f5;
+    border-bottom: 1px solid #d1d5db !important;
+}
+
+/* ── 타임라인 헤더 ─────────────────────────── */
+.gantt_scale_cell {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f5f5f5;
+    border-right: 1px solid #e5e7eb;
+}
+.gantt_task_scale { border-bottom: 1px solid #d1d5db !important; }
+
+/* ── 그리드 행 ─────────────────────────────── */
+.gantt_row, .gantt_task_row {
+    border-bottom: 1px solid #f0f0f0;
+}
+.gantt_row.odd, .gantt_task_row.odd { background: #fafafa; }
+.gantt_row:hover, .gantt_task_row:hover { background: #f0f7ff !important; }
+
+/* ── Summary(Phase) 행: 살짝 다른 배경 + Bold ─ */
+.gantt_row.summary-row, .gantt_task_row.summary-row {
+    background: #f7f7f7 !important;
+}
+.gantt_row.summary-row:hover, .gantt_task_row.summary-row:hover {
+    background: #eef4ff !important;
+}
+
+/* ── 그리드 셀 ─────────────────────────────── */
+.gantt_cell {
+    border-right: 1px solid #f0f0f0;
+    font-size: 12px;
+    color: #374151;
+}
+
+/* ── 타임라인 셀 ───────────────────────────── */
+.gantt_task_cell { border-right: 1px solid #f0f0f0; }
+.gantt_task_cell.week_end { background: #fafafa; }
+
+/* ── Task 바 (Outbuild: 빨간/코랄) ─────────── */
+.gantt_task_line {
+    border-radius: 3px;
+    border: none;
+    background: #e84040;
+}
+.gantt_task_progress {
+    border-radius: 3px 0 0 3px;
+    background: rgba(0,0,0,.18);
+}
+.gantt-task-bar {
+    background: #e84040;
+}
+
+/* Summary(Phase) 바: 짙은 레드 + 납작하게 */
+.gantt_task_line.gantt_project {
+    background: #b91c1c !important;
+    border-color: #991b1b !important;
+    border-radius: 2px;
+    height: 12px !important;
+    margin-top: 8px;
+}
+.gantt_task_line.gantt_project .gantt_task_progress {
+    background: rgba(0,0,0,.2);
+    border-radius: 2px 0 0 2px;
+}
+
+/* ── Critical Path ─────────────────────────── */
+.gantt_critical_task {
+    background: #7f1d1d !important;
+    border-color: #450a0a !important;
+}
+
+/* ── Today 마커 ────────────────────────────── */
+.today-marker { background: rgba(59,130,246,.8); width: 2px; }
 .today-marker .gantt_marker_content {
-    background: #ef4444; color: #fff;
+    background: #3b82f6; color: #fff;
     padding: 2px 6px; border-radius: 4px; font-size: .7rem;
+    white-space: nowrap;
+}
+
+/* ── 컬럼 리사이즈 핸들 ─────────────────────── */
+.gantt_grid_column_resize_wrap .gantt_grid_column_resize {
+    background: #d1d5db; opacity: 0; transition: opacity .15s; width: 3px;
+}
+.gantt_grid_column_resize_wrap:hover .gantt_grid_column_resize { opacity: 1; }
+
+/* ── 그리드↔타임라인 경계 드래그 핸들 ─────────── */
+.gantt_grid_resize_wrap { cursor: col-resize; }
+.gantt_grid_resize_wrap:hover { background: #e0e7ff; }
+
+/* ── 툴팁 ──────────────────────────────────── */
+.gantt_tooltip {
+    border-radius: 6px; border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 12px rgba(0,0,0,.12);
+    font-size: 12px; padding: 8px 12px; line-height: 1.6;
 }
 </style>
 }
@@ -56,17 +158,24 @@ html, body { height: 100%; }
         <button class="btn btn-sm btn-outline-danger" onclick="ACIGantt.toggleCriticalPath()" id="btnCritical">
             <i class="bi bi-diagram-3 me-1"></i>Critical Path
         </button>
-        <!-- Export -->
+        <!-- Import / Export -->
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
-                <i class="bi bi-download me-1"></i>Export
+                <i class="bi bi-arrow-down-up me-1"></i>Import/Export
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item"
+                       asp-page="/Schedule/Import" asp-route-projectId="@Model.ProjectId">
+                        <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Import MS Project XML
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider" /></li>
                 <li><a class="dropdown-item" onclick="gantt.exportToPDF()">
                     <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
                 </a></li>
-                <li><a class="dropdown-item" onclick="gantt.exportToMSProject()">
-                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export MS Project
+                <li><a class="dropdown-item" onclick="exportToMsProjectXml()">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Export MS Project XML
                 </a></li>
             </ul>
         </div>
@@ -87,51 +196,91 @@ gantt.config.fit_tasks = true;
 gantt.config.show_progress = true;
 gantt.config.open_tree_initially = true;
 
-// 그리드 컬럼
+// ── 그리드 컬럼 (모두 resize 가능) ──────────────────────────
 gantt.config.columns = [
     {
         name: "text", label: "Activity", tree: true, width: 220, resize: true,
-        template: t => `<span class="text-truncate" title="${t.text}">${t.text}</span>`
+        template: t => {
+            const lvl = t.$level ?? 0;
+            const prefix = t.type === 'project'   ? '— '
+                         : t.type === 'milestone' ? '⬥ '
+                         : '';
+            if (t.type === 'milestone') {
+                return `<span title="${t.text}" style="font-weight:600;color:#d97706">${prefix}${t.text}</span>`;
+            }
+            // Level-based text hierarchy
+            // Level 1 ($level=0): bold + slightly larger
+            // Level 2 ($level=1): current style
+            // Level 3+ ($level>=2): slightly lighter dark gray
+            let style;
+            if (lvl === 0)      style = 'font-weight:700;font-size:13px;color:#111827';
+            else if (lvl === 1) style = 'color:#374151';
+            else                style = 'color:#6b7280;font-size:11.5px';
+            return `<span title="${t.text}" style="${style}">${prefix}${t.text}</span>`;
+        }
     },
-    { name: "start_date", label: "Start", align: "center", width: 90 },
-    { name: "duration",   label: "Days",  align: "center", width: 55 },
+    { name: "start_date", label: "Start",  align: "center", width: 90, resize: true },
+    { name: "duration",   label: "Days",   align: "center", width: 55, resize: true },
     {
-        name: "progress", label: "%", align: "center", width: 55,
-        template: t => `<span class="fw-semibold">${Math.round(t.progress * 100)}%</span>`
+        name: "progress", label: "%", align: "center", width: 50,
+        template: t => {
+            const pct = Math.round(t.progress * 100);
+            // Outbuild: 100%=초록, 50%이상=파란초록, 1~49%=주황, 0%=연회색
+            const color = pct >= 100 ? '#16a34a'
+                        : pct >= 50  ? '#059669'
+                        : pct >  0   ? '#d97706'
+                        :              '#9ca3af';
+            return `<span style="font-weight:600;color:${color};font-size:12px">${pct}%</span>`;
+        }
     },
-    {
-        name: "add", label: "", width: 44
-    }
+    { name: "add", label: "", width: 40 }
 ];
 
-// 타임스케일
+// ── 타임스케일 ──────────────────────────────────────────────
 gantt.config.scales = [
     { unit: "month", step: 1, format: "%B %Y" },
     { unit: "week",  step: 1, format: "W%W" },
 ];
+gantt.config.row_height = 32;
+gantt.config.grid_resize = true;          // 그리드↔타임라인 경계 드래그
+gantt.config.min_column_width = 40;       // 컬럼 최소 폭
 
-// 크리티컬 패스
+// ── 플러그인 ────────────────────────────────────────────────
 gantt.plugins({ critical_path: true, tooltip: true, marker: true, zoom: true });
 gantt.config.highlight_critical_path = false;
 
-// Today marker
+// ── Today 마커 ──────────────────────────────────────────────
 gantt.addMarker({
     start_date: new Date(),
     css: "today-marker",
     text: "Today"
 });
 
-// 툴팁
-gantt.templates.tooltip_text = (start, end, task) =>
-    `<b>${task.text}</b><br>
-     Start: ${gantt.templates.tooltip_date_format(start)}<br>
-     End: ${gantt.templates.tooltip_date_format(end)}<br>
-     Progress: ${Math.round(task.progress * 100)}%`;
-
-// 태스크 색상 (공종별)
-gantt.templates.task_class = (start, end, task) => {
-    if (task.type === 'project') return 'gantt_project';
+// ── 행 CSS (summary / milestone 강조) ────────────────────────
+gantt.templates.grid_row_class = (start, end, task) => {
+    if (task.type === 'project')   return 'summary-row';
+    if (task.type === 'milestone') return 'milestone-row';
     return '';
+};
+gantt.templates.task_row_class = gantt.templates.grid_row_class;
+
+// ── Task 바 클래스 ─────────────────────────────────────────
+gantt.templates.task_class = (start, end, task) => {
+    if (task.type === 'project')   return 'gantt_project';
+    if (task.type === 'milestone') return '';
+    return 'gantt-task-bar';
+};
+
+// ── 툴팁 ───────────────────────────────────────────────────
+gantt.templates.tooltip_text = (start, end, task) => {
+    const fmt = gantt.templates.tooltip_date_format;
+    const pct = Math.round(task.progress * 100);
+    const dur = task.duration;
+    return `<b style="color:#1e3a8a">${task.text}</b><br>
+            Start: ${fmt(start)}<br>
+            End: ${fmt(end)}<br>
+            Duration: ${dur} day${dur !== 1 ? 's' : ''}<br>
+            Progress: ${pct}%`;
 };
 
 // 초기화
@@ -177,5 +326,18 @@ window.ACIGantt = {
         document.getElementById('btnCritical').classList.toggle('btn-outline-danger');
     }
 };
+
+// ─── MS Project XML Export ────────────────────────────────
+async function exportToMsProjectXml() {
+    const res  = await fetch(`/api/gantt/projects/${PROJECT_ID}/export-xml`);
+    if (!res.ok) { alert('Export failed'); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `schedule_project_${PROJECT_ID}.xml`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
 </script>
 }

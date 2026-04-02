@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using LookaheadEntity = ACI.Web.Data.Entities.Lookahead;
 
 namespace ACI.Web.Pages.Lookahead;
 
@@ -49,12 +50,14 @@ public class IndexModel : PageModel
         {
             lookahead = await _db.Lookaheads
                 .Include(l => l.Tasks).ThenInclude(t => t.Trade)
+                .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
                 .FirstOrDefaultAsync(l => l.Id == LookaheadId);
         }
         else
         {
             lookahead = await _db.Lookaheads
                 .Include(l => l.Tasks).ThenInclude(t => t.Trade)
+                .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
                 .Where(l => l.ProjectId == ProjectId && l.Status == LookaheadStatus.Published)
                 .OrderByDescending(l => l.StartDate)
                 .FirstOrDefaultAsync();
@@ -92,6 +95,7 @@ public class IndexModel : PageModel
                         StartDate     = t.StartDate,
                         EndDate       = t.EndDate,
                         Location      = t.Location,
+                        AssigneeName  = t.AssignedTo?.DisplayName,
                         CrewSize      = t.CrewSize,
                         HasConstraint = t.HasConstraint,
                         Status        = t.Status
@@ -134,9 +138,6 @@ public class IndexModel : PageModel
     }
 }
 
-// Type alias to avoid conflict with namespace "Lookahead"
-using LookaheadEntity = ACI.Web.Data.Entities.Lookahead;
-
 public class TradeTaskGroup
 {
     public int    TradeId      { get; set; }
@@ -153,6 +154,7 @@ public class LookaheadTaskVm
     public DateOnly StartDate   { get; set; }
     public DateOnly EndDate     { get; set; }
     public string? Location     { get; set; }
+    public string? AssigneeName { get; set; }
     public int    CrewSize      { get; set; }
     public bool   HasConstraint { get; set; }
     public LookaheadTaskStatus Status { get; set; }

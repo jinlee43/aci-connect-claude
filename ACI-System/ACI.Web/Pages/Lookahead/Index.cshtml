@@ -62,11 +62,12 @@
         {
             var weekStart = Model.PeriodStart.AddDays(w * 7);
             var weekEnd = weekStart.AddDays(4);
-            var isCurrentWeek = DateTime.Today >= weekStart && DateTime.Today <= weekEnd.AddDays(2);
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var isCurrentWeek = today >= weekStart && today <= weekEnd.AddDays(2);
             <div class="lookahead-week-col flex-fill @(isCurrentWeek ? "bg-primary bg-opacity-5" : "")">
                 <div class="text-center py-2 border-bottom">
                     <div class="fw-bold small">@weekStart.ToString("MMM d") – @weekEnd.ToString("MMM d")</div>
-                    <div class="text-muted" style="font-size:.7rem">Week @(System.Globalization.ISOWeek.GetWeekOfYear(weekStart))</div>
+                    <div class="text-muted" style="font-size:.7rem">Week @(System.Globalization.ISOWeek.GetWeekOfYear(weekStart.ToDateTime(TimeOnly.MinValue)))</div>
                     @if (isCurrentWeek)
                     {
                         <span class="badge bg-primary" style="font-size:.65rem">CURRENT</span>

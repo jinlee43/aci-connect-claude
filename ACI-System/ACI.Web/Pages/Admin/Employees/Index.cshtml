@@ -1,0 +1,118 @@
+@page
+@model ACI.Web.Pages.Admin.Employees.IndexModel
+@{
+    ViewData["Title"] = "Employees";
+    ViewData["ActiveMenu"] = "employees";
+}
+
+<div class="p-3">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>Employees</h5>
+            <small class="text-muted">@Model.Employees.Count @(Model.IncludeInactive ? "total" : "active") employees</small>
+        </div>
+        <a asp-page="Detail" asp-route-id="0" class="btn btn-primary btn-sm">
+            <i class="bi bi-person-plus me-1"></i>Add Employee
+        </a>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <form method="get" class="row g-2 mb-3 align-items-center">
+        <div class="col-md-4">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="Search" value="@Model.Search"
+                       class="form-control" placeholder="Search name or email..." />
+            </div>
+        </div>
+        <div class="col-auto">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="IncludeInactive"
+                       value="true" id="chkInactive"
+                       @(Model.IncludeInactive ? "checked" : "") />
+                <label class="form-check-label small" for="chkInactive">Include Inactive</label>
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-funnel me-1"></i>Filter
+            </button>
+            <a asp-page="Index" class="btn btn-link btn-sm text-muted">Reset</a>
+        </div>
+    </form>
+
+    <!-- Employee Table -->
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:40px" class="text-center">#</th>
+                        <th>Name</th>
+                        <th style="width:80px" class="text-center">Status</th>
+                        <th>Department</th>
+                        <th>Position</th>
+                        <th>Phone</th>
+                        <th>Email</th>
+                        <th style="width:100px" class="text-center">Since</th>
+                        <th style="width:70px"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int seq = 0; }
+                    @foreach (var emp in Model.Employees)
+                    {
+                        seq++;
+                        var primary = emp.EmpRoles.FirstOrDefault(r => r.IsPrimary);
+                        <tr>
+                            <td class="text-center text-muted small">@seq</td>
+                            <td>
+                                <a asp-page="Detail" asp-route-id="@emp.Id"
+                                   class="text-decoration-none fw-semibold">
+                                    @emp.DisplayName
+                                </a>
+                                @if (!string.IsNullOrEmpty(emp.KnownName))
+                                {
+                                    <br /><small class="text-muted">@emp.FullName</small>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (emp.IsActive)
+                                {
+                                    <span class="badge bg-success-subtle text-success">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
+                                }
+                            </td>
+                            <td class="small">@(primary?.OrgUnit?.Name ?? "-")</td>
+                            <td class="small">@(primary?.JobPosition?.Name ?? "-")</td>
+                            <td class="small text-nowrap">@emp.Phone</td>
+                            <td class="small">@emp.WorkEmail</td>
+                            <td class="text-center small">
+                                @emp.HireDate?.ToString("yyyy-MM-dd")
+                            </td>
+                            <td class="text-center">
+                                <a asp-page="Detail" asp-route-id="@emp.Id"
+                                   class="btn btn-outline-primary btn-sm py-0 px-2">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    @if (!Model.Employees.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                No employees found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,118 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.Schedule.ImportModel
+@{
+    ViewData["Title"] = "Import MS Project XML";
+    ViewData["ActiveMenu"] = "schedule";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+<div class="p-3" style="max-width:640px">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+            <li class="breadcrumb-item">
+                <a asp-page="Index" asp-route-projectId="@Model.ProjectId">@Model.ProjectName</a>
+            </li>
+            <li class="breadcrumb-item active">Import MS Project XML</li>
+        </ol>
+    </nav>
+
+    <h5 class="fw-bold mb-3">
+        <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Import MS Project XML
+    </h5>
+
+    @* 에러 *@
+    @if (Model.ErrorMessage != null)
+    {
+        <div class="alert alert-danger py-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>@Model.ErrorMessage
+        </div>
+    }
+
+    @* 성공 결과 *@
+    @if (Model.Result != null)
+    {
+        <div class="alert alert-success">
+            <h6 class="fw-bold mb-2"><i class="bi bi-check-circle me-1"></i>Import 완료</h6>
+            <ul class="mb-2 ps-3 small">
+                @if (Model.Result.TasksDeleted > 0)
+                {
+                    <li>기존 태스크 <strong>@(Model.Result.TasksDeleted)개</strong> 삭제</li>
+                }
+                <li>태스크 <strong>@(Model.Result.TasksImported)개</strong> 임포트</li>
+                <li>Dependency <strong>@(Model.Result.LinksImported)개</strong> 임포트</li>
+            </ul>
+            @if (Model.Result.Warnings.Any())
+            {
+                <div class="text-warning small">
+                    <strong>Warnings:</strong>
+                    @foreach (var w in Model.Result.Warnings)
+                    {
+                        <div>⚠ @w</div>
+                    }
+                </div>
+            }
+        </div>
+        <a asp-page="Index" asp-route-projectId="@Model.ProjectId"
+           class="btn btn-primary btn-sm">
+            <i class="bi bi-bar-chart-steps me-1"></i>Schedule 보기
+        </a>
+    }
+    else
+    {
+        <!-- How-to -->
+        <div class="alert alert-light border small mb-3">
+            <strong>MS Project에서 XML 내보내는 방법:</strong><br />
+            MS Project → <strong>File → Save As</strong> → 파일 형식:
+            <strong>"XML Format (*.xml)"</strong> 선택 후 저장
+        </div>
+
+        <!-- Upload Form -->
+        <form method="post" enctype="multipart/form-data">
+            <div class="card shadow-sm">
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">
+                            XML 파일 선택 <span class="text-danger">*</span>
+                        </label>
+                        <input type="file" name="XmlFile" accept=".xml"
+                               class="form-control form-control-sm" required />
+                        <div class="form-text">MS Project에서 내보낸 .xml 파일</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input asp-for="ReplaceExisting" class="form-check-input" type="checkbox" id="chkReplace" />
+                            <label class="form-check-label fw-semibold" for="chkReplace">
+                                기존 태스크 모두 삭제 후 임포트
+                            </label>
+                        </div>
+                        <div class="form-text text-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            체크하면 이 프로젝트의 기존 Schedule 데이터가 모두 삭제됩니다.
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-upload me-1"></i>Import
+                        </button>
+                        <a asp-page="Index" asp-route-projectId="@Model.ProjectId"
+                           class="btn btn-outline-secondary btn-sm">Cancel</a>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Field mapping info -->
+        <div class="mt-4 small text-muted">
+            <strong>매핑되는 필드:</strong>
+            Task Name → Text, Start/Finish → 날짜, % Complete → Progress,
+            Summary Task → Group (파란 바), Milestone → 마일스톤,
+            WBS OutlineNumber → WBS Code, PredecessorLink → Dependency
+        </div>
+    }
+</div>
