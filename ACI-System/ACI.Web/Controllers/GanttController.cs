@@ -63,6 +63,14 @@ public class GanttController : ControllerBase
         return Ok(new { action = "deleted" });
     }
 
+    // DELETE /api/gantt/projects/{projectId}/task/{id}/subtree  (cascade)
+    [HttpDelete("projects/{projectId:int}/task/{id:int}/subtree")]
+    public async Task<IActionResult> DeleteTaskSubtree(int projectId, int id)
+    {
+        var count = await _gantt.DeleteTaskSubtreeAsync(id);
+        return Ok(new { action = "deleted", count });
+    }
+
     // ─── Link CRUD ─────────────────────────────────────────────
 
     // POST /api/gantt/projects/{projectId}/link

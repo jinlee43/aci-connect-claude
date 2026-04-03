@@ -382,4 +382,197 @@
             }
         </div>
     </form>
+
+    @if (!Model.IsNew)
+    {
+    <!-- ── Documents Card ──────────────────────────────────────────── -->
+    <div class="row g-3 mt-0">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold">
+                        <i class="bi bi-paperclip me-2 text-primary"></i>Attached Documents
+                        <span class="badge bg-secondary ms-1" id="doc-count">@Model.Documents.Count</span>
+                    </span>
+                    <label class="btn btn-sm btn-outline-primary mb-0" style="cursor:pointer;">
+                        <i class="bi bi-upload me-1"></i>Upload
+                        <input type="file" id="docFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.xml,.dwg"
+                               style="display:none;" onchange="empDocs.upload(this)" />
+                    </label>
+                </div>
+
+                <!-- Upload progress -->
+                <div id="doc-upload-progress" class="d-none px-3 pt-2 pb-0">
+                    <div class="d-flex align-items-center gap-2 mb-1" style="font-size:12px;color:#6b7280;">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                        <span id="doc-upload-msg">Uploading…</span>
+                    </div>
+                </div>
+
+                <!-- File list -->
+                <div class="list-group list-group-flush" id="doc-list">
+                    @if (!Model.Documents.Any())
+                    {
+                        <div class="list-group-item text-muted small py-3 text-center" id="doc-empty">
+                            <i class="bi bi-inbox me-1"></i>No documents attached yet
+                        </div>
+                    }
+                    @foreach (var doc in Model.Documents)
+                    {
+                        <div class="list-group-item py-2 px-3 d-flex align-items-center gap-2" id="doc-item-@doc.Id">
+                            <i class="bi @doc.FileIconClass fs-5 flex-shrink-0"></i>
+                            <div class="flex-grow-1 min-w-0">
+                                <div class="fw-semibold small text-truncate" title="@doc.FileName">@doc.FileName</div>
+                                <div class="text-muted" style="font-size:11px;">
+                                    @doc.FileSizeDisplay &nbsp;·&nbsp; @doc.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                                    @if (!string.IsNullOrEmpty(doc.UploadedByName))
+                                    {
+                                        <span>&nbsp;·&nbsp; @doc.UploadedByName</span>
+                                    }
+                                    @if (doc.IsLegacyOnly)
+                                    {
+                                        <span class="badge bg-warning text-dark ms-1" style="font-size:9px;">Legacy</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                @if (doc.IsPreviewable)
+                                {
+                                    <a href="/api/employees/@Model.Emp.Id/documents/@doc.Id/file?inline=true"
+                                       target="_blank" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Preview">
+                                        <i class="bi bi-eye" style="font-size:0.7rem"></i>
+                                    </a>
+                                }
+                                <a href="/api/employees/@Model.Emp.Id/documents/@doc.Id/file"
+                                   class="btn btn-outline-secondary btn-sm py-0 px-2" title="Download">
+                                    <i class="bi bi-download" style="font-size:0.7rem"></i>
+                                </a>
+                                @if (!doc.IsLegacyOnly)
+                                {
+                                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                            title="Delete" onclick="empDocs.delete(@doc.Id, '@System.Text.Encodings.Web.HtmlEncoder.Default.Encode(doc.FileName)')">
+                                        <i class="bi bi-trash" style="font-size:0.7rem"></i>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+    }
 </div>
+
+@section Scripts {
+<script>
+const empDocs = (() => {
+    const empId   = @Model.Emp.Id;
+    const baseUrl = `/api/employees/${empId}/documents`;
+
+    function showError(msg) {
+        const el = document.createElement('div');
+        el.style.cssText = `position:fixed;bottom:20px;right:20px;z-index:9999;
+            background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;
+            border-radius:8px;padding:10px 16px;font-size:13px;
+            box-shadow:0 4px 12px rgba(0,0,0,.12);max-width:360px;`;
+        el.textContent = '⚠ ' + msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 5000);
+    }
+
+    function addDocRow(doc) {
+        // Remove "empty" placeholder if present
+        const empty = document.getElementById('doc-empty');
+        if (empty) empty.remove();
+
+        const iconMap = {
+            pdf: 'bi-file-pdf text-danger',
+            jpg: 'bi-file-image text-success', jpeg: 'bi-file-image text-success',
+            png: 'bi-file-image text-success',  gif: 'bi-file-image text-success',
+            webp:'bi-file-image text-success',
+            doc: 'bi-file-word text-primary',  docx: 'bi-file-word text-primary',
+            xls: 'bi-file-excel text-success', xlsx: 'bi-file-excel text-success',
+            ppt: 'bi-file-ppt text-warning',   pptx: 'bi-file-ppt text-warning',
+        };
+        const icon = iconMap[doc.extension] || 'bi-file-earmark text-secondary';
+        const previewBtn = doc.isPreviewable
+            ? `<a href="${baseUrl}/${doc.id}/file?inline=true" target="_blank"
+                  class="btn btn-outline-secondary btn-sm py-0 px-2" title="Preview">
+                  <i class="bi bi-eye" style="font-size:.7rem"></i></a>` : '';
+
+        const row = document.createElement('div');
+        row.id = `doc-item-${doc.id}`;
+        row.className = 'list-group-item py-2 px-3 d-flex align-items-center gap-2';
+        row.innerHTML = `
+            <i class="bi ${icon} fs-5 flex-shrink-0"></i>
+            <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold small text-truncate" title="${doc.fileName}">${doc.fileName}</div>
+                <div class="text-muted" style="font-size:11px;">${doc.fileSizeDisplay} &nbsp;·&nbsp; ${doc.uploadedAt}</div>
+            </div>
+            <div class="d-flex gap-1 flex-shrink-0">
+                ${previewBtn}
+                <a href="${baseUrl}/${doc.id}/file" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Download">
+                    <i class="bi bi-download" style="font-size:.7rem"></i></a>
+                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete"
+                        onclick="empDocs.delete(${doc.id}, '${doc.fileName.replace(/'/g,"\\'")}')">
+                    <i class="bi bi-trash" style="font-size:.7rem"></i></button>
+            </div>`;
+        document.getElementById('doc-list').prepend(row);
+        updateCount(1);
+    }
+
+    function updateCount(delta) {
+        const badge = document.getElementById('doc-count');
+        if (badge) badge.textContent = parseInt(badge.textContent || '0') + delta;
+    }
+
+    return {
+        async upload(input) {
+            if (!input.files.length) return;
+            const progress = document.getElementById('doc-upload-progress');
+            const msg      = document.getElementById('doc-upload-msg');
+            progress.classList.remove('d-none');
+            msg.textContent = `Uploading ${input.files.length} file(s)…`;
+
+            const form = new FormData();
+            for (const f of input.files) form.append('files', f);
+
+            try {
+                const res = await fetch(baseUrl, { method: 'POST', body: form });
+                if (!res.ok) {
+                    const err = await res.text();
+                    showError('Upload failed: ' + err);
+                    return;
+                }
+                const data = await res.json();
+                for (const doc of data.uploaded) addDocRow(doc);
+            } catch(e) {
+                showError('Upload error: ' + e.message);
+            } finally {
+                progress.classList.add('d-none');
+                input.value = '';
+            }
+        },
+
+        async delete(docId, fileName) {
+            if (!confirm(`Delete "${fileName}"?`)) return;
+            try {
+                const res = await fetch(`${baseUrl}/${docId}`, { method: 'DELETE' });
+                if (!res.ok) { showError('Delete failed'); return; }
+                const row = document.getElementById(`doc-item-${docId}`);
+                if (row) row.remove();
+                updateCount(-1);
+                if (document.querySelectorAll('[id^="doc-item-"]').length === 0) {
+                    const list = document.getElementById('doc-list');
+                    list.innerHTML = `<div class="list-group-item text-muted small py-3 text-center" id="doc-empty">
+                        <i class="bi bi-inbox me-1"></i>No documents attached yet</div>`;
+                }
+            } catch(e) {
+                showError('Delete error: ' + e.message);
+            }
+        }
+    };
+})();
+</script>
+}

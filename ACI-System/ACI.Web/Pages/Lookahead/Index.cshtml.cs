@@ -21,15 +21,16 @@ public class IndexModel : PageModel
         _lookaheadSvc = svc;
     }
 
-    [BindProperty(SupportsGet = true)] public int  ProjectId    { get; set; }
-    [BindProperty(SupportsGet = true)] public int  Weeks        { get; set; } = 3;
-    [BindProperty(SupportsGet = true)] public int? LookaheadId  { get; set; }
+    [BindProperty(SupportsGet = true)] public int      ProjectId    { get; set; }
+    [BindProperty(SupportsGet = true)] public int      Weeks        { get; set; } = 3;
+    [BindProperty(SupportsGet = true)] public int?     LookaheadId  { get; set; }
+    [BindProperty(SupportsGet = true)] public DateOnly BaseDate     { get; set; } = DateOnly.FromDateTime(DateTime.Today);
 
-    public string           ProjectName       { get; set; } = string.Empty;
+    public string           ProjectName        { get; set; } = string.Empty;
     public int              CurrentLookaheadId { get; set; }
-    public DateOnly         PeriodStart       { get; set; }
-    public List<Trade>      Trades            { get; set; } = [];
-    public List<TradeTaskGroup> TasksByTrade  { get; set; } = [];
+    public DateOnly         PeriodStart        { get; set; }
+    public List<Trade>      Trades             { get; set; } = [];
+    public List<TradeTaskGroup> TasksByTrade   { get; set; } = [];
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -42,7 +43,7 @@ public class IndexModel : PageModel
             .OrderBy(t => t.Code)
             .ToListAsync();
 
-        PeriodStart = GetMonday(DateOnly.FromDateTime(DateTime.Today));
+        PeriodStart = GetMonday(BaseDate);
 
         // Get existing or create new lookahead
         LookaheadEntity? lookahead;
@@ -51,24 +52,43 @@ public class IndexModel : PageModel
             lookahead = await _db.Lookaheads
                 .Include(l => l.Tasks).ThenInclude(t => t.Trade)
                 .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
-                .FirstOrDefaultAsync(l => l.Id == LookaheadId);
+                .FirstOrDefaultAsync(l => l.Id == LookaheadId && l.IsActive);
         }
         else
         {
+            // 기준일 이전(또는 같은 주) 중 가장 최신 활성 Lookahead
             lookahead = await _db.Lookaheads
                 .Include(l => l.Tasks).ThenInclude(t => t.Trade)
                 .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
-                .Where(l => l.ProjectId == ProjectId && l.Status == LookaheadStatus.Published)
+                .Where(l => l.ProjectId == ProjectId && l.IsActive && l.StartDate <= PeriodStart)
                 .OrderByDescending(l => l.StartDate)
+                .FirstOrDefaultAsync();
+
+            // Fallback: 기준일보다 미래인 것 중 가장 가까운 것
+            lookahead ??= await _db.Lookaheads
+                .Include(l => l.Tasks).ThenInclude(t => t.Trade)
+                .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
+                .Where(l => l.ProjectId == ProjectId && l.IsActive)
+                .OrderBy(l => l.StartDate)
                 .FirstOrDefaultAsync();
         }
 
         if (lookahead == null)
         {
+            // 새 Lookahead 생성 후 Master Schedule 에서 자동 pull
             var weekNum = System.Globalization.ISOWeek.GetWeekOfYear(PeriodStart.ToDateTime(TimeOnly.MinValue));
             lookahead = await _lookaheadSvc.CreateLookaheadAsync(
                 ProjectId, PeriodStart, Weeks,
                 $"Lookahead W{weekNum}-{PeriodStart.Year}");
+
+            var pullEnd = PeriodStart.AddDays(Weeks * 7);
+            await _lookaheadSvc.PullFromScheduleAsync(lookahead.Id, ProjectId, PeriodStart, pullEnd);
+
+            // task 가 추가된 상태로 다시 로드
+            lookahead = await _db.Lookaheads
+                .Include(l => l.Tasks).ThenInclude(t => t.Trade)
+                .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
+                .FirstAsync(l => l.Id == lookahead.Id);
         }
 
         CurrentLookaheadId = lookahead.Id;
@@ -108,6 +128,15 @@ public class IndexModel : PageModel
         return Page();
     }
 
+    public async Task<IActionResult> OnPostSyncScheduleAsync(int lookaheadId, DateOnly periodStart, int weeks)
+    {
+        var periodEnd = periodStart.AddDays(weeks * 7);
+        var pulled = await _lookaheadSvc.PullFromScheduleAsync(lookaheadId, ProjectId, periodStart, periodEnd);
+        TempData[pulled > 0 ? "Success" : "Info"] =
+            pulled > 0 ? $"{pulled} task(s) pulled from Master Schedule." : "No new tasks to pull.";
+        return RedirectToPage(new { projectId = ProjectId, baseDate = periodStart.ToString("yyyy-MM-dd"), weeks });
+    }
+
     public async Task<IActionResult> OnPostAddTaskAsync(
         int lookaheadId, string text, DateOnly startDate, int duration,
         int? tradeId, int crewSize, string? location, bool hasConstraint)
@@ -128,7 +157,7 @@ public class IndexModel : PageModel
         };
         await _lookaheadSvc.CreateTaskAsync(task);
         TempData["Success"] = $"Task '{text}' added.";
-        return RedirectToPage(new { projectId = ProjectId });
+        return RedirectToPage(new { projectId = ProjectId, baseDate = BaseDate.ToString("yyyy-MM-dd") });
     }
 
     private static DateOnly GetMonday(DateOnly date)

@@ -9,6 +9,7 @@ public interface IGanttDataService
     Task<GanttTaskDto> CreateTaskAsync(int projectId, GanttTaskDto task);
     Task<GanttTaskDto> UpdateTaskAsync(int projectId, int taskId, GanttTaskDto task);
     Task DeleteTaskAsync(int taskId);
+    Task<int> DeleteTaskSubtreeAsync(int taskId);
     Task<GanttLinkDto> CreateLinkAsync(GanttLinkDto link);
     Task<GanttLinkDto> UpdateLinkAsync(int linkId, GanttLinkDto link);
     Task DeleteLinkAsync(int linkId);
@@ -26,7 +27,7 @@ public class GanttDataDto
 
 public class GanttTaskDto
 {
-    public int Id { get; set; }
+    public long Id { get; set; }   // long: dhtmlxGantt assigns timestamp-based temp IDs on create
     public string Text { get; set; } = string.Empty;
 
     [JsonPropertyName("start_date")]

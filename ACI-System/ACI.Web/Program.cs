@@ -27,7 +27,13 @@ builder.Services.AddAuthentication("AciCookies")
 builder.Services.AddRazorPages()
     .AddRazorRuntimeCompilation();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        // dhtmlxGantt DataProcessor가 숫자를 문자열로 보낼 수 있음 → 허용
+        o.JsonSerializerOptions.NumberHandling =
+            System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString;
+    });
 
 // ─── Authorization Policies ───────────────────────────────────────────────
 builder.Services.AddAuthorization(options =>

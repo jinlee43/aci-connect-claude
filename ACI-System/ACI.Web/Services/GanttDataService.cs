@@ -83,7 +83,44 @@ public class GanttDataService : IGanttDataService
         task.UpdatedAt   = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
+
+        // 부모 태스크의 시작일/종료일/% 재계산 (재귀적으로 상위까지)
+        if (task.ParentId.HasValue)
+            await RecalcParentsAsync(task.ParentId.Value);
+
         return ToDto(task);
+    }
+
+    // ── 부모 태스크 자동 재계산 ───────────────────────────────────────────
+    private async Task RecalcParentsAsync(int parentId)
+    {
+        var children = await _db.ScheduleTasks
+            .Where(t => t.ParentId == parentId && t.IsActive)
+            .ToListAsync();
+
+        if (children.Count == 0) return;
+
+        var parent = await _db.ScheduleTasks.FindAsync(parentId);
+        if (parent == null) return;
+
+        var minStart     = children.Min(c => c.StartDate);
+        var maxEnd       = children.Max(c => c.EndDate);
+        var totalDur     = children.Sum(c => c.Duration);
+        var weightedProg = totalDur > 0
+            ? children.Sum(c => c.Progress * c.Duration) / totalDur
+            : 0.0;
+
+        parent.StartDate  = minStart;
+        parent.EndDate    = maxEnd;
+        parent.Duration   = (maxEnd.DayNumber - minStart.DayNumber);
+        parent.Progress   = weightedProg;
+        parent.UpdatedAt  = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+
+        // 조부모까지 재귀
+        if (parent.ParentId.HasValue)
+            await RecalcParentsAsync(parent.ParentId.Value);
     }
 
     // ── Delete task ───────────────────────────────────────────────────────
@@ -94,6 +131,44 @@ public class GanttDataService : IGanttDataService
         {
             _db.ScheduleTasks.Remove(task);
             await _db.SaveChangesAsync();
+        }
+    }
+
+    // ── Cascade delete (task + all descendants) ───────────────────────────
+    public async Task<int> DeleteTaskSubtreeAsync(int taskId)
+    {
+        var allIds = new List<int>();
+        await CollectDescendantIdsAsync(taskId, allIds);
+        allIds.Add(taskId);
+
+        // 의존성 먼저 삭제
+        await _db.TaskDependencies
+            .Where(d => allIds.Contains(d.SourceId) || allIds.Contains(d.TargetId))
+            .ExecuteDeleteAsync();
+
+        // 자기참조 FK 해제 후 삭제
+        await _db.ScheduleTasks
+            .Where(t => allIds.Contains(t.Id) && t.ParentId != null)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.ParentId, (int?)null));
+
+        await _db.ScheduleTasks
+            .Where(t => allIds.Contains(t.Id))
+            .ExecuteDeleteAsync();
+
+        return allIds.Count;
+    }
+
+    private async Task CollectDescendantIdsAsync(int parentId, List<int> ids)
+    {
+        var children = await _db.ScheduleTasks
+            .Where(t => t.ParentId == parentId && t.IsActive)
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        foreach (var childId in children)
+        {
+            ids.Add(childId);
+            await CollectDescendantIdsAsync(childId, ids);
         }
     }
 
@@ -170,11 +245,24 @@ public class GanttDataService : IGanttDataService
     };
 
     // dhtmlxGantt sends dates as "MM-dd-yyyy HH:mm" → DateOnly
-    private static DateOnly ParseDate(string date)
+    private static DateOnly ParseDate(string? date)
     {
-        var dt = DateTime.ParseExact(date, DateFormat,
-            System.Globalization.CultureInfo.InvariantCulture);
-        return DateOnly.FromDateTime(dt);
+        if (string.IsNullOrWhiteSpace(date))
+            return DateOnly.FromDateTime(DateTime.Today);
+
+        // 1) 정확한 포맷 먼저 시도
+        if (DateTime.TryParseExact(date, DateFormat,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dt1))
+            return DateOnly.FromDateTime(dt1);
+
+        // 2) 다양한 포맷 허용 (dhtmlxGantt 버전에 따라 다를 수 있음)
+        if (DateTime.TryParse(date,
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dt2))
+            return DateOnly.FromDateTime(dt2);
+
+        return DateOnly.FromDateTime(DateTime.Today);
     }
 
     private static GanttTaskType ParseTaskType(string type) => type switch

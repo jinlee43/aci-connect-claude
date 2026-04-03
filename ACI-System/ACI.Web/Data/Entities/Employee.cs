@@ -181,6 +181,7 @@ public class Employee : BaseEntity
     // ── Navigation ────────────────────────────────────────────────────────────
     public ApplicationUser? UserAccount { get; set; }
     public ICollection<EmpRole> EmpRoles { get; set; } = [];
+    public ICollection<EmployeeDocument> Documents { get; set; } = [];
 
     // ── Computed helpers ──────────────────────────────────────────────────────
     [NotMapped]

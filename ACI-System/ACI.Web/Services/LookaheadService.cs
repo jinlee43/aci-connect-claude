@@ -13,6 +13,8 @@ public interface ILookaheadService
     Task<LookaheadTask> UpdateTaskAsync(LookaheadTask task);
     Task DeleteTaskAsync(int taskId);
     Task<List<ScheduleTask>> GetScheduleTasksForPeriodAsync(int projectId, DateOnly start, DateOnly end);
+    /// <summary>Master Schedule 에서 해당 기간의 task 를 Lookahead 로 가져온다. 이미 연결된 task 는 중복 추가하지 않음.</summary>
+    Task<int> PullFromScheduleAsync(int lookaheadId, int projectId, DateOnly start, DateOnly end);
 }
 
 public interface IWeeklyPlanService
@@ -94,6 +96,46 @@ public class LookaheadService : ILookaheadService
             .Include(t => t.Trade)
             .OrderBy(t => t.StartDate)
             .ToListAsync();
+
+    public async Task<int> PullFromScheduleAsync(int lookaheadId, int projectId, DateOnly start, DateOnly end)
+    {
+        // 이미 이 Lookahead 에 연결된 ScheduleTaskId 목록
+        var existingIds = await _db.LookaheadTasks
+            .Where(t => t.LookaheadId == lookaheadId && t.ScheduleTaskId != null)
+            .Select(t => t.ScheduleTaskId!.Value)
+            .ToListAsync();
+
+        var scheduleTasks = await GetScheduleTasksForPeriodAsync(projectId, start, end);
+
+        var toAdd = scheduleTasks
+            .Where(s => !existingIds.Contains(s.Id))
+            .Select(s => new LookaheadTask
+            {
+                LookaheadId    = lookaheadId,
+                ScheduleTaskId = s.Id,
+                Text           = s.Text,
+                StartDate      = s.StartDate < start ? start : s.StartDate,
+                EndDate        = s.EndDate   > end   ? end   : s.EndDate,
+                Duration       = (s.EndDate < start ? start : s.StartDate < start ? start : s.StartDate)
+                                     .DayNumber - (s.StartDate < start ? start : s.StartDate).DayNumber + 1,
+                TradeId        = s.TradeId,
+                Status         = LookaheadTaskStatus.Planned,
+                CreatedAt      = DateTime.UtcNow,
+                UpdatedAt      = DateTime.UtcNow
+            })
+            .ToList();
+
+        // Duration 재계산 (단순하게)
+        foreach (var t in toAdd)
+            t.Duration = Math.Max(1, t.EndDate.DayNumber - t.StartDate.DayNumber + 1);
+
+        if (toAdd.Count > 0)
+        {
+            _db.LookaheadTasks.AddRange(toAdd);
+            await _db.SaveChangesAsync();
+        }
+        return toAdd.Count;
+    }
 }
 
 public class WeeklyPlanService : IWeeklyPlanService

@@ -64,24 +64,30 @@ html, body { height: 100%; }
 .gantt_task_cell { border-right: 1px solid #f0f0f0; }
 .gantt_task_cell.week_end { background: #fafafa; }
 
-/* ── Task 바 (Outbuild: 빨간/코랄) ─────────── */
+/* ── Task 바 기본 ───────────────────────────── */
 .gantt_task_line {
-    border-radius: 3px;
+    border-radius: 4px;
     border: none;
-    background: #e84040;
 }
 .gantt_task_progress {
-    border-radius: 3px 0 0 3px;
-    background: rgba(0,0,0,.18);
-}
-.gantt-task-bar {
-    background: #e84040;
+    border-radius: 4px 0 0 4px;
+    background: rgba(0,0,0,.15);
 }
 
-/* Summary(Phase) 바: 짙은 레드 + 납작하게 */
+/* Status-based colors (like Outbuild) */
+/* Not Started (0%) → slate gray */
+.aci-task-notstarted { background: #94a3b8; }
+/* In Progress (1–99%) → blue */
+.aci-task-inprogress { background: #3b82f6; }
+/* Complete (100%) → green */
+.aci-task-complete   { background: #16a34a; }
+/* Overdue: past end date, not complete → red */
+.aci-task-overdue    { background: #ef4444; }
+
+/* Summary(Phase) 바: 짙은 네이비 + 납작하게 */
 .gantt_task_line.gantt_project {
-    background: #b91c1c !important;
-    border-color: #991b1b !important;
+    background: #1e40af !important;
+    border-color: #1e3a8a !important;
     border-radius: 2px;
     height: 12px !important;
     margin-top: 8px;
@@ -89,6 +95,25 @@ html, body { height: 100%; }
 .gantt_task_line.gantt_project .gantt_task_progress {
     background: rgba(0,0,0,.2);
     border-radius: 2px 0 0 2px;
+}
+
+/* ── Dependency Links: 기본 숨김, 호버 시 표시 ── */
+.gantt_task_link {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+/* 호버된 태스크의 연결 화살표만 표시 */
+.gantt_task_link.aci-link-active {
+    opacity: 1;
+}
+/* Links 버튼 켜면 전체 연하게 표시, 호버된 것은 진하게 */
+#gantt-chart.aci-links-visible .gantt_task_link {
+    opacity: 0.25;
+    pointer-events: auto;
+}
+#gantt-chart.aci-links-visible .gantt_task_link.aci-link-active {
+    opacity: 1;
 }
 
 /* ── Critical Path ─────────────────────────── */
@@ -105,15 +130,34 @@ html, body { height: 100%; }
     white-space: nowrap;
 }
 
-/* ── 컬럼 리사이즈 핸들 ─────────────────────── */
-.gantt_grid_column_resize_wrap .gantt_grid_column_resize {
-    background: #d1d5db; opacity: 0; transition: opacity .15s; width: 3px;
+/* ── 커스텀 컬럼 리사이즈 핸들 ─────────────── */
+.aci-col-resize-handle {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize; z-index: 20;
+    background: transparent; transition: background .15s;
 }
-.gantt_grid_column_resize_wrap:hover .gantt_grid_column_resize { opacity: 1; }
+.aci-col-resize-handle:hover,
+.aci-col-resize-handle.dragging { background: #3b82f6; }
 
 /* ── 그리드↔타임라인 경계 드래그 핸들 ─────────── */
 .gantt_grid_resize_wrap { cursor: col-resize; }
-.gantt_grid_resize_wrap:hover { background: #e0e7ff; }
+.gantt_grid_resize_wrap:hover { background: #bfdbfe; }
+
+/* ── 우클릭 컨텍스트 메뉴 ───────────────────── */
+#aci-ctx-menu {
+    display:none; position:fixed; z-index:9999;
+    background:#fff; border:1px solid #e5e7eb;
+    border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.15);
+    min-width:210px; padding:4px; font-size:13px;
+}
+.aci-ctx-item {
+    display:flex; align-items:center; gap:9px;
+    padding:8px 13px; border-radius:5px; cursor:pointer; color:#374151;
+}
+.aci-ctx-item:hover { background:#f3f4f6; }
+.aci-ctx-item.danger { color:#dc2626; }
+.aci-ctx-item.danger:hover { background:#fef2f2; }
+.aci-ctx-divider { height:1px; background:#e5e7eb; margin:3px 0; }
 
 /* ── 툴팁 ──────────────────────────────────── */
 .gantt_tooltip {
@@ -148,16 +192,76 @@ html, body { height: 100%; }
                 <i class="bi bi-arrows-angle-contract"></i>
             </button>
         </div>
-        <!-- View options -->
+        <!-- Scale options -->
         <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary active" onclick="ACIGantt.setScale('week')">Week</button>
-            <button class="btn btn-outline-secondary" onclick="ACIGantt.setScale('month')">Month</button>
-            <button class="btn btn-outline-secondary" onclick="ACIGantt.setScale('quarter')">Quarter</button>
+            <button class="btn btn-outline-secondary active" onclick="ACIGantt.setScale('week')"    id="scaleWeek">Week</button>
+            <button class="btn btn-outline-secondary"        onclick="ACIGantt.setScale('month')"   id="scaleMonth">Month</button>
+            <button class="btn btn-outline-secondary"        onclick="ACIGantt.setScale('quarter')" id="scaleQuarter">Quarter</button>
+            <button class="btn btn-outline-secondary"        onclick="ACIGantt.setScale('year')"    id="scaleYear">Year</button>
         </div>
+
+        <!-- Date Range -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" id="btnDateRange">
+                <i class="bi bi-calendar-range me-1"></i>Date Range
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-3" style="min-width:260px;" onclick="event.stopPropagation()">
+                <div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Visible Period</div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <label style="font-size:12px;color:#374151;width:32px;flex-shrink:0;">From</label>
+                    <input type="date" id="drFrom" class="form-control form-control-sm" style="font-size:12px;">
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <label style="font-size:12px;color:#374151;width:32px;flex-shrink:0;">To</label>
+                    <input type="date" id="drTo" class="form-control form-control-sm" style="font-size:12px;">
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-primary flex-fill" onclick="ACIGantt.applyDateRange()" style="font-size:12px;">Apply</button>
+                    <button class="btn btn-sm btn-outline-secondary flex-fill" onclick="ACIGantt.resetDateRange()" style="font-size:12px;">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dependencies toggle -->
+        <button class="btn btn-sm btn-outline-secondary active" onclick="ACIGantt.toggleLinks(this)" id="btnLinks">
+            <i class="bi bi-arrow-right me-1"></i>Links
+        </button>
+
         <!-- Critical Path toggle -->
         <button class="btn btn-sm btn-outline-danger" onclick="ACIGantt.toggleCriticalPath()" id="btnCritical">
             <i class="bi bi-diagram-3 me-1"></i>Critical Path
         </button>
+        <!-- Bar Colors Legend -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-palette me-1"></i>Bar Colors
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end p-2" style="min-width:210px;">
+                <li class="mb-1 px-1" style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">Status Colors</li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:12px;border-radius:3px;background:#16a34a;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">Complete (100%)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:12px;border-radius:3px;background:#3b82f6;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">In Progress (1–99%)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:12px;border-radius:3px;background:#94a3b8;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">Not Started (0%)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:12px;border-radius:3px;background:#ef4444;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">Overdue</span>
+                </li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:12px;border-radius:2px;background:#1e40af;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">Summary / Phase</span>
+                </li>
+            </ul>
+        </div>
+
         <!-- Import / Export -->
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
@@ -183,13 +287,18 @@ html, body { height: 100%; }
 </div>
 
 <!-- Gantt Chart Container -->
-<div id="gantt-chart"></div>
+<div id="gantt-chart-wrapper" style="overflow-x:auto; width:100%;">
+    <div id="gantt-chart"></div>
+</div>
 
 @section Scripts {
 <script>
 const PROJECT_ID = @Model.ProjectId;
 
 // ─── Gantt 초기화 ─────────────────────────────────────────
+// ※ plugins()는 반드시 config/init 보다 먼저 호출해야 함
+gantt.plugins({ critical_path: true, tooltip: true, marker: true, zoom: true });
+
 gantt.config.date_format = "%m-%d-%Y %H:%i";
 gantt.config.work_time = true;
 gantt.config.fit_tasks = true;
@@ -199,7 +308,7 @@ gantt.config.open_tree_initially = true;
 // ── 그리드 컬럼 (모두 resize 가능) ──────────────────────────
 gantt.config.columns = [
     {
-        name: "text", label: "Activity", tree: true, width: 220, resize: true,
+        name: "text", label: "Activity", tree: true, width: 220,
         template: t => {
             const lvl = t.$level ?? 0;
             const prefix = t.type === 'project'   ? '— '
@@ -219,18 +328,26 @@ gantt.config.columns = [
             return `<span title="${t.text}" style="${style}">${prefix}${t.text}</span>`;
         }
     },
-    { name: "start_date", label: "Start",  align: "center", width: 90, resize: true },
-    { name: "duration",   label: "Days",   align: "center", width: 55, resize: true },
+    { name: "start_date", label: "Start",  align: "center", width: 90 },
+    { name: "duration",   label: "Days",   align: "center", width: 55 },
     {
         name: "progress", label: "%", align: "center", width: 50,
         template: t => {
             const pct = Math.round(t.progress * 100);
-            // Outbuild: 100%=초록, 50%이상=파란초록, 1~49%=주황, 0%=연회색
+            // 부모 태스크: 흐린 색 + 이탤릭 + tooltip
+            if (gantt.hasChild(t.id)) {
+                const color = pct >= 100 ? '#86efac'   // 연한 초록
+                            : pct >  0   ? '#93c5fd'   // 연한 파랑
+                            :              '#cbd5e1';   // 연한 회색
+                return `<span title="Auto-calculated from subtasks"
+                    style="font-weight:400;font-style:italic;color:${color};font-size:12px;opacity:0.85;">${pct}%</span>`;
+            }
+            // 일반 태스크: 진한 색 + bold
             const color = pct >= 100 ? '#16a34a'
                         : pct >= 50  ? '#059669'
                         : pct >  0   ? '#d97706'
                         :              '#9ca3af';
-            return `<span style="font-weight:600;color:${color};font-size:12px">${pct}%</span>`;
+            return `<span style="font-weight:700;color:${color};font-size:12px">${pct}%</span>`;
         }
     },
     { name: "add", label: "", width: 40 }
@@ -245,8 +362,6 @@ gantt.config.row_height = 32;
 gantt.config.grid_resize = true;          // 그리드↔타임라인 경계 드래그
 gantt.config.min_column_width = 40;       // 컬럼 최소 폭
 
-// ── 플러그인 ────────────────────────────────────────────────
-gantt.plugins({ critical_path: true, tooltip: true, marker: true, zoom: true });
 gantt.config.highlight_critical_path = false;
 
 // ── Today 마커 ──────────────────────────────────────────────
@@ -264,11 +379,16 @@ gantt.templates.grid_row_class = (start, end, task) => {
 };
 gantt.templates.task_row_class = gantt.templates.grid_row_class;
 
-// ── Task 바 클래스 ─────────────────────────────────────────
+// ── Task 바 클래스 (status-based color) ───────────────────
 gantt.templates.task_class = (start, end, task) => {
     if (task.type === 'project')   return 'gantt_project';
     if (task.type === 'milestone') return '';
-    return 'gantt-task-bar';
+    const pct  = task.progress || 0;
+    const now  = new Date();
+    if (pct >= 1)            return 'aci-task-complete';   // 100% → green
+    if (pct === 0)           return 'aci-task-notstarted'; // 0%   → gray
+    if (end < now && pct < 1) return 'aci-task-overdue';  // 기한초과 → red
+    return 'aci-task-inprogress';                          // 진행중  → blue
 };
 
 // ── 툴팁 ───────────────────────────────────────────────────
@@ -283,41 +403,495 @@ gantt.templates.tooltip_text = (start, end, task) => {
             Progress: ${pct}%`;
 };
 
+// ── 커스텀 컬럼 리사이즈 (GPL 버전은 resize:true 미지원 → 직접 구현) ──
+// ※ 반드시 gantt.init() 보다 먼저 이벤트를 등록해야 함
+const RESIZABLE_COLS = ['text', 'start_date', 'duration'];
+
+function initColResize() {
+    document.querySelectorAll('.aci-col-resize-handle').forEach(h => h.remove());
+
+    document.querySelectorAll('.gantt_grid_head_cell').forEach(cell => {
+        const colName = cell.getAttribute('data-column-name');
+        if (!RESIZABLE_COLS.includes(colName)) return;
+
+        cell.style.position = 'relative';
+        cell.style.overflow = 'visible';
+
+        const handle = document.createElement('div');
+        handle.className = 'aci-col-resize-handle';
+        cell.appendChild(handle);
+
+        handle.addEventListener('mousedown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const startX = e.pageX;
+            const col    = gantt.config.columns.find(c => c.name === colName);
+            const startW = col.width;
+
+            handle.classList.add('dragging');
+            document.body.style.cursor     = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            const onMove = ev => {
+                const newW = Math.max(50, startW + ev.pageX - startX);
+                cell.style.width = newW + 'px';
+            };
+
+            const onUp = ev => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup',   onUp);
+                handle.classList.remove('dragging');
+                document.body.style.cursor     = '';
+                document.body.style.userSelect = '';
+                const newW = Math.max(50, startW + ev.pageX - startX);
+                const diff = newW - startW;
+                col.width = newW;
+                // 전체 그리드 폭 = 모든 컬럼 폭의 합
+                gantt.config.grid_width = gantt.config.columns.reduce((sum, c) => sum + (c.width || 0), 0);
+                // 타임라인 폭 유지: 컨테이너 폭을 같이 늘림
+                const chartEl = document.getElementById('gantt-chart');
+                chartEl.style.width = (chartEl.offsetWidth + diff) + 'px';
+                gantt.render();
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup',   onUp);
+        });
+    });
+}
+
+// ── 부모 태스크 자동 재계산 (클라이언트) ──────────────────
+// 자식 저장 후 부모의 start/end/progress 를 자식들 기준으로 갱신
+function recalcParent(parentId) {
+    if (!parentId || parentId == 0) return;
+    const children = gantt.getChildren(parentId)
+        .map(id => gantt.getTask(id))
+        .filter(t => t.type !== 'milestone');
+    if (children.length === 0) return;
+
+    const parent = gantt.getTask(parentId);
+    let minStart = null, maxEnd = null, totalDur = 0, weightedProg = 0;
+
+    children.forEach(c => {
+        const s = c.start_date;
+        const e = gantt.date.add(new Date(s), c.duration, 'day');
+        if (!minStart || s < minStart) minStart = s;
+        if (!maxEnd   || e > maxEnd)   maxEnd   = e;
+        totalDur    += c.duration;
+        weightedProg += (c.progress || 0) * c.duration;
+    });
+
+    parent.start_date = minStart;
+    parent.duration   = gantt.calculateDuration(minStart, maxEnd);
+    parent.progress   = totalDur > 0 ? weightedProg / totalDur : 0;
+    gantt.refreshTask(parentId); // DataProcessor 미트리거 — 표시만 갱신
+
+    // 재귀: 조부모까지 올라감
+    recalcParent(parent.parent);
+}
+
+// ── 태스크 호버 시 연결 화살표만 표시 ─────────────────────
+gantt.attachEvent('onMouseMove', function(id) {
+    document.querySelectorAll('.gantt_task_link.aci-link-active')
+        .forEach(el => el.classList.remove('aci-link-active'));
+    if (!id) return;
+    document.querySelectorAll('.gantt_task_link').forEach(el => {
+        const linkId = el.getAttribute('link_id');
+        if (!linkId) return;
+        try {
+            const lnk = gantt.getLink(linkId);
+            if (lnk && (String(lnk.source) === String(id) || String(lnk.target) === String(id))) {
+                el.classList.add('aci-link-active');
+            }
+        } catch(e) {}
+    });
+});
+
+// 마우스가 차트 영역을 벗어나면 모두 숨김
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('gantt-chart')?.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.gantt_task_link.aci-link-active')
+            .forEach(el => el.classList.remove('aci-link-active'));
+    });
+});
+
+// 렌더 후 핸들 재생성 (이후 gantt.render() 호출 시)
+gantt.attachEvent('onGanttRender',   initColResize);
+gantt.attachEvent('onGanttRendered', initColResize);
+gantt.attachEvent('onLoadEnd',       initColResize);
+
 // 초기화
 gantt.init("gantt-chart");
 gantt.load(`/api/gantt/projects/${PROJECT_ID}/data`);
 
-// DataProcessor (자동 저장)
-const dp = gantt.createDataProcessor({
-    url: `/api/gantt/projects/${PROJECT_ID}`,
-    mode: "REST"
+// 안전 fallback: 데이터 로드 완료 후 직접 호출
+setTimeout(initColResize, 800);
+
+// ── Error toast for DataProcessor failures ────────────────
+function showDpError(msg) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+        position:fixed;bottom:24px;right:24px;z-index:99999;
+        background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;
+        border-radius:8px;padding:12px 16px;font-size:12px;font-family:inherit;
+        box-shadow:0 4px 16px rgba(0,0,0,.15);max-width:420px;line-height:1.5;
+        white-space:pre-wrap;word-break:break-all;`;
+    el.textContent = '⚠ Save failed: ' + msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
+}
+
+// DataProcessor — fetch 기반으로 Content-Type: application/json 보장
+const dp = gantt.createDataProcessor(async function(entity, action, data, id) {
+    const base = `/api/gantt/projects/${PROJECT_ID}`;
+    const urls = {
+        task: {
+            create: { url: `${base}/task`,       method: 'POST'   },
+            update: { url: `${base}/task/${id}`,  method: 'PUT'    },
+            delete: { url: `${base}/task/${id}`,  method: 'DELETE' }
+        },
+        link: {
+            create: { url: `${base}/link`,       method: 'POST'   },
+            update: { url: `${base}/link/${id}`,  method: 'PUT'    },
+            delete: { url: `${base}/link/${id}`,  method: 'DELETE' }
+        }
+    };
+    const route = urls[entity]?.[action];
+    if (!route) { showDpError(`Unknown route: ${entity}/${action}`); return Promise.reject(); }
+
+    // dhtmlxGantt는 id/parent/duration 등을 문자열로 보낼 수 있음 → 서버 int 필드에 맞게 변환
+    // toInt: NaN 또는 int32 범위 초과 시 null 반환 (신규 태스크 임시 ID가 타임스탬프일 수 있음)
+    const INT32_MAX = 2147483647;
+    const toInt  = v => { const n = parseInt(v); return (isNaN(n) || n > INT32_MAX || n < -INT32_MAX) ? null : n; };
+    const toDbl  = v => { const n = parseFloat(v);return isNaN(n) ? 0    : n; };
+
+    // start_date: dhtmlxGantt may pass a Date object → convert to formatted string
+    const fmtDate = v => {
+        if (!v) return '';
+        if (v instanceof Date) return gantt.templates.format_date(v);
+        return String(v);
+    };
+
+    const payload = action !== 'delete' ? {
+        ...data,
+        id:         action === 'create' ? 0 : (toInt(data.id) ?? 0),  // create 시 임시 ID는 0으로
+        parent:     toInt(data.parent),              // null allowed
+        duration:   toInt(data.duration)  ?? 1,
+        progress:   toDbl(data.progress),
+        sortOrder:  toInt(data.sortOrder) ?? 0,
+        tradeId:    toInt(data.tradeId),             // null allowed
+        source:     toInt(data.source)    ?? 0,
+        target:     toInt(data.target)    ?? 0,
+        start_date: fmtDate(data.start_date),
+    } : undefined;
+
+    console.log(`[DP] ${action} ${entity}`, JSON.stringify(payload));
+
+    try {
+        const r = await fetch(route.url, {
+            method:  route.method,
+            headers: { 'Content-Type': 'application/json' },
+            body:    payload ? JSON.stringify(payload) : undefined
+        });
+
+        if (!r.ok) {
+            const errBody = await r.text().catch(() => '');
+            console.error(`[DP] ${r.status} ${r.statusText}`, errBody);
+            showDpError(`${r.status} ${r.statusText}\n${errBody.slice(0, 300)}`);
+            throw new Error(`${r.status}`);
+        }
+
+        const res = await r.json();
+        // After child task saved → recalculate parent display
+        if (entity === 'task' && (action === 'update' || action === 'create')) {
+            try {
+                const t = gantt.getTask(action === 'create' ? (res.tid ?? id) : id);
+                if (t?.parent) recalcParent(t.parent);
+            } catch(e) {}
+        }
+        return { tid: res.tid ?? id, action: res.action ?? action };
+    } catch(err) {
+        console.error('[DataProcessor]', entity, action, err);
+        throw err;
+    }
 });
+
+// ── 우클릭 컨텍스트 메뉴 ─────────────────────────────────
+(function() {
+    const menu = document.createElement('div');
+    menu.id = 'aci-ctx-menu';
+    document.body.appendChild(menu);
+    let ctxId = null;
+
+    function countAll(taskId) {
+        let n = 1;
+        gantt.eachTask(() => n++, taskId);
+        return n;
+    }
+
+    function renderMenu(taskId) {
+        const hasKids = gantt.hasChild(taskId);
+        const total   = hasKids ? countAll(taskId) : 1;
+        let html = '';
+        if (!hasKids) {
+            html += `<div class="aci-ctx-item danger" id="ctx-del-single">
+                        <i class="bi bi-trash3"></i> Delete task
+                     </div>`;
+        } else {
+            html += `<div class="aci-ctx-item danger" id="ctx-del-subtree">
+                        <i class="bi bi-trash3-fill"></i>
+                        Delete with all subtasks <span style="color:#9ca3af;font-size:11px;margin-left:auto">${total}</span>
+                     </div>`;
+        }
+        menu.innerHTML = html;
+
+        document.getElementById('ctx-del-single')?.addEventListener('click', () => {
+            menu.style.display = 'none';
+            if (!confirm('Delete this task?')) return;
+            gantt.deleteTask(ctxId);
+        });
+
+        document.getElementById('ctx-del-subtree')?.addEventListener('click', async () => {
+            menu.style.display = 'none';
+            const task = gantt.getTask(ctxId);
+            if (!confirm(`Delete "${task.text}" and all ${total} subtasks?\nThis cannot be undone.`)) return;
+
+            try {
+                const res = await fetch(`/api/gantt/projects/${PROJECT_ID}/task/${ctxId}/subtree`, {
+                    method: 'DELETE'
+                });
+                if (!res.ok) throw new Error(res.statusText);
+                // 로컬 gantt에서도 제거
+                gantt.eachTask(t => gantt.deleteTask(t.id), ctxId);
+                gantt.deleteTask(ctxId);
+            } catch(e) {
+                alert('Delete failed: ' + e.message);
+            }
+        });
+    }
+
+    gantt.attachEvent('onContextMenu', function(taskId, linkId, e) {
+        if (!taskId) { menu.style.display = 'none'; return true; }
+        e.preventDefault();
+        ctxId = taskId;
+        renderMenu(taskId);
+
+        // 화면 경계 처리
+        menu.style.display = 'block';
+        const mw = menu.offsetWidth, mh = menu.offsetHeight;
+        const x = Math.min(e.clientX, window.innerWidth  - mw - 8);
+        const y = Math.min(e.clientY, window.innerHeight - mh - 8);
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+        return false;
+    });
+
+    document.addEventListener('click',       () => { menu.style.display = 'none'; });
+    document.addEventListener('contextmenu', e => {
+        if (!e.target.closest('#gantt-chart')) menu.style.display = 'none';
+    });
+})();
+
+// ── 부모 태스크 편집 차단 ─────────────────────────────────
+// 하위 태스크가 있는 부모는 시작일/기간/%를 직접 편집 불가
+// (하위 태스크에 의해 자동 결정)
+
+function showParentLockTip(e) {
+    const tip = document.createElement('div');
+    tip.textContent = 'Dates & progress are auto-calculated from subtasks';
+    tip.style.cssText = `position:fixed;left:${e.clientX+10}px;top:${e.clientY+10}px;
+        background:#1e293b;color:#fff;font-size:11px;padding:5px 10px;
+        border-radius:5px;z-index:9999;pointer-events:none;white-space:nowrap;`;
+    document.body.appendChild(tip);
+    setTimeout(() => tip.remove(), 2200);
+}
+
+// 라이트박스(편집 팝업) 차단
+gantt.attachEvent('onBeforeLightbox', function(id) {
+    if (gantt.hasChild(id)) return false;
+    return true;
+});
+
+// 타임라인 드래그/리사이즈 차단
+gantt.attachEvent('onBeforeTaskDrag', function(id, mode, e) {
+    if (gantt.hasChild(id)) {
+        showParentLockTip(e);
+        return false;
+    }
+    return true;
+});
+
+// ── % 더블클릭 팝업 ────────────────────────────────────────
+(function() {
+    // 팝업 DOM 한번만 생성
+    const popup = document.createElement('div');
+    popup.id = 'aci-progress-popup';
+    popup.style.cssText = `
+        display:none; position:fixed; z-index:9999;
+        background:#fff; border:1px solid #e5e7eb;
+        border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15);
+        padding:16px 18px; min-width:220px;
+        font-family:inherit; font-size:13px;
+    `;
+    popup.innerHTML = `
+        <div style="font-weight:700;color:#111827;margin-bottom:12px;font-size:13px;">Edit Progress</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <input id="aci-prog-slider" type="range" min="0" max="100" step="1"
+                style="flex:1;accent-color:#3b82f6;cursor:pointer;">
+            <input id="aci-prog-num" type="number" min="0" max="100"
+                style="width:52px;text-align:center;border:1px solid #d1d5db;
+                       border-radius:6px;padding:4px 6px;font-size:13px;font-weight:600;">
+            <span style="color:#6b7280;">%</span>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="aci-prog-cancel"
+                style="padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;
+                       background:#f9fafb;cursor:pointer;font-size:12px;">Cancel</button>
+            <button id="aci-prog-save"
+                style="padding:5px 14px;border:none;border-radius:6px;
+                       background:#3b82f6;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">Save</button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    const slider = document.getElementById('aci-prog-slider');
+    const numIn  = document.getElementById('aci-prog-num');
+    let   currentTaskId = null;
+
+    // 슬라이더 ↔ 숫자 동기화
+    slider.addEventListener('input', () => { numIn.value = slider.value; });
+    numIn.addEventListener('input',  () => {
+        const v = Math.min(100, Math.max(0, parseInt(numIn.value) || 0));
+        slider.value = v;
+    });
+
+    function showPopup(id, anchorEl) {
+        currentTaskId = id;
+        const task = gantt.getTask(id);
+        const pct  = Math.round(task.progress * 100);
+        slider.value = pct;
+        numIn.value  = pct;
+
+        // 셀 위치 기준으로 팝업 위치 결정
+        const rect = anchorEl.getBoundingClientRect();
+        popup.style.display = 'block';
+        const pw = popup.offsetWidth;
+        let left = rect.left - pw / 2 + rect.width / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+        popup.style.left = left + 'px';
+        popup.style.top  = (rect.bottom + 6) + 'px';
+
+        setTimeout(() => numIn.focus(), 50);
+    }
+
+    function hidePopup() {
+        popup.style.display = 'none';
+        currentTaskId = null;
+    }
+
+    function saveProgress() {
+        if (currentTaskId === null) return;
+        const val  = Math.min(100, Math.max(0, parseInt(numIn.value) || 0));
+        const task = gantt.getTask(currentTaskId);
+        task.progress = val / 100;
+        gantt.updateTask(currentTaskId);
+        hidePopup();
+    }
+
+    document.getElementById('aci-prog-save').addEventListener('click', saveProgress);
+    document.getElementById('aci-prog-cancel').addEventListener('click', hidePopup);
+
+    // Enter / Escape
+    popup.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter')  { ev.preventDefault(); saveProgress(); }
+        if (ev.key === 'Escape') { hidePopup(); }
+    });
+
+    // 팝업 외부 클릭 시 닫기
+    document.addEventListener('mousedown', ev => {
+        if (popup.style.display !== 'none' && !popup.contains(ev.target)) hidePopup();
+    });
+
+    // % 컬럼 더블클릭 이벤트
+    gantt.attachEvent('onTaskDblClick', function(id, e) {
+        const cell = (e.target || e.srcElement).closest('.gantt_cell');
+        if (!cell) return true;
+        if (cell.getAttribute('data-column-name') !== 'progress') return true;
+
+        // 부모 태스크(하위 있음)는 % 편집 불가 — 하위 태스크에 의해 자동 결정
+        if (gantt.hasChild(id)) {
+            const rect = cell.getBoundingClientRect();
+            const tip = document.createElement('div');
+            tip.textContent = 'Auto-calculated from subtasks';
+            tip.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.bottom+4}px;
+                background:#1e293b;color:#fff;font-size:11px;padding:4px 8px;
+                border-radius:5px;z-index:9999;pointer-events:none;white-space:nowrap;`;
+            document.body.appendChild(tip);
+            setTimeout(() => tip.remove(), 2000);
+            return false;
+        }
+
+        showPopup(id, cell);
+        return false;
+    });
+})();
 
 // ─── ACI Gantt Helper ─────────────────────────────────────
 window.ACIGantt = {
     setScale(unit) {
-        if (unit === 'week') {
-            gantt.config.scales = [
-                { unit: "month", step: 1, format: "%B %Y" },
-                { unit: "week",  step: 1, format: "W%W" }
-            ];
-        } else if (unit === 'month') {
-            gantt.config.scales = [
-                { unit: "year",  step: 1, format: "%Y" },
-                { unit: "month", step: 1, format: "%M" }
-            ];
-        } else if (unit === 'quarter') {
-            gantt.config.scales = [
-                { unit: "year",    step: 1, format: "%Y" },
-                { unit: "quarter", step: 1, format: "Q%q" }
-            ];
-        }
+        const scaleMap = {
+            week:    [{ unit:"month",   step:1, format:"%B %Y" },
+                      { unit:"week",    step:1, format:"W%W" }],
+            month:   [{ unit:"year",    step:1, format:"%Y" },
+                      { unit:"month",   step:1, format:"%b" }],
+            quarter: [{ unit:"year",    step:1, format:"%Y" },
+                      { unit:"quarter", step:1, format:"Q%q" }],
+            year:    [{ unit:"year",    step:1, format:"%Y" },
+                      { unit:"month",   step:3, format:"%b" }]
+        };
+        if (!scaleMap[unit]) return;
+        gantt.config.scales = scaleMap[unit];
         gantt.render();
-        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        ['scaleWeek','scaleMonth','scaleQuarter','scaleYear'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('active');
+        });
+        const active = document.getElementById('scale' + unit.charAt(0).toUpperCase() + unit.slice(1));
+        if (active) active.classList.add('active');
     },
 
     fitToScreen() { gantt.fit(); },
+
+    toggleLinks(btn) {
+        // show_links는 항상 true 유지 (DOM에서 제거하면 hover 감지 불가)
+        document.getElementById('gantt-chart').classList.toggle('aci-links-visible');
+        btn.classList.toggle('active');
+        btn.classList.toggle('btn-outline-secondary');
+        btn.classList.toggle('btn-secondary');
+    },
+
+    applyDateRange() {
+        const from = document.getElementById('drFrom').value;
+        const to   = document.getElementById('drTo').value;
+        if (from) gantt.config.start_date = new Date(from);
+        if (to)   gantt.config.end_date   = new Date(to);
+        gantt.render();
+        // 버튼 색상으로 필터 적용 중 표시
+        const btn = document.getElementById('btnDateRange');
+        if (from || to) btn.classList.add('btn-primary'), btn.classList.remove('btn-outline-secondary');
+    },
+
+    resetDateRange() {
+        gantt.config.start_date = null;
+        gantt.config.end_date   = null;
+        document.getElementById('drFrom').value = '';
+        document.getElementById('drTo').value   = '';
+        gantt.render();
+        const btn = document.getElementById('btnDateRange');
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-outline-secondary');
+    },
 
     toggleCriticalPath() {
         gantt.config.highlight_critical_path = !gantt.config.highlight_critical_path;

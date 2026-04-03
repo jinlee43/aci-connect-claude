@@ -18,18 +18,33 @@
             </ol>
         </nav>
     </div>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+        <!-- Base date picker with prev/next navigation -->
+        <div class="input-group input-group-sm" style="width:auto">
+            <button class="btn btn-outline-secondary" id="prevWeekBtn" title="Previous @Model.Weeks weeks">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <span class="input-group-text bg-white px-2"><i class="bi bi-calendar3"></i></span>
+            <input type="text" id="baseDatePicker" class="form-control form-control-sm"
+                   value="@Model.BaseDate.ToString("yyyy-MM-dd")"
+                   placeholder="YYYY-MM-DD" readonly
+                   style="width:115px; cursor:pointer" />
+            <button class="btn btn-outline-secondary" id="nextWeekBtn" title="Next @Model.Weeks weeks">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <button class="btn btn-outline-secondary btn-sm px-2" id="baseDateTodayBtn" title="Reset to today">
+                Today
+            </button>
+        </div>
+        <div class="vr"></div>
         <!-- Weeks selector -->
         <div class="btn-group btn-group-sm">
             <button class="btn @(Model.Weeks == 3 ? "btn-primary" : "btn-outline-secondary")"
-                    hx-get="?projectId=@Model.ProjectId&weeks=3&lookaheadId=@Model.CurrentLookaheadId"
-                    hx-target="#lookahead-content" hx-swap="outerHTML">3W</button>
+                    onclick="navigateLookahead(3)">3W</button>
             <button class="btn @(Model.Weeks == 4 ? "btn-primary" : "btn-outline-secondary")"
-                    hx-get="?projectId=@Model.ProjectId&weeks=4&lookaheadId=@Model.CurrentLookaheadId"
-                    hx-target="#lookahead-content" hx-swap="outerHTML">4W</button>
+                    onclick="navigateLookahead(4)">4W</button>
             <button class="btn @(Model.Weeks == 6 ? "btn-primary" : "btn-outline-secondary")"
-                    hx-get="?projectId=@Model.ProjectId&weeks=6&lookaheadId=@Model.CurrentLookaheadId"
-                    hx-target="#lookahead-content" hx-swap="outerHTML">6W</button>
+                    onclick="navigateLookahead(6)">6W</button>
         </div>
         <!-- Trade filter -->
         <select class="form-select form-select-sm" style="width:160px" id="tradeFilter"
@@ -43,6 +58,15 @@
         <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addTaskModal">
             <i class="bi bi-plus-lg me-1"></i>Add Task
         </button>
+        <!-- Sync from Master Schedule -->
+        <form method="post" asp-page-handler="SyncSchedule" class="d-inline">
+            <input type="hidden" name="lookaheadId" value="@Model.CurrentLookaheadId" />
+            <input type="hidden" name="periodStart" value="@Model.PeriodStart.ToString("yyyy-MM-dd")" />
+            <input type="hidden" name="weeks" value="@Model.Weeks" />
+            <button type="submit" class="btn btn-sm btn-outline-primary" title="Pull new tasks from Master Schedule">
+                <i class="bi bi-arrow-repeat me-1"></i>Sync Schedule
+            </button>
+        </form>
         <button class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-download me-1"></i>Export
         </button>
@@ -62,15 +86,16 @@
         {
             var weekStart = Model.PeriodStart.AddDays(w * 7);
             var weekEnd = weekStart.AddDays(4);
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            var isCurrentWeek = today >= weekStart && today <= weekEnd.AddDays(2);
+            var isCurrentWeek = Model.BaseDate >= weekStart && Model.BaseDate <= weekEnd.AddDays(2);
             <div class="lookahead-week-col flex-fill @(isCurrentWeek ? "bg-primary bg-opacity-5" : "")">
                 <div class="text-center py-2 border-bottom">
                     <div class="fw-bold small">@weekStart.ToString("MMM d") – @weekEnd.ToString("MMM d")</div>
                     <div class="text-muted" style="font-size:.7rem">Week @(System.Globalization.ISOWeek.GetWeekOfYear(weekStart.ToDateTime(TimeOnly.MinValue)))</div>
                     @if (isCurrentWeek)
                     {
-                        <span class="badge bg-primary" style="font-size:.65rem">CURRENT</span>
+                        <span class="badge bg-primary" style="font-size:.65rem">
+                            @(Model.BaseDate == DateOnly.FromDateTime(DateTime.Today) ? "CURRENT" : "SELECTED")
+                        </span>
                     }
                 </div>
             </div>
@@ -147,10 +172,8 @@
     {
         <div class="text-center text-muted py-5">
             <i class="bi bi-calendar-x fs-1"></i>
-            <div class="mt-2">No tasks for this period. Pull from Master Schedule or add manually.</div>
-            <button class="btn btn-primary mt-3" onclick="pullFromSchedule()">
-                <i class="bi bi-arrow-down-circle me-1"></i>Pull from Master Schedule
-            </button>
+            <div class="mt-2">No tasks found in Master Schedule for this period.</div>
+            <div class="small mt-1">Check that tasks exist in the Master Schedule for <strong>@Model.PeriodStart.ToString("MMM d") – @Model.PeriodStart.AddDays(Model.Weeks * 7).ToString("MMM d, yyyy")</strong>, or add tasks manually.</div>
         </div>
     }
 
@@ -220,7 +243,50 @@
 </div>
 
 @section Scripts {
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
 <script>
+const _projectId    = @Model.ProjectId;
+const _currentWeeks = @Model.Weeks;
+const _lookaheadId  = @Model.CurrentLookaheadId;
+const _periodStart  = '@Model.PeriodStart.ToString("yyyy-MM-dd")';
+
+function navigateLookahead(weeks, baseDate) {
+    const date = baseDate ?? document.getElementById('baseDatePicker').value;
+    const url = new URL(window.location.href);
+    url.searchParams.set('projectId', _projectId);
+    url.searchParams.set('weeks', weeks ?? _currentWeeks);
+    url.searchParams.set('baseDate', date);
+    url.searchParams.delete('lookaheadId');  // re-resolve by date
+    window.location.href = url.toString();
+}
+
+const fp = flatpickr('#baseDatePicker', {
+    dateFormat: 'Y-m-d',
+    defaultDate: _periodStart,
+    onChange: function(selectedDates, dateStr) {
+        navigateLookahead(_currentWeeks, dateStr);
+    }
+});
+
+document.getElementById('baseDateTodayBtn').addEventListener('click', function () {
+    const today = new Date().toISOString().slice(0, 10);
+    fp.setDate(today, false);
+    navigateLookahead(_currentWeeks, today);
+});
+
+document.getElementById('prevWeekBtn').addEventListener('click', function () {
+    const d = new Date(document.getElementById('baseDatePicker').value || new Date());
+    d.setDate(d.getDate() - _currentWeeks * 7);
+    navigateLookahead(_currentWeeks, d.toISOString().slice(0, 10));
+});
+
+document.getElementById('nextWeekBtn').addEventListener('click', function () {
+    const d = new Date(document.getElementById('baseDatePicker').value || new Date());
+    d.setDate(d.getDate() + _currentWeeks * 7);
+    navigateLookahead(_currentWeeks, d.toISOString().slice(0, 10));
+});
+
 function toggleTradeSection(header) {
     const tasks = header.nextElementSibling;
     const icon = header.querySelector('.toggle-icon');

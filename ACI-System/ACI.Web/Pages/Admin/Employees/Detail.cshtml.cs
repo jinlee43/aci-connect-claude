@@ -20,6 +20,7 @@ public class DetailModel : PageModel
     public List<SelectListItem> OrgUnitOptions { get; set; } = [];
     public List<SelectListItem> JobPositionOptions { get; set; } = [];
     public List<EmpRole> Roles { get; set; } = [];
+    public List<EmployeeDocument> Documents { get; set; } = [];
 
     // For adding a new role
     [BindProperty] public int NewRoleOrgUnitId { get; set; }
@@ -49,6 +50,10 @@ public class DetailModel : PageModel
 
         Emp = emp;
         Roles = emp.EmpRoles.OrderByDescending(r => r.IsPrimary).ThenBy(r => r.OrgUnit?.Name).ToList();
+        Documents = await _db.EmployeeDocuments
+            .Where(d => d.EmployeeId == id && d.IsActive)
+            .OrderByDescending(d => d.CreatedAt)
+            .ToListAsync();
         return Page();
     }
 

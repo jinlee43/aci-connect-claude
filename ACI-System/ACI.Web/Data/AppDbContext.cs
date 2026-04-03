@@ -19,6 +19,7 @@ public class AppDbContext : DbContext
     public DbSet<OrgUnit>              OrgUnits             => Set<OrgUnit>();
     public DbSet<JobPosition>          JobPositions         => Set<JobPosition>();
     public DbSet<EmpRole>              EmpRoles             => Set<EmpRole>();
+    public DbSet<EmployeeDocument>     EmployeeDocuments    => Set<EmployeeDocument>();
 
     // ─── External ─────────────────────────────────────────────────────────
     public DbSet<ExternalParty>        ExternalParties      => Set<ExternalParty>();
@@ -101,6 +102,17 @@ public class AppDbContext : DbContext
              .WithOne(r => r.JobPosition)
              .HasForeignKey(r => r.JobPositionId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── EmployeeDocument ──────────────────────────────────────────────────
+        builder.Entity<EmployeeDocument>(e =>
+        {
+            e.HasKey(d => d.Id);
+
+            e.HasOne(d => d.Employee)
+             .WithMany(emp => emp.Documents)
+             .HasForeignKey(d => d.EmployeeId)
+             .OnDelete(DeleteBehavior.Cascade);
         });
 
         // ── EmpRole ───────────────────────────────────────────────────────
