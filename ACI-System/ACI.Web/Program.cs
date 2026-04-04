@@ -53,6 +53,7 @@ builder.Services.AddScoped<IGanttDataService, GanttDataService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILookaheadService, LookaheadService>();
 builder.Services.AddScoped<IWeeklyPlanService, WeeklyPlanService>();
+builder.Services.AddScoped<IProgressScheduleService, ProgressScheduleService>();
 
 // ─── HTTP Context Accessor (for auth helper) ──────────────────────────────
 builder.Services.AddHttpContextAccessor();

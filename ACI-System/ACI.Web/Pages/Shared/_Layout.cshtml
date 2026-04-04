@@ -88,6 +88,18 @@
                asp-page="/Schedule/Index" asp-route-projectId="@pid">
                 <i class="bi bi-bar-chart-steps"></i><span>Master Schedule</span>
             </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "progress" ? "active" : "")"
+               asp-page="/Progress/Index" asp-route-projectId="@pid">
+                <i class="bi bi-bar-chart-line"></i><span>Progress Schedule</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "revisions" ? "active" : "")"
+               asp-page="/Progress/Revisions" asp-route-projectId="@pid">
+                <i class="bi bi-clock-history"></i><span>Change Log</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "comparison" ? "active" : "")"
+               asp-page="/Progress/Comparison" asp-route-projectId="@pid">
+                <i class="bi bi-layout-split"></i><span>Schedule Comparison</span>
+            </a>
             <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "lookahead" ? "active" : "")"
                asp-page="/Lookahead/Index" asp-route-projectId="@pid">
                 <i class="bi bi-calendar3-range"></i><span>Lookahead</span>

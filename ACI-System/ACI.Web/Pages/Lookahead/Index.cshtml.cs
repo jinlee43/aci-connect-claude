@@ -44,8 +44,9 @@ public class IndexModel : PageModel
             .ToListAsync();
 
         PeriodStart = GetMonday(BaseDate);
+        var periodEnd = PeriodStart.AddDays(Weeks * 7);
 
-        // Get existing or create new lookahead
+        // 선택한 기간을 포함하는 Lookahead 찾기 (특정 ID 지정 or 날짜 기준)
         LookaheadEntity? lookahead;
         if (LookaheadId.HasValue)
         {
@@ -56,33 +57,25 @@ public class IndexModel : PageModel
         }
         else
         {
-            // 기준일 이전(또는 같은 주) 중 가장 최신 활성 Lookahead
+            // 선택한 주(PeriodStart)를 포함하는 Lookahead 검색
             lookahead = await _db.Lookaheads
                 .Include(l => l.Tasks).ThenInclude(t => t.Trade)
                 .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
-                .Where(l => l.ProjectId == ProjectId && l.IsActive && l.StartDate <= PeriodStart)
+                .Where(l => l.ProjectId == ProjectId && l.IsActive
+                         && l.StartDate <= PeriodStart && l.EndDate >= PeriodStart)
                 .OrderByDescending(l => l.StartDate)
-                .FirstOrDefaultAsync();
-
-            // Fallback: 기준일보다 미래인 것 중 가장 가까운 것
-            lookahead ??= await _db.Lookaheads
-                .Include(l => l.Tasks).ThenInclude(t => t.Trade)
-                .Include(l => l.Tasks).ThenInclude(t => t.AssignedTo)
-                .Where(l => l.ProjectId == ProjectId && l.IsActive)
-                .OrderBy(l => l.StartDate)
                 .FirstOrDefaultAsync();
         }
 
         if (lookahead == null)
         {
-            // 새 Lookahead 생성 후 Master Schedule 에서 자동 pull
+            // 해당 기간 Lookahead 없음 → 새로 생성 후 Master Schedule 자동 pull
             var weekNum = System.Globalization.ISOWeek.GetWeekOfYear(PeriodStart.ToDateTime(TimeOnly.MinValue));
             lookahead = await _lookaheadSvc.CreateLookaheadAsync(
                 ProjectId, PeriodStart, Weeks,
                 $"Lookahead W{weekNum}-{PeriodStart.Year}");
 
-            var pullEnd = PeriodStart.AddDays(Weeks * 7);
-            await _lookaheadSvc.PullFromScheduleAsync(lookahead.Id, ProjectId, PeriodStart, pullEnd);
+            await _lookaheadSvc.PullFromScheduleAsync(lookahead.Id, ProjectId, PeriodStart, periodEnd);
 
             // task 가 추가된 상태로 다시 로드
             lookahead = await _db.Lookaheads
@@ -92,8 +85,7 @@ public class IndexModel : PageModel
         }
 
         CurrentLookaheadId = lookahead.Id;
-        PeriodStart        = lookahead.StartDate;
-        var periodEnd      = PeriodStart.AddDays(Weeks * 7);
+        // PeriodStart 는 사용자가 선택한 날짜 기준 유지 (lookahead.StartDate 로 덮어쓰지 않음)
 
         TasksByTrade = lookahead.Tasks
             .Where(t => t.StartDate <= periodEnd && t.EndDate >= PeriodStart)

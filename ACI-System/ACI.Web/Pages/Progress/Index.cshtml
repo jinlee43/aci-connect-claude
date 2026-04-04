@@ -1,0 +1,194 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.Progress.IndexModel
+@{
+    ViewData["Title"] = "Progress Schedule";
+    ViewData["ActiveMenu"] = "progress";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-bar-chart-line me-2 text-success"></i>Progress Schedule</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+                <li class="breadcrumb-item active">@Model.ProjectName – Progress Schedule</li>
+            </ol>
+        </nav>
+    </div>
+    @if (Model.IsInitialized)
+    {
+        <div class="d-flex gap-2 align-items-center">
+            @if (Model.DraftRevision != null)
+            {
+                <span class="badge bg-warning text-dark fs-6">
+                    <i class="bi bi-pencil me-1"></i>@Model.DraftRevision.Title – Unsaved
+                </span>
+            }
+            <a asp-page="/Progress/Revisions" asp-route-projectId="@Model.ProjectId"
+               class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-clock-history me-1"></i>Change Log
+            </a>
+            <a asp-page="/Progress/Comparison" asp-route-projectId="@Model.ProjectId"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-layout-split me-1"></i>Compare
+            </a>
+        </div>
+    }
+</div>
+
+@if (!Model.IsInitialized)
+{
+    <!-- Not yet initialized -->
+    <div class="card border-0 shadow-sm mx-auto mt-5" style="max-width:520px">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-bar-chart-line fs-1 text-success mb-3 d-block"></i>
+            <h4>Progress Schedule Not Initialized</h4>
+            <p class="text-muted">
+                The Progress Schedule is a live copy of the Master (Baseline) Schedule
+                that tracks real-world changes, delays, and actual progress over time.
+            </p>
+            <p class="text-muted small">
+                This action will fork the current Baseline into a Progress Schedule.
+                The Baseline will remain untouched.
+            </p>
+            <form method="post" asp-page-handler="Initialize">
+                <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                <button type="submit" class="btn btn-success btn-lg mt-2">
+                    <i class="bi bi-arrow-right-circle me-2"></i>Initialize from Baseline
+                </button>
+            </form>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Gantt toolbar -->
+    <div class="d-flex gap-2 mb-2 px-1 align-items-center flex-wrap">
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary active" id="btnDay" onclick="setScale('day')">Day</button>
+            <button class="btn btn-outline-secondary" id="btnWeek" onclick="setScale('week')">Week</button>
+            <button class="btn btn-outline-secondary" id="btnMonth" onclick="setScale('month')">Month</button>
+        </div>
+        <div class="form-check form-switch ms-2 mb-0">
+            <input class="form-check-input" type="checkbox" id="showBaseline" checked onchange="toggleBaseline(this.checked)">
+            <label class="form-check-label small" for="showBaseline">Show Baseline</label>
+        </div>
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="showDelayedOnly" onchange="filterDelayed(this.checked)">
+            <label class="form-check-label small" for="showDelayedOnly">Delayed Only</label>
+        </div>
+        <span class="ms-auto d-flex gap-2 align-items-center">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">■ On Track</span>
+            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">■ Delayed</span>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">■ New</span>
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">■ Removed</span>
+        </span>
+    </div>
+
+    <!-- Gantt container -->
+    <div id="progressGantt" style="width:100%; height:calc(100vh - 200px);"></div>
+}
+
+@section Scripts {
+@if (Model.IsInitialized)
+{
+<script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
+<link  href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css" rel="stylesheet" />
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+gantt.config.date_format   = "%Y-%m-%d";
+gantt.config.xml_date      = "%Y-%m-%d";
+gantt.config.readonly      = true;   // Progress Schedule: view only (edits via Change Log)
+gantt.config.show_progress = true;
+gantt.config.open_tree_initially = true;
+
+// Extra column: delay indicator
+gantt.config.columns = [
+    { name:"wbs",      label:"WBS",      width:60,  template: t => t.wbs_code || "" },
+    { name:"text",     label:"Activity", width:220, tree:true },
+    { name:"start_date", label:"Start",  width:85,  align:"center" },
+    { name:"end_date",   label:"Finish", width:85,  align:"center" },
+    { name:"delay",    label:"Delay",    width:65,  align:"center",
+      template: t => {
+        if (!t.days_shifted && t.days_shifted !== 0) return "–";
+        if (t.days_shifted === 0) return '<span class="text-success">On Track</span>';
+        if (t.days_shifted > 0)  return `<span class="text-warning">+${t.days_shifted}d</span>`;
+        return `<span class="text-success">${t.days_shifted}d</span>`;
+      }
+    },
+    { name:"progress", label:"%",        width:45,  align:"center",
+      template: t => `${Math.round((t.progress||0)*100)}%`
+    },
+];
+
+// ── Baseline bar (2nd row per task) ──────────────────────────────────────────
+let _showBaseline = true;
+
+gantt.addTaskLayer(task => {
+    if (!_showBaseline || !task.baseline_start || !task.baseline_end) return false;
+    const el = document.createElement("div");
+    el.className = "baseline-bar";
+    const sizes = gantt.getTaskPosition(task,
+        gantt.date.parseDate(task.baseline_start, "xml_date"),
+        gantt.date.parseDate(task.baseline_end,   "xml_date"));
+    el.style.cssText =
+        `left:${sizes.left}px;width:${sizes.width}px;` +
+        `top:${sizes.top + sizes.height - 6}px;height:5px;` +
+        `background:#6c757d;opacity:.5;border-radius:2px;position:absolute;`;
+    el.title = `Baseline: ${task.baseline_start} → ${task.baseline_end}`;
+    return el;
+});
+
+// ── Task styling by status ────────────────────────────────────────────────────
+gantt.templates.task_class = (start, end, task) => {
+    if (task.working_status === "Removed")   return "gantt-task-removed";
+    if (!task.baseline_id)                   return "gantt-task-new";
+    if ((task.days_shifted || 0) > 0)        return "gantt-task-delayed";
+    return "";
+};
+
+gantt.templates.grid_row_class = (start, end, task) =>
+    task.working_status === "Removed" ? "gantt-row-removed" : "";
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+gantt.init("progressGantt");
+
+fetch(`?handler=TasksJson&projectId=@Model.ProjectId`)
+    .then(r => r.json())
+    .then(d => gantt.parse({ data: d.data, links: [] }));
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function setScale(unit) {
+    document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn' + unit.charAt(0).toUpperCase() + unit.slice(1))
+            .classList.add('active');
+    gantt.config.scale_unit    = unit;
+    gantt.config.step          = 1;
+    gantt.config.date_scale    = unit === 'day' ? '%d %M' : unit === 'week' ? 'Week %W' : '%F %Y';
+    gantt.config.subscales     = unit === 'month' ? [{unit:"week",step:1,date:"W%W"}] : [];
+    gantt.render();
+}
+
+function toggleBaseline(show) {
+    _showBaseline = show;
+    gantt.render();
+}
+
+function filterDelayed(delayedOnly) {
+    gantt.filterTask = task =>
+        delayedOnly ? (task.days_shifted > 0 || !task.baseline_id) : true;
+    gantt.render();
+}
+</script>
+<style>
+.gantt-task-delayed  .gantt_task_progress { background: #ffc107aa; }
+.gantt-task-delayed  .gantt_task_content  { background: #ffc107; border-color:#e0a800; }
+.gantt-task-new      .gantt_task_content  { background: #0d6efd; border-color:#0a58ca; }
+.gantt-task-removed  .gantt_task_content  { background: #adb5bd; border-color:#868e96;
+                                             text-decoration:line-through; opacity:.6; }
+.gantt-row-removed   { opacity:.5; }
+</style>
+}
+}

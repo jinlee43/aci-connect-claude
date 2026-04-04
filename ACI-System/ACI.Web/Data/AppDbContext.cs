@@ -33,6 +33,12 @@ public class AppDbContext : DbContext
     public DbSet<ScheduleTask>         ScheduleTasks        => Set<ScheduleTask>();
     public DbSet<TaskDependency>       TaskDependencies     => Set<TaskDependency>();
 
+    // ─── Progress Schedule ────────────────────────────────────────────────────
+    public DbSet<WorkingTask>          WorkingTasks         => Set<WorkingTask>();
+    public DbSet<ScheduleRevision>     ScheduleRevisions    => Set<ScheduleRevision>();
+    public DbSet<ScheduleChange>       ScheduleChanges      => Set<ScheduleChange>();
+    public DbSet<RevisionDocument>     RevisionDocuments    => Set<RevisionDocument>();
+
     // ─── Lookahead ────────────────────────────────────────────────────────
     public DbSet<Lookahead>            Lookaheads           => Set<Lookahead>();
     public DbSet<LookaheadTask>        LookaheadTasks       => Set<LookaheadTask>();
@@ -252,6 +258,101 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(t => t.AssignedToId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── WorkingTask (Progress Schedule, self-referencing WBS) ────────────
+        builder.Entity<WorkingTask>(e =>
+        {
+            e.HasKey(t => t.Id);
+            e.Property(t => t.Progress).HasPrecision(5, 4);
+
+            e.HasOne(t => t.Project)
+             .WithMany()
+             .HasForeignKey(t => t.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(t => t.BaselineTask)
+             .WithMany()
+             .HasForeignKey(t => t.BaselineTaskId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(t => t.Parent)
+             .WithMany(t => t.Children)
+             .HasForeignKey(t => t.ParentId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(t => t.Trade)
+             .WithMany()
+             .HasForeignKey(t => t.TradeId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(t => t.AssignedTo)
+             .WithMany()
+             .HasForeignKey(t => t.AssignedToId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(t => t.ProjectId);
+            e.HasIndex(t => t.BaselineTaskId);
+        });
+
+        // ── ScheduleRevision ──────────────────────────────────────────────────
+        builder.Entity<ScheduleRevision>(e =>
+        {
+            e.HasKey(r => r.Id);
+
+            e.HasOne(r => r.Project)
+             .WithMany()
+             .HasForeignKey(r => r.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.SubmittedBy)
+             .WithMany()
+             .HasForeignKey(r => r.SubmittedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(r => r.Changes)
+             .WithOne(c => c.Revision)
+             .HasForeignKey(c => c.RevisionId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(r => r.Documents)
+             .WithOne(d => d.Revision)
+             .HasForeignKey(d => d.RevisionId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(r => new { r.ProjectId, r.RevisionNumber }).IsUnique();
+        });
+
+        // ── ScheduleChange ────────────────────────────────────────────────────
+        builder.Entity<ScheduleChange>(e =>
+        {
+            e.HasKey(c => c.Id);
+
+            e.HasOne(c => c.WorkingTask)
+             .WithMany(t => t.Changes)
+             .HasForeignKey(c => c.WorkingTaskId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(c => c.ChangedBy)
+             .WithMany()
+             .HasForeignKey(c => c.ChangedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(c => c.RevisionId);
+            e.HasIndex(c => c.WorkingTaskId);
+        });
+
+        // ── RevisionDocument ──────────────────────────────────────────────────
+        builder.Entity<RevisionDocument>(e =>
+        {
+            e.HasKey(d => d.Id);
+
+            e.HasOne(d => d.UploadedBy)
+             .WithMany()
+             .HasForeignKey(d => d.UploadedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(d => d.RevisionId);
         });
 
         // ── WeeklyWorkPlan ────────────────────────────────────────────────
