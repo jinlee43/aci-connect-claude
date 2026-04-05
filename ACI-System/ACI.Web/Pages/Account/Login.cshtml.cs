@@ -42,6 +42,7 @@ public class LoginModel : PageModel
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new("UserId",                  user.Id.ToString()),   // 커스텀 클레임: 여러 페이지 호환
             new(ClaimTypes.Name,           user.Name),
             new(ClaimTypes.Email,          user.Email),
             new(ClaimTypes.Role,           user.Role.ToString()),

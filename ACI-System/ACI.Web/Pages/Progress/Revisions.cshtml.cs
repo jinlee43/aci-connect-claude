@@ -143,7 +143,29 @@ public class RevisionsModel : PageModel
 
     private async Task<ApplicationUser> GetCurrentUserAsync()
     {
-        var email = User.Identity?.Name ?? string.Empty;
-        return await _db.Users.FirstAsync(u => u.Email == email);
+        var idStr = User.FindFirst("UserId")?.Value
+                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (int.TryParse(idStr, out var userId) && userId > 0)
+        {
+            var byId = await _db.Users.FindAsync(userId);
+            if (byId != null) return byId;
+        }
+
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrEmpty(email))
+        {
+            var byEmail = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (byEmail != null) return byEmail;
+        }
+
+        var name = User.Identity?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            var byName = await _db.Users.FirstOrDefaultAsync(u => u.Name == name);
+            if (byName != null) return byName;
+        }
+
+        throw new InvalidOperationException($"Current user not found. Claims: UserId={idStr}, Name={User.Identity?.Name}");
     }
 }

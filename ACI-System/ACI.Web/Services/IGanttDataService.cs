@@ -33,6 +33,9 @@ public class GanttTaskDto
     [JsonPropertyName("start_date")]
     public string StartDate { get; set; } = string.Empty;   // "MM-dd-yyyy HH:mm"
 
+    [JsonPropertyName("end_date")]
+    public string? EndDate { get; set; }                     // read-only, computed from start+duration
+
     public int Duration { get; set; }
     public double Progress { get; set; }
     public int? Parent { get; set; }
@@ -44,6 +47,22 @@ public class GanttTaskDto
     public string? Location { get; set; }
     public string? Description { get; set; }
     public int SortOrder { get; set; }
+
+    // ── Outbuild-style extra columns ──────────────────────────
+    [JsonPropertyName("wbs_code")]
+    public string? WbsCode { get; set; }
+
+    [JsonPropertyName("trade_name")]
+    public string? TradeName { get; set; }                   // read-only display
+
+    [JsonPropertyName("assigned_to_id")]
+    public int? AssignedToId { get; set; }
+
+    [JsonPropertyName("assigned_to_name")]
+    public string? AssignedToName { get; set; }              // read-only display
+
+    [JsonPropertyName("crew_size")]
+    public int CrewSize { get; set; }
 
     // Constraint (Procore-style SNET etc.)
     [JsonPropertyName("constraint_type")]

@@ -84,33 +84,82 @@ else
 {
     <!-- Gantt toolbar -->
     <div class="d-flex gap-2 mb-2 px-1 align-items-center flex-wrap">
+
+        <!-- Search -->
+        <div class="input-group input-group-sm" style="width:190px;">
+            <span class="input-group-text bg-white border-end-0 pe-1">
+                <i class="bi bi-search text-muted" style="font-size:12px;"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 ps-0" id="pgTaskSearch"
+                   placeholder="Search tasks…" style="font-size:12px;"
+                   oninput="pgFilterTasks(this.value)">
+            <button class="btn btn-outline-secondary" onclick="pgClearFilter()" title="Clear">
+                <i class="bi bi-x" style="font-size:13px;"></i>
+            </button>
+        </div>
+
+        <!-- Zoom + Fit + Today -->
         <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-secondary active" id="btnDay" onclick="setScale('day')">Day</button>
-            <button class="btn btn-outline-secondary" id="btnWeek" onclick="setScale('week')">Week</button>
+            <button class="btn btn-outline-secondary" onclick="gantt.ext.zoom.zoomIn()"  title="Zoom in">
+                <i class="bi bi-zoom-in"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="gantt.ext.zoom.zoomOut()" title="Zoom out">
+                <i class="bi bi-zoom-out"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="pgFitToScreen()"           title="Fit all tasks">
+                <i class="bi bi-arrows-angle-contract"></i>
+            </button>
+            <button class="btn btn-outline-secondary" onclick="gantt.showDate(new Date())" title="Jump to today">
+                <i class="bi bi-calendar-check"></i>
+            </button>
+        </div>
+
+        <!-- Scale -->
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" id="btnDay"   onclick="setScale('day')">Day</button>
+            <button class="btn btn-outline-secondary active" id="btnWeek"  onclick="setScale('week')">Week</button>
             <button class="btn btn-outline-secondary" id="btnMonth" onclick="setScale('month')">Month</button>
         </div>
-        <div class="form-check form-switch ms-2 mb-0">
+
+        <!-- Show Baseline toggle -->
+        <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="showBaseline" checked onchange="toggleBaseline(this.checked)">
-            <label class="form-check-label small" for="showBaseline">Show Baseline</label>
+            <label class="form-check-label small" for="showBaseline">Baseline</label>
         </div>
+
+        <!-- Delayed Only toggle -->
         <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="showDelayedOnly" onchange="filterDelayed(this.checked)">
             <label class="form-check-label small" for="showDelayedOnly">Delayed Only</label>
         </div>
-        <div class="form-check form-switch mb-0">
-            <input class="form-check-input" type="checkbox" id="showLinks" onchange="toggleLinks(this.checked)">
-            <label class="form-check-label small" for="showLinks">Links</label>
+
+        <!-- Links toggle -->
+        <button class="btn btn-sm btn-outline-secondary" id="btnLinks"
+                onclick="pgToggleLinks(this)">
+            <i class="bi bi-arrow-right me-1"></i>Links
+        </button>
+
+        <!-- Export -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-arrow-down-up me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="#" onclick="gantt.exportToPDF();return false;">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
+                </a></li>
+                <li><a class="dropdown-item" href="#" onclick="pgExportExcel();return false;">
+                    <i class="bi bi-file-earmark-excel me-2"></i>Export Excel
+                </a></li>
+            </ul>
         </div>
+
+        <!-- Status legend (right side) -->
         <span class="ms-auto d-flex gap-2 align-items-center flex-wrap">
             <span class="badge bg-success-subtle text-success border border-success-subtle">■ On Track</span>
             <span class="badge bg-warning-subtle text-warning border border-warning-subtle">■ Delayed</span>
             <span class="badge bg-primary-subtle text-primary border border-primary-subtle">■ New</span>
             <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">■ Removed</span>
-            <span style="border-left:1px solid #d1d5db;height:16px;margin:0 2px;"></span>
-            <span class="badge border" style="background:#eff6ff;color:#3b82f6;border-color:#bfdbfe!important;">― FS</span>
-            <span class="badge border" style="background:#f0fdf4;color:#16a34a;border-color:#bbf7d0!important;">― SS</span>
-            <span class="badge border" style="background:#fff7ed;color:#ea580c;border-color:#fed7aa!important;">― FF</span>
-            <span class="badge border" style="background:#faf5ff;color:#9333ea;border-color:#e9d5ff!important;">― SF</span>
         </span>
     </div>
 
@@ -124,15 +173,59 @@ else
 @section Scripts {
 @if (Model.IsInitialized)
 {
-<script src="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.js"></script>
-<link  href="https://cdn.dhtmlx.com/gantt/edge/dhtmlxgantt.css" rel="stylesheet" />
 <script>
 const _projectId = @Model.ProjectId;
 const _antiForgeryToken = document.querySelector('#__AjaxAntiForgery input[name="__RequestVerificationToken"]').value;
 
+// ── Plugins + Zoom 초기화 (반드시 config/init 이전에) ───────────────────────
+gantt.plugins({ zoom: true });
+
+gantt.ext.zoom.init({
+    levels: [
+        {
+            name: "day", scale_height: 54, min_column_width: 70,
+            scales: [
+                { unit: "week",  step: 1, format: "Week %W, %Y" },
+                { unit: "day",   step: 1, format: "%d %D" }
+            ]
+        },
+        {
+            name: "week", scale_height: 54, min_column_width: 50,
+            scales: [
+                { unit: "month", step: 1, format: "%F %Y" },
+                { unit: "week",  step: 1, format: "W%W" }
+            ]
+        },
+        {
+            name: "month", scale_height: 54, min_column_width: 100,
+            scales: [
+                { unit: "year",  step: 1, format: "%Y" },
+                { unit: "month", step: 1, format: "%M" }
+            ]
+        },
+        {
+            name: "quarter", scale_height: 54, min_column_width: 90,
+            scales: [
+                { unit: "year",    step: 1, format: "%Y" },
+                { unit: "quarter", step: 1, format: d => "Q" + (Math.floor(d.getMonth()/3)+1) }
+            ]
+        },
+        {
+            name: "year", scale_height: 54, min_column_width: 100,
+            scales: [
+                { unit: "year",  step: 1, format: "%Y" },
+                { unit: "month", step: 3, format: "%M" }
+            ]
+        }
+    ],
+    startIndex: 1,   // Week 레벨로 시작
+    trigger: "wheel",
+    useKey: "ctrlKey",
+    element: () => gantt.$root?.querySelector(".gantt_task") ?? gantt.$root
+});
+
 // ── Config ────────────────────────────────────────────────────────────────────
-gantt.config.date_format         = "%Y-%m-%d";
-gantt.config.xml_date            = "%Y-%m-%d";
+gantt.config.date_format         = "%Y-%m-%d";   // ISO: "2025-03-01"
 gantt.config.readonly            = false;   // drag enabled
 gantt.config.show_progress       = true;
 gantt.config.drag_progress       = true;    // progress bar drag
@@ -140,22 +233,95 @@ gantt.config.drag_resize         = true;    // resize end date
 gantt.config.drag_move           = true;    // move task
 gantt.config.drag_links          = false;   // dependency links — off
 gantt.config.open_tree_initially = true;
+gantt.config.row_height = 32;
 
 gantt.config.columns = [
-    { name:"wbs",        label:"WBS",    width:60,  template: t => t.wbs_code || "" },
-    { name:"text",       label:"Activity", width:220, tree:true },
-    { name:"start_date", label:"Start",  width:85,  align:"center" },
-    { name:"end_date",   label:"Finish", width:85,  align:"center" },
-    { name:"delay",      label:"Delay",  width:65,  align:"center",
-      template: t => {
-        if (t.days_shifted == null) return "–";
-        if (t.days_shifted === 0)   return '<span class="text-success">■</span>';
-        if (t.days_shifted > 0)     return `<span class="text-warning fw-semibold">+${t.days_shifted}d</span>`;
-        return `<span class="text-success fw-semibold">${t.days_shifted}d</span>`;
-      }
+    // ID (WBS code or row number)
+    {
+        name: "wbs", label: "ID", align: "center", width: 45, resize: true,
+        template: t => {
+            const wbs = t.wbs_code;
+            if (wbs) return `<span style="font-size:11px;color:#6b7280">${wbs}</span>`;
+            return `<span style="font-size:11px;color:#9ca3af">${gantt.getGlobalTaskIndex(t.id)}</span>`;
+        }
     },
-    { name:"progress", label:"%", width:45, align:"center",
-      template: t => `${Math.round((t.progress||0)*100)}%`
+    // Task name (tree)
+    {
+        name: "text", label: "Task", tree: true, width: 200, resize: true,
+        template: t => {
+            const lvl = t.$level ?? 0;
+            const prefix = t.type === 'project'   ? '— '
+                         : t.type === 'milestone' ? '⬥ '
+                         : '';
+            if (t.type === 'milestone') {
+                return `<span title="${t.text}" style="font-weight:600;color:#d97706">${prefix}${t.text}</span>`;
+            }
+            let style;
+            if (lvl === 0)      style = 'font-weight:700;font-size:13px;color:#111827';
+            else if (lvl === 1) style = 'color:#374151';
+            else                style = 'color:#6b7280;font-size:11.5px';
+            // Removed 태스크: strikethrough
+            if (t.working_status === 'Removed') style += ';text-decoration:line-through;opacity:.5';
+            return `<span title="${t.text}" style="${style}">${prefix}${t.text}</span>`;
+        }
+    },
+    // Trade
+    {
+        name: "trade_name", label: "Trade", align: "left", width: 80, resize: true,
+        template: t => {
+            if (!t.trade_name) return '';
+            const c = t.color || '#6b7280';
+            return `<span style="font-size:11px;color:${c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block" title="${t.trade_name}">${t.trade_name}</span>`;
+        }
+    },
+    // Start
+    { name: "start_date", label: "Start", width: 85, align: "center", resize: true },
+    // Duration
+    { name: "duration", label: "Duration", align: "center", width: 55, resize: true,
+        template: t => `<span style="font-size:12px">${t.duration} d</span>`
+    },
+    // End (end_date_col — "end_date" is reserved by dhtmlxGantt, avoid naming conflict)
+    {
+        name: "end_date_col", label: "End", width: 85, align: "center", resize: true,
+        template: t => {
+            if (!t.end_date) return '';
+            return gantt.templates.date_grid(t.end_date);
+        }
+    },
+    // Delay (Current Schedule specific)
+    {
+        name: "delay", label: "Delay", width: 55, align: "center", resize: true,
+        template: t => {
+            if (t.days_shifted == null) return '–';
+            if (t.days_shifted === 0)   return '<span style="color:#16a34a">●</span>';
+            if (t.days_shifted > 0)     return `<span style="color:#d97706;font-weight:600;font-size:11px">+${t.days_shifted}d</span>`;
+            return `<span style="color:#16a34a;font-weight:600;font-size:11px">${t.days_shifted}d</span>`;
+        }
+    },
+    // Progress
+    {
+        name: "progress", label: "Progress", width: 60, align: "center", resize: true,
+        template: t => {
+            const pct = Math.round((t.progress||0)*100);
+            const color = pct >= 100 ? '#16a34a' : pct >= 50 ? '#059669' : pct > 0 ? '#d97706' : '#9ca3af';
+            return `<span style="font-weight:700;color:${color};font-size:12px">${pct}%</span>`;
+        }
+    },
+    // Responsible
+    {
+        name: "responsible", label: "Responsible", align: "center", width: 75, resize: true,
+        template: t => {
+            if (!t.assigned_to_name) return '';
+            const parts = t.assigned_to_name.split(' ').filter(Boolean);
+            const initials = parts.length >= 2
+                ? (parts[0][0] + parts[parts.length-1][0]).toUpperCase()
+                : (parts[0] || '').substring(0,2).toUpperCase();
+            const colors = ['#3b82f6','#16a34a','#d97706','#9333ea','#dc2626','#0891b2','#db2777'];
+            const ci = (t.assigned_to_id || 0) % colors.length;
+            return `<span title="${t.assigned_to_name}" style="display:inline-flex;align-items:center;justify-content:center;
+                width:26px;height:26px;border-radius:50%;background:${colors[ci]};color:#fff;font-size:10px;font-weight:700;
+                letter-spacing:.5px;cursor:default">${initials}</span>`;
+        }
     },
 ];
 
@@ -266,19 +432,24 @@ function cascadeSuccessors(taskId, visited, onChanged) {
 // ── Baseline bar layer ────────────────────────────────────────────────────────
 let _showBaseline = true;
 
-gantt.addTaskLayer(task => {
-    if (!_showBaseline || !task.baseline_start || !task.baseline_end) return false;
-    const el = document.createElement("div");
-    const sizes = gantt.getTaskPosition(task,
-        gantt.date.parseDate(task.baseline_start, "xml_date"),
-        gantt.date.parseDate(task.baseline_end,   "xml_date"));
-    el.style.cssText =
-        `left:${sizes.left}px;width:${Math.max(sizes.width,4)}px;` +
-        `top:${sizes.top + sizes.height - 6}px;height:5px;` +
-        `background:#6c757d;opacity:.5;border-radius:2px;position:absolute;cursor:default;`;
-    el.title = `Baseline: ${task.baseline_start} → ${task.baseline_end}`;
-    return el;
-});
+// addTaskLayer는 dhtmlxGantt Pro 전용 — GPL에서는 스킵
+if (typeof gantt.addTaskLayer === 'function') {
+    const _parseDateFn = gantt.date.str_to_date("%Y-%m-%d");
+    gantt.addTaskLayer(task => {
+        if (!_showBaseline || !task.baseline_start || !task.baseline_end) return false;
+        const bStart = _parseDateFn(task.baseline_start);
+        const bEnd   = _parseDateFn(task.baseline_end);
+        if (!bStart || !bEnd) return false;
+        const el = document.createElement("div");
+        const sizes = gantt.getTaskPosition(task, bStart, bEnd);
+        el.style.cssText =
+            `left:${sizes.left}px;width:${Math.max(sizes.width,4)}px;` +
+            `top:${sizes.top + sizes.height - 6}px;height:5px;` +
+            `background:#6c757d;opacity:.5;border-radius:2px;position:absolute;cursor:default;`;
+        el.title = `Baseline: ${task.baseline_start} → ${task.baseline_end}`;
+        return el;
+    });
+}
 
 // ── Task styling ──────────────────────────────────────────────────────────────
 gantt.templates.task_class = (start, end, task) => {
@@ -375,34 +546,111 @@ window.addEventListener('beforeunload', e => {
 gantt.init("progressGantt");
 
 fetch(`?handler=TasksJson&projectId=${_projectId}`)
-    .then(r => r.json())
-    .then(d => gantt.parse({ data: d.data, links: [] }));
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(d => {
+        console.log('[Gantt] task count:', d.data?.length ?? 0, d);
+        gantt.parse({ data: d.data ?? [], links: [] });
+    })
+    .catch(e => console.error('[Gantt] load error:', e));
 
 // ── Controls ──────────────────────────────────────────────────────────────────
+
+/** Scale 버튼 (Day / Week / Month) */
 function setScale(unit) {
-    document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('btn' + unit.charAt(0).toUpperCase() + unit.slice(1)).classList.add('active');
-    gantt.config.scale_unit = unit;
-    gantt.config.step       = 1;
-    gantt.config.date_scale = unit === 'day' ? '%d %M' : unit === 'week' ? 'Week %W' : '%F %Y';
-    gantt.config.subscales  = unit === 'month' ? [{unit:"week",step:1,date:"W%W"}] : [];
-    gantt.render();
+    const levelMap = { day: 0, week: 1, month: 2, quarter: 3, year: 4 };
+    if (levelMap[unit] !== undefined) {
+        gantt.ext.zoom.setLevel(levelMap[unit]);
+    }
+    // 버튼 active 동기화
+    ['Day','Week','Month'].forEach(u => {
+        const btn = document.getElementById('btn' + u);
+        if (btn) btn.classList.toggle('active', u.toLowerCase() === unit);
+    });
 }
 
+/** Baseline 레이어 토글 */
 function toggleBaseline(show) {
     _showBaseline = show;
     gantt.render();
 }
 
+/** Delayed Only 필터 */
 function filterDelayed(delayedOnly) {
     gantt.filterTask = task =>
         delayedOnly ? (task.days_shifted > 0 || !task.baseline_id) : true;
     gantt.render();
 }
 
-// ── Links 토글: 전체 표시 ↔ 호버만 표시 ─────────────────────
-function toggleLinks(show) {
-    document.getElementById('progressGantt').classList.toggle('aci-links-visible', show);
+/** Links 전체 표시 ↔ 호버만 표시 토글 */
+function pgToggleLinks(btn) {
+    const wasActive = btn.classList.contains('active');
+    btn.classList.toggle('active', !wasActive);
+    btn.classList.toggle('btn-secondary', !wasActive);
+    btn.classList.toggle('btn-outline-secondary', wasActive);
+    document.getElementById('progressGantt')
+        .classList.toggle('aci-links-visible', !wasActive);
+}
+
+/** 태스크 텍스트 / WBS 검색 */
+function pgFilterTasks(text) {
+    const q = (text || '').toLowerCase().trim();
+    gantt.filterTask = q
+        ? (id, task) =>
+              task.text.toLowerCase().includes(q) ||
+              (task.wbs_code || '').toLowerCase().includes(q)
+        : null;
+    gantt.render();
+}
+
+/** 검색 필터 초기화 */
+function pgClearFilter() {
+    const inp = document.getElementById('pgTaskSearch');
+    if (inp) inp.value = '';
+    gantt.filterTask = null;
+    gantt.render();
+}
+
+/** 모든 태스크가 보이도록 타임라인 범위 조정 */
+function pgFitToScreen() {
+    const tasks = [];
+    gantt.eachTask(t => tasks.push(t));
+    if (!tasks.length) return;
+    const starts = tasks.map(t => t.start_date && +t.start_date).filter(Boolean);
+    const ends   = tasks.map(t => t.end_date   && +t.end_date  ).filter(Boolean);
+    if (!starts.length) return;
+    const pad = 7 * 24 * 3600 * 1000;  // ±7일 여백
+    gantt.config.start_date = new Date(Math.min(...starts) - pad);
+    gantt.config.end_date   = new Date(Math.max(...ends)   + pad);
+    gantt.render();
+}
+
+/** 엑셀 내보내기 (브라우저 CSV fallback — Pro 전용 exportToExcel 없을 경우) */
+function pgExportExcel() {
+    if (typeof gantt.exportToExcel === 'function') {
+        gantt.exportToExcel({ name: "current_schedule.xlsx" });
+        return;
+    }
+    // GPL fallback: CSV 다운로드
+    const rows = [["ID","WBS","Task","Trade","Start","End","Duration","Progress","Delay"]];
+    gantt.eachTask(t => {
+        rows.push([
+            t.id,
+            t.wbs_code || '',
+            t.text || '',
+            t.trade_name || '',
+            t.start_date ? gantt.templates.date_grid(t.start_date) : '',
+            t.end_date   ? gantt.templates.date_grid(t.end_date)   : '',
+            t.duration || 0,
+            Math.round((t.progress || 0) * 100) + '%',
+            t.days_shifted != null ? (t.days_shifted >= 0 ? '+' + t.days_shifted : t.days_shifted) + 'd' : ''
+        ]);
+    });
+    const csv  = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: 'current_schedule.csv' });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
 }
 
 // ── 호버 시 해당 태스크의 link만 하이라이트 ──────────────────

@@ -62,6 +62,13 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnGetTasksJsonAsync()
     {
         var tasks = await _svc.GetWorkingTasksAsync(ProjectId);
+
+        // Eager-load Trade and AssignedTo for display columns
+        var tradeIds = tasks.Where(t => t.TradeId.HasValue).Select(t => t.TradeId!.Value).Distinct();
+        var trades = await _db.Trades.Where(t => tradeIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id);
+        var assigneeIds = tasks.Where(t => t.AssignedToId.HasValue).Select(t => t.AssignedToId!.Value).Distinct();
+        var assignees = await _db.Employees.Where(e => assigneeIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id);
+
         var data = tasks.Select(t => new
         {
             id         = t.Id,
@@ -73,8 +80,12 @@ public class IndexModel : PageModel
             parent     = t.ParentId ?? 0,
             type       = t.GanttTypeString,
             open       = t.IsOpen,
-            color      = t.Color,
+            color      = t.Color ?? (t.TradeId.HasValue && trades.ContainsKey(t.TradeId.Value) ? trades[t.TradeId.Value].Color : null),
             wbs_code   = t.WbsCode,
+            trade_name      = t.TradeId.HasValue && trades.TryGetValue(t.TradeId.Value, out var trade) ? trade.Name : null,
+            assigned_to_id   = t.AssignedToId,
+            assigned_to_name = t.AssignedToId.HasValue && assignees.TryGetValue(t.AssignedToId.Value, out var emp)
+                ? $"{emp.FirstName} {emp.LastName}".Trim() : null,
             baseline_id    = t.BaselineTaskId,
             days_shifted   = t.DaysDelayed,
             working_status = t.WorkingStatus.ToString(),
@@ -139,8 +150,33 @@ public class IndexModel : PageModel
 
     private async Task<ApplicationUser> GetCurrentUserAsync()
     {
-        var email = User.Identity?.Name ?? string.Empty;
-        return await _db.Users.FirstAsync(u => u.Email == email);
+        // 1. "UserId" 커스텀 클레임 (신규 로그인 후 존재)
+        var idStr = User.FindFirst("UserId")?.Value
+                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (int.TryParse(idStr, out var userId) && userId > 0)
+        {
+            var byId = await _db.Users.FindAsync(userId);   // PK 직접 조회 → 가장 신뢰성 높음
+            if (byId != null) return byId;
+        }
+
+        // 2. Email fallback
+        var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+        if (!string.IsNullOrEmpty(email))
+        {
+            var byEmail = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (byEmail != null) return byEmail;
+        }
+
+        // 3. Name fallback (ClaimTypes.Name = user.Name, 로그인 시 항상 존재)
+        var name = User.Identity?.Name;
+        if (!string.IsNullOrEmpty(name))
+        {
+            var byName = await _db.Users.FirstOrDefaultAsync(u => u.Name == name);
+            if (byName != null) return byName;
+        }
+
+        throw new InvalidOperationException($"Current user not found. Claims: UserId={idStr}, Name={User.Identity?.Name}");
     }
 }
 

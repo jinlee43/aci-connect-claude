@@ -17,6 +17,7 @@ public class GanttDataService : IGanttDataService
         var tasks = await _db.ScheduleTasks
             .Where(t => t.ProjectId == projectId && t.IsActive)
             .Include(t => t.Trade)
+            .Include(t => t.AssignedTo)
             .OrderBy(t => t.SortOrder)
             .ThenBy(t => t.StartDate)
             .ToListAsync();
@@ -225,6 +226,7 @@ public class GanttDataService : IGanttDataService
         Id          = t.Id,
         Text        = t.Text,
         StartDate   = t.StartDate.ToDateTime(TimeOnly.MinValue).ToString(DateFormat),
+        EndDate     = t.EndDate.ToDateTime(TimeOnly.MinValue).ToString(DateFormat),
         Duration    = t.Duration,
         Progress    = t.Progress,
         Parent      = t.ParentId ?? 0,
@@ -235,6 +237,12 @@ public class GanttDataService : IGanttDataService
         Location    = t.Location,
         Description = t.Description,
         SortOrder   = t.SortOrder,
+        WbsCode        = t.WbsCode,
+        TradeName      = t.Trade?.Name,
+        AssignedToId   = t.AssignedToId,
+        AssignedToName = t.AssignedTo != null
+            ? $"{t.AssignedTo.FirstName} {t.AssignedTo.LastName}".Trim() : null,
+        CrewSize       = t.CrewSize,
         ConstraintType = t.ConstraintType.HasValue ? t.ConstraintType.Value switch
         {
             TaskConstraintType.StartNoEarlierThan => "snet",
