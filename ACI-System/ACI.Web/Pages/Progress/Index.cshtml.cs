@@ -49,12 +49,12 @@ public class IndexModel : PageModel
         return Page();
     }
 
-    // Initialize: fork Baseline → Progress Schedule
+    // Initialize: fork Baseline → Current Schedule
     public async Task<IActionResult> OnPostInitializeAsync()
     {
         var user = await GetCurrentUserAsync();
         await _svc.ForkBaselineAsync(ProjectId, user.Id, user.Name);
-        TempData["Success"] = "Progress Schedule initialized from Baseline.";
+        TempData["Success"] = "Current Schedule initialized from Baseline.";
         return RedirectToPage(new { projectId = ProjectId });
     }
 
@@ -78,11 +78,63 @@ public class IndexModel : PageModel
             baseline_id    = t.BaselineTaskId,
             days_shifted   = t.DaysDelayed,
             working_status = t.WorkingStatus.ToString(),
-            // Baseline reference dates for comparison bars
             baseline_start = t.BaselineTask?.StartDate.ToString("yyyy-MM-dd"),
             baseline_end   = t.BaselineTask?.EndDate.ToString("yyyy-MM-dd"),
         });
         return new JsonResult(new { data });
+    }
+
+    // API: Batch save all pending Gantt changes
+    public async Task<IActionResult> OnPostSaveChangesAsync([FromBody] List<TaskUpdateDto> changes)
+    {
+        if (changes == null || changes.Count == 0)
+            return new JsonResult(new { success = true, saved = 0 });
+
+        try
+        {
+            var user  = await GetCurrentUserAsync();
+            var draft = await _svc.GetOrCreateDraftRevisionAsync(ProjectId, user.Id, user.Name);
+
+            int saved = 0;
+            var results = new List<object>();
+
+            foreach (var dto in changes)
+            {
+                var task = await _db.WorkingTasks
+                    .Include(t => t.BaselineTask)
+                    .FirstOrDefaultAsync(t => t.Id == dto.TaskId && t.ProjectId == ProjectId);
+
+                if (task == null || task.WorkingStatus == WorkingTaskStatus.Removed)
+                    continue;
+
+                task.StartDate = DateOnly.Parse(dto.StartDate);
+                task.EndDate   = DateOnly.Parse(dto.EndDate);
+                task.Duration  = dto.Duration;
+                task.Progress  = Math.Clamp(dto.Progress, 0.0, 1.0);
+
+                var updated = await _svc.UpdateWorkingTaskAsync(task, draft.Id, user.Id, user.Name);
+                saved++;
+
+                results.Add(new
+                {
+                    taskId      = dto.TaskId,
+                    daysShifted = updated.DaysDelayed
+                });
+            }
+
+            return new JsonResult(new
+            {
+                success       = true,
+                saved         = saved,
+                revisionId    = draft.Id,
+                revisionTitle = draft.Title,
+                results
+            });
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { success = false, error = ex.Message }) { StatusCode = 500 };
+        }
     }
 
     private async Task<ApplicationUser> GetCurrentUserAsync()
@@ -90,4 +142,14 @@ public class IndexModel : PageModel
         var email = User.Identity?.Name ?? string.Empty;
         return await _db.Users.FirstAsync(u => u.Email == email);
     }
+}
+
+/// <summary>DTO for Gantt drag-and-drop task updates.</summary>
+public class TaskUpdateDto
+{
+    public int    TaskId    { get; set; }
+    public string StartDate { get; set; } = "";
+    public string EndDate   { get; set; } = "";
+    public int    Duration  { get; set; }
+    public double Progress  { get; set; }
 }

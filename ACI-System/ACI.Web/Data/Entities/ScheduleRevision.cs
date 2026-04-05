@@ -4,7 +4,7 @@ namespace ACI.Web.Data.Entities;
 
 public enum RevisionType
 {
-    Initial          = 0,   // 최초 Baseline → Progress Schedule 전환
+    Initial          = 0,   // 최초 Baseline → Current Schedule 전환
     MonthlyUpdate    = 1,   // 월별 정기 업데이트
     ChangeOrder      = 2,   // Change Order 반영
     OwnerDirected    = 3,   // 발주처 지시
@@ -25,7 +25,7 @@ public enum RevisionStatus
 /// <summary>
 /// A named batch of schedule changes submitted for approval.
 /// Analogous to a Schedule Update submittal in US construction contracts.
-/// UI label: "Progress Schedule Revision"
+/// UI label: "Current Schedule Revision"
 /// </summary>
 public class ScheduleRevision : BaseEntity
 {
@@ -59,6 +59,11 @@ public class ScheduleRevision : BaseEntity
 
     [MaxLength(500)]
     public string? ApprovalNotes { get; set; }
+
+    // ── Baseline reference ───────────────────────────────────────────────────
+    /// <summary>Which baseline version this revision's changes are measured against.</summary>
+    public int? BaselineId { get; set; }
+    public ScheduleBaseline? Baseline { get; set; }
 
     // ── Who created this revision ─────────────────────────────────────────────
     /// <summary>Internal user who created / submitted this revision.</summary>

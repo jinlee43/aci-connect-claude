@@ -69,7 +69,7 @@ public class IndexModel : PageModel
 
         if (lookahead == null)
         {
-            // 해당 기간 Lookahead 없음 → 새로 생성 후 Master Schedule 자동 pull
+            // 해당 기간 Lookahead 없음 → 새로 생성 후 Baseline Schedule 자동 pull
             var weekNum = System.Globalization.ISOWeek.GetWeekOfYear(PeriodStart.ToDateTime(TimeOnly.MinValue));
             lookahead = await _lookaheadSvc.CreateLookaheadAsync(
                 ProjectId, PeriodStart, Weeks,
@@ -125,7 +125,7 @@ public class IndexModel : PageModel
         var periodEnd = periodStart.AddDays(weeks * 7);
         var pulled = await _lookaheadSvc.PullFromScheduleAsync(lookaheadId, ProjectId, periodStart, periodEnd);
         TempData[pulled > 0 ? "Success" : "Info"] =
-            pulled > 0 ? $"{pulled} task(s) pulled from Master Schedule." : "No new tasks to pull.";
+            pulled > 0 ? $"{pulled} task(s) pulled from Baseline Schedule." : "No new tasks to pull.";
         return RedirectToPage(new { projectId = ProjectId, baseDate = periodStart.ToString("yyyy-MM-dd"), weeks });
     }
 

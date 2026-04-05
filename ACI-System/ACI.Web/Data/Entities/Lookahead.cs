@@ -57,14 +57,14 @@ public class Lookahead : BaseEntity
 
 /// <summary>
 /// Individual task within a Lookahead window.
-/// Optionally linked to a Master Schedule (ScheduleTask).
+/// Optionally linked to a Baseline Schedule (ScheduleTask).
 /// </summary>
 public class LookaheadTask : BaseEntity
 {
     public int LookaheadId { get; set; }
     public Lookahead Lookahead { get; set; } = null!;
 
-    /// <summary>Optional link to master schedule task.</summary>
+    /// <summary>Optional link to baseline schedule task.</summary>
     public int? ScheduleTaskId { get; set; }
     public ScheduleTask? ScheduleTask { get; set; }
 

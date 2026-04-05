@@ -11,10 +11,10 @@ public enum WorkingTaskStatus
 }
 
 /// <summary>
-/// Progress Schedule task — the "live" version of ScheduleTask (Baseline).
+/// Current Schedule task — the "live" version of ScheduleTask (Baseline).
 /// Created by forking the Baseline; updated as the project progresses.
 /// All changes are tracked via ScheduleChange records within a ScheduleRevision.
-/// UI label: "Progress Schedule"
+/// UI label: "Current Schedule"
 /// </summary>
 public class WorkingTask : BaseEntity
 {

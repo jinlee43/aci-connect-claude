@@ -45,6 +45,13 @@ public class GanttTaskDto
     public string? Description { get; set; }
     public int SortOrder { get; set; }
 
+    // Constraint (Procore-style SNET etc.)
+    [JsonPropertyName("constraint_type")]
+    public string? ConstraintType { get; set; }
+
+    [JsonPropertyName("constraint_date")]
+    public string? ConstraintDate { get; set; }
+
     // 베이스라인 (dhtmlxGantt extension)
     [JsonPropertyName("planned_start")]
     public string? PlannedStart { get; set; }

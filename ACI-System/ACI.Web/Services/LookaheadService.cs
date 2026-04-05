@@ -13,7 +13,7 @@ public interface ILookaheadService
     Task<LookaheadTask> UpdateTaskAsync(LookaheadTask task);
     Task DeleteTaskAsync(int taskId);
     Task<List<ScheduleTask>> GetScheduleTasksForPeriodAsync(int projectId, DateOnly start, DateOnly end);
-    /// <summary>Master Schedule 에서 해당 기간의 task 를 Lookahead 로 가져온다. 이미 연결된 task 는 중복 추가하지 않음.</summary>
+    /// <summary>Baseline Schedule 에서 해당 기간의 task 를 Lookahead 로 가져온다. 이미 연결된 task 는 중복 추가하지 않음.</summary>
     Task<int> PullFromScheduleAsync(int lookaheadId, int projectId, DateOnly start, DateOnly end);
 }
 

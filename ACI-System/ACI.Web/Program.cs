@@ -6,7 +6,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .ConfigureWarnings(w => w.Ignore(
+               Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 
 // ─── Custom Cookie Auth (NOT ASP.NET Identity) ────────────────────────────
 builder.Services.AddAuthentication("AciCookies")
@@ -54,6 +56,8 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ILookaheadService, LookaheadService>();
 builder.Services.AddScoped<IWeeklyPlanService, WeeklyPlanService>();
 builder.Services.AddScoped<IProgressScheduleService, ProgressScheduleService>();
+builder.Services.AddScoped<IBaselineService, BaselineService>();
+builder.Services.AddScoped<ISimulationService, SimulationService>();
 
 // ─── HTTP Context Accessor (for auth helper) ──────────────────────────────
 builder.Services.AddHttpContextAccessor();

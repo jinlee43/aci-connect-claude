@@ -106,7 +106,7 @@ public static class DbInitializer
             db.Trades.AddRange(trades);
             await db.SaveChangesAsync();
 
-            // Sample WBS (Master Schedule)
+            // Sample WBS (Baseline Schedule)
             var wbs1 = new ScheduleTask
             {
                 ProjectId = project.Id, WbsCode = "1", Text = "Pre-Construction",

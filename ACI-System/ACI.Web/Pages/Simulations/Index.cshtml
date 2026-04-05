@@ -1,0 +1,366 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.Simulations.IndexModel
+@{
+    ViewData["Title"] = "What-If Scenarios";
+    ViewData["ActiveMenu"] = "simulations";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-lightning me-2 text-warning"></i>What-If Scenarios</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+                <li class="breadcrumb-item active">@Model.ProjectName</li>
+            </ol>
+        </nav>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#createModal">
+            <i class="bi bi-lightning me-1"></i>New Scenario
+        </button>
+        @if (Model.Simulations.Count >= 2)
+        {
+            <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#compareModal">
+                <i class="bi bi-layout-split me-1"></i>Compare Scenarios
+            </button>
+        }
+    </div>
+</div>
+
+<div class="p-3">
+    @if (!Model.Simulations.Any())
+    {
+        <div class="aci-card p-5 text-center">
+            <i class="bi bi-lightning display-4 text-muted d-block mb-3"></i>
+            <h5 class="text-muted">No Scenarios Yet</h5>
+            <p class="text-muted mb-3">
+                Create a What-If scenario to explore schedule changes without affecting the live plan.
+            </p>
+            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#createModal">
+                <i class="bi bi-lightning me-1"></i>Create First Scenario
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3 mb-4">
+        @foreach (var sim in Model.Simulations)
+        {
+            <div class="col-md-6 col-lg-4">
+                <div class="aci-card h-100">
+                    <div class="p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="mb-0 fw-bold">
+                                <i class="bi bi-lightning-fill text-warning me-1"></i>@sim.Name
+                            </h6>
+                            <span class="badge @sim.StatusBadgeClass">@sim.Status</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(sim.Description))
+                        {
+                            <p class="text-muted small mb-2">@sim.Description</p>
+                        }
+
+                        <div class="small text-muted mb-2">
+                            <i class="bi bi-box-arrow-in-right me-1"></i>
+                            Based on: <strong>@(sim.SourceBaseline?.IsAutoSnapshot == true ? "Current Plan" : sim.SourceType == ACI.Web.Data.Entities.SimulationSourceType.CurrentPlan ? "Current Plan" : sim.SourceBaseline?.VersionLabel ?? "Baseline")</strong>
+                        </div>
+
+                        <!-- Impact summary -->
+                        <div class="row g-2 text-center mb-3">
+                            <div class="col-4">
+                                <div class="bg-light rounded p-2">
+                                    <div class="fw-bold">@sim.ModifiedTaskCount</div>
+                                    <div class="text-muted" style="font-size:.7rem">Changes</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="bg-light rounded p-2">
+                                    <div class="fw-bold @(sim.TotalDaysImpact > 0 ? "text-danger" : sim.TotalDaysImpact < 0 ? "text-success" : "")">
+                                        @(sim.TotalDaysImpact.HasValue ? (sim.TotalDaysImpact > 0 ? "+" : "") + sim.TotalDaysImpact + "d" : "—")
+                                    </div>
+                                    <div class="text-muted" style="font-size:.7rem">Impact</div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="bg-light rounded p-2">
+                                    <div class="fw-bold">@(sim.SimulatedEndDate?.ToString("MMM dd") ?? "—")</div>
+                                    <div class="text-muted" style="font-size:.7rem">End Date</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small mb-3">
+                            By @(sim.CreatedByName ?? "—") · @sim.CreatedAt.ToString("MMM dd, yyyy")
+                        </div>
+
+                        <div class="d-flex gap-1 flex-wrap">
+                            <button class="btn btn-sm btn-outline-primary" onclick="viewResult(@sim.Id)">
+                                <i class="bi bi-eye me-1"></i>View
+                            </button>
+                            @if (sim.Status != ACI.Web.Data.Entities.SimulationStatus.Archived)
+                            {
+                                <form method="post" asp-page-handler="Promote" class="d-inline"
+                                      onsubmit="return confirm('Apply this simulation to Current Plan?')">
+                                    <input type="hidden" name="simulationId" value="@sim.Id" />
+                                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-up-circle me-1"></i>Promote
+                                    </button>
+                                </form>
+                                <form method="post" asp-page-handler="Archive" class="d-inline">
+                                    <input type="hidden" name="simulationId" value="@sim.Id" />
+                                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-archive"></i>
+                                    </button>
+                                </form>
+                            }
+                            <form method="post" asp-page-handler="Delete" class="d-inline"
+                                  onsubmit="return confirm('Delete this simulation?')">
+                                <input type="hidden" name="simulationId" value="@sim.Id" />
+                                <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        </div>
+    }
+
+    <!-- ─── Result Panel (Gantt + Table) ──────────────────────────── -->
+    <div id="resultSection" style="display:none">
+        <div class="aci-card">
+            <div class="p-3 d-flex justify-content-between align-items-center border-bottom">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightning me-2 text-warning"></i>
+                    <span id="resultTitle">Simulation Result</span>
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="closeResult()">
+                    <i class="bi bi-x-lg"></i> Close
+                </button>
+            </div>
+
+            <!-- Impact summary -->
+            <div class="p-3 bg-light border-bottom">
+                <div class="row g-3" id="impactStats"></div>
+            </div>
+
+            <!-- Gantt view -->
+            <div id="simGantt" style="width:100%; height:400px;"></div>
+
+            <!-- Task detail table -->
+            <div class="p-3">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover" id="resultTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>WBS</th>
+                                <th>Task</th>
+                                <th>Original Dates</th>
+                                <th>Simulated Dates</th>
+                                <th>Shift</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Create Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="createModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-lightning me-2 text-warning"></i>New What-If Scenario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Create">
+                <div class="modal-body">
+                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                    <div class="mb-3">
+                        <label class="form-label">Scenario Name *</label>
+                        <input type="text" name="name" class="form-control" required
+                               placeholder="e.g. Accelerated Foundation" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2"
+                                  placeholder="What are you exploring?"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Based On</label>
+                        <select name="sourceType" class="form-select" id="sourceTypeSelect" onchange="toggleBaselineSelect()">
+                            <option value="0">Current Plan</option>
+                            <option value="1">Specific Baseline</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="baselineSelectGroup" style="display:none">
+                        <label class="form-label">Select Baseline</label>
+                        <select name="sourceBaselineId" class="form-select">
+                            @foreach (var b in Model.Baselines.Where(b => b.Status == ACI.Web.Data.Entities.BaselineStatus.Approved || b.Status == ACI.Web.Data.Entities.BaselineStatus.Superseded))
+                            {
+                                <option value="@b.Id">@b.VersionLabel — @b.Title</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-lightning me-1"></i>Create</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Compare Modal ─────────────────────────────────────────── -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-layout-split me-2"></i>Compare Scenarios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Scenario A</label>
+                    <select id="simCompareA" class="form-select">
+                        @foreach (var s in Model.Simulations)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Scenario B</label>
+                    <select id="simCompareB" class="form-select">
+                        @foreach (var s in Model.Simulations)
+                        {
+                            <option value="@s.Id">@s.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeSimCompare()">Compare</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const PROJECT_ID = @Model.ProjectId;
+
+function toggleBaselineSelect() {
+    const v = document.getElementById('sourceTypeSelect').value;
+    document.getElementById('baselineSelectGroup').style.display = v === '1' ? '' : 'none';
+}
+
+// ── View Result ──────────────────────────────────────────────────────────────
+async function viewResult(simId) {
+    const res = await fetch(`?handler=Result&projectId=${PROJECT_ID}&simulationId=${simId}`);
+    const data = await res.json();
+
+    const section = document.getElementById('resultSection');
+    section.style.display = '';
+    document.getElementById('resultTitle').textContent = data.simulationName + ' — ' + data.sourceLabel;
+
+    // Impact stats
+    const im = data.impact;
+    document.getElementById('impactStats').innerHTML = `
+        <div class="col"><div class="text-center"><div class="fw-bold fs-5">${im.modifiedTasks}</div><div class="text-muted small">Modified</div></div></div>
+        <div class="col"><div class="text-center"><div class="fw-bold fs-5 text-success">${im.newTasks}</div><div class="text-muted small">New</div></div></div>
+        <div class="col"><div class="text-center"><div class="fw-bold fs-5 text-danger">${im.removedTasks}</div><div class="text-muted small">Removed</div></div></div>
+        <div class="col"><div class="text-center"><div class="fw-bold fs-5 ${im.netDaysShift > 0 ? 'text-danger' : im.netDaysShift < 0 ? 'text-success' : ''}">${im.netDaysShift ? (im.netDaysShift > 0 ? '+' : '') + im.netDaysShift + ' days' : '—'}</div><div class="text-muted small">Net Shift</div></div></div>
+        <div class="col"><div class="text-center"><div class="fw-bold fs-5">${im.simulatedEndDate ? new Date(im.simulatedEndDate).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—'}</div><div class="text-muted small">Projected End</div></div></div>`;
+
+    // Gantt
+    gantt.config.readonly = true;
+    gantt.config.show_grid = true;
+    gantt.config.columns = [
+        { name: "wbs", label: "WBS", width: 60, template: t => t.wbsCode || '' },
+        { name: "text", label: "Task", tree: true, width: 220 },
+        { name: "shift", label: "Shift", width: 60, align: "center", template: t => {
+            if (!t.daysShifted) return '';
+            const cls = t.daysShifted > 0 ? 'text-danger' : 'text-success';
+            return `<span class="${cls}">${t.daysShifted > 0 ? '+' : ''}${t.daysShifted}d</span>`;
+        }}
+    ];
+    gantt.config.scale_unit = "month";
+    gantt.config.date_scale = "%F %Y";
+    gantt.init("simGantt");
+    gantt.clearAll();
+
+    const ganttData = data.tasks.filter(t => !t.isRemoved).map(t => ({
+        id: t.id,
+        text: t.text,
+        wbsCode: t.wbsCode,
+        start_date: new Date(t.startDate),
+        end_date: new Date(t.endDate),
+        duration: t.duration,
+        progress: t.progress,
+        parent: t.parentId || 0,
+        type: t.taskType,
+        daysShifted: t.daysShifted,
+        color: t.isNewTask ? '#0d6efd' : t.daysShifted > 0 ? '#dc3545' : t.daysShifted < 0 ? '#198754' : t.color
+    }));
+    gantt.parse({ data: ganttData, links: [] });
+
+    // Table
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+    const tbody = document.querySelector('#resultTable tbody');
+    tbody.innerHTML = data.tasks.filter(t => t.isModified || t.isNewTask || t.isRemoved).map(t => {
+        let cls = '', badge = '';
+        if (t.isNewTask) { cls = 'table-success'; badge = '<span class="badge bg-success">New</span>'; }
+        else if (t.isRemoved) { cls = 'table-danger'; badge = '<span class="badge bg-danger">Removed</span>'; }
+        else if (t.daysShifted > 0) { cls = 'table-warning'; badge = '<span class="badge bg-warning text-dark">Delayed</span>'; }
+        else if (t.daysShifted < 0) { cls = ''; badge = '<span class="badge bg-success">Ahead</span>'; }
+        else { badge = '<span class="badge bg-info">Changed</span>'; }
+
+        return `<tr class="${cls}">
+            <td>${t.wbsCode || ''}</td>
+            <td>${t.text}</td>
+            <td>${fmtDate(t.originalStartDate)} – ${fmtDate(t.originalEndDate)}</td>
+            <td>${fmtDate(t.startDate)} – ${fmtDate(t.endDate)}</td>
+            <td>${t.daysShifted ? (t.daysShifted > 0 ? '+' : '') + t.daysShifted + 'd' : '—'}</td>
+            <td class="text-muted small">${t.changeReason || ''}</td>
+            <td>${badge}</td>
+        </tr>`;
+    }).join('');
+
+    section.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeResult() {
+    document.getElementById('resultSection').style.display = 'none';
+}
+
+// ── Compare Simulations ──────────────────────────────────────────────────────
+async function executeSimCompare() {
+    const a = document.getElementById('simCompareA').value;
+    const b = document.getElementById('simCompareB').value;
+    if (a === b) { alert('Select two different scenarios.'); return; }
+
+    const res = await fetch(`?handler=Compare&projectId=${PROJECT_ID}&simIdA=${a}&simIdB=${b}`);
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('compareModal')).hide();
+
+    // Reuse result panel to show comparison
+    alert(`${data.labelA} vs ${data.labelB}\n\nA: ${data.impactA.netDaysShift ?? 0} days shift, ${data.impactA.modifiedTasks} changes\nB: ${data.impactB.netDaysShift ?? 0} days shift, ${data.impactB.modifiedTasks} changes`);
+}
+</script>
+}

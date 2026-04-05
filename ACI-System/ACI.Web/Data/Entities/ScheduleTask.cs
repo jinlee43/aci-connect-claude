@@ -19,7 +19,7 @@ public enum TaskConstraintType
 }
 
 /// <summary>
-/// Master Schedule WBS item. Maps directly to dhtmlxGantt's task object.
+/// Baseline Schedule WBS item. Maps directly to dhtmlxGantt's task object.
 /// Equivalent to old system's AciProjItem.
 /// </summary>
 public class ScheduleTask : BaseEntity

@@ -139,7 +139,7 @@ public class ProgressScheduleService : IProgressScheduleService
     {
         if (await _db.WorkingTasks.AnyAsync(t => t.ProjectId == projectId))
             throw new InvalidOperationException(
-                "Progress Schedule already initialized for this project.");
+                "Current Schedule already initialized for this project.");
 
         var baselineTasks = await _db.ScheduleTasks
             .Where(t => t.ProjectId == projectId && t.IsActive)
@@ -151,7 +151,7 @@ public class ProgressScheduleService : IProgressScheduleService
         {
             ProjectId      = projectId,
             RevisionNumber = 0,
-            Title          = "Rev 0 – Initial Progress Schedule",
+            Title          = "Rev 0 – Initial Current Schedule",
             Description    = "Forked from Baseline Schedule.",
             RevisionType   = RevisionType.Initial,
             Status         = RevisionStatus.Approved,

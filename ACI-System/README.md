@@ -62,7 +62,7 @@ dotnet run
 
 ## 주요 기능
 
-### Master Schedule (마스터 스케줄)
+### Baseline Schedule (베이스라인 스케줄)
 - dhtmlxGantt 기반 인터랙티브 간트 차트
 - WBS 계층 구조 (드래그&드롭)
 - 작업 간 의존성 (FS, SS, FF, SF)
@@ -74,7 +74,7 @@ dotnet run
 - 3주/4주/6주 선행 계획
 - 공종별 그룹 표시
 - 제약 조건(Constraint) 추적
-- 마스터 스케줄 연동
+- 베이스라인 스케줄 연동
 
 ### Weekly Work Plan (주간 업무 계획)
 - Last Planner System(LPS) 기반
@@ -102,7 +102,7 @@ ACI.Web/
 ├── Pages/               # Razor Pages
 │   ├── Account/         # 로그인/로그아웃
 │   ├── Projects/        # 프로젝트 관리
-│   ├── Schedule/        # 마스터 스케줄 (Gantt)
+│   ├── Schedule/        # 베이스라인 스케줄 (Gantt)
 │   ├── Lookahead/       # 룩어헤드
 │   └── WeeklyPlan/      # 주간 업무 계획
 └── wwwroot/             # 정적 파일 (CSS/JS)

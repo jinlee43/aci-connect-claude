@@ -14,9 +14,9 @@
             <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
                 <li class="breadcrumb-item">
-                    <a asp-page="/Progress/Index" asp-route-projectId="@Model.ProjectId">Progress Schedule</a>
+                    <a asp-page="/Progress/Index" asp-route-projectId="@Model.ProjectId">Current Schedule</a>
                 </li>
-                <li class="breadcrumb-item active">Baseline vs Progress</li>
+                <li class="breadcrumb-item active">Baseline vs Current</li>
             </ol>
         </nav>
     </div>
@@ -27,7 +27,7 @@
         </a>
         <a asp-page="/Progress/Index" asp-route-projectId="@Model.ProjectId"
            class="btn btn-sm btn-outline-success">
-            <i class="bi bi-bar-chart-line me-1"></i>Progress Schedule
+            <i class="bi bi-bar-chart-line me-1"></i>Current Schedule
         </a>
     </div>
 </div>
@@ -37,13 +37,13 @@
     <div class="card border-0 shadow-sm mx-auto mt-5" style="max-width:480px">
         <div class="card-body text-center py-5">
             <i class="bi bi-layout-split fs-1 text-primary mb-3 d-block"></i>
-            <h4>Progress Schedule Not Initialized</h4>
+            <h4>Current Schedule Not Initialized</h4>
             <p class="text-muted">
-                Initialize the Progress Schedule first to enable Baseline vs Progress comparison.
+                Initialize the Current Schedule first to enable Baseline vs Current comparison.
             </p>
             <a asp-page="/Progress/Index" asp-route-projectId="@Model.ProjectId"
                class="btn btn-primary mt-2">
-                <i class="bi bi-arrow-right-circle me-2"></i>Go to Progress Schedule
+                <i class="bi bi-arrow-right-circle me-2"></i>Go to Current Schedule
             </a>
         </div>
     </div>

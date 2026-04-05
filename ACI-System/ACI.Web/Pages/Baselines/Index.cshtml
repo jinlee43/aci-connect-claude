@@ -1,0 +1,567 @@
+@page "{projectId:int}"
+@model ACI.Web.Pages.Baselines.IndexModel
+@{
+    ViewData["Title"] = "Baseline Versions";
+    ViewData["ActiveMenu"] = "baselines";
+    ViewData["CurrentProjectId"] = Model.ProjectId;
+    ViewData["CurrentProjectName"] = Model.ProjectName;
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-shield-lock me-2 text-primary"></i>Baseline Versions</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
+                <li class="breadcrumb-item active">@Model.ProjectName</li>
+            </ol>
+        </nav>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#freezeModal">
+            <i class="bi bi-snow me-1"></i>Freeze Baseline
+        </button>
+        @if (Model.Baselines.Count >= 2)
+        {
+            <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#compareModal">
+                <i class="bi bi-layout-split me-1"></i>Compare
+            </button>
+        }
+        @if (Model.AnimationFrames.Count >= 2)
+        {
+            <button class="btn btn-outline-warning" onclick="playEvolution()">
+                <i class="bi bi-play-fill me-1"></i>Evolution
+            </button>
+        }
+    </div>
+</div>
+
+<!-- ─── Stats ─────────────────────────────────────────────────────── -->
+<div class="p-3">
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="bi bi-shield-check"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.Baselines.Count</div>
+                    <div class="stat-label">Total Baselines</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-success bg-opacity-10 text-success">
+                    <i class="bi bi-check-circle"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.Baselines.Count(b => b.Status == ACI.Web.Data.Entities.BaselineStatus.Approved)</div>
+                    <div class="stat-label">Approved</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-clock"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.Baselines.Count(b => b.Status == ACI.Web.Data.Entities.BaselineStatus.Submitted)</div>
+                    <div class="stat-label">Pending Approval</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-snow3"></i>
+                </div>
+                <div>
+                    <div class="stat-value">@Model.Baselines.Count(b => b.Status == ACI.Web.Data.Entities.BaselineStatus.Frozen)</div>
+                    <div class="stat-label">Frozen (Not Submitted)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── Baseline List ─────────────────────────────────────────── -->
+    @if (!Model.Baselines.Any())
+    {
+        <div class="aci-card p-5 text-center">
+            <i class="bi bi-shield-exclamation display-4 text-muted d-block mb-3"></i>
+            <h5 class="text-muted">No Baselines Yet</h5>
+            <p class="text-muted mb-3">Freeze the current schedule to create your first baseline version.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#freezeModal">
+                <i class="bi bi-snow me-1"></i>Freeze Baseline v1
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="aci-card">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px"></th>
+                            <th>Version</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Tasks</th>
+                            <th>Duration</th>
+                            <th>Frozen</th>
+                            <th>Approved</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var b in Model.Baselines)
+                    {
+                        <tr>
+                            <td>
+                                @if (b.Status == ACI.Web.Data.Entities.BaselineStatus.Approved)
+                                {
+                                    <i class="bi bi-shield-fill-check text-success" title="Active Baseline"></i>
+                                }
+                                else if (b.Status == ACI.Web.Data.Entities.BaselineStatus.Superseded)
+                                {
+                                    <i class="bi bi-shield-fill text-secondary" title="Superseded"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-shield text-muted"></i>
+                                }
+                            </td>
+                            <td><strong>@b.VersionLabel</strong></td>
+                            <td>@b.Title</td>
+                            <td><span class="badge @b.StatusBadgeClass">@b.Status</span></td>
+                            <td>@b.TaskCount</td>
+                            <td>
+                                @if (b.TotalCalendarDays.HasValue)
+                                {
+                                    <span>@b.TotalCalendarDays days</span>
+                                }
+                            </td>
+                            <td>
+                                @if (b.FrozenAt.HasValue)
+                                {
+                                    <span title="@b.FrozenByName">@b.FrozenAt.Value.ToString("MMM dd, yyyy")</span>
+                                }
+                            </td>
+                            <td>
+                                @if (b.ApprovedAt.HasValue)
+                                {
+                                    <span title="@b.ApprovedByName">@b.ApprovedAt.Value.ToString("MMM dd, yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <!-- Compare vs Current -->
+                                    <button class="btn btn-outline-primary" title="Compare vs Current Plan"
+                                            onclick="compareToCurrent(@b.Id)">
+                                        <i class="bi bi-layout-split"></i>
+                                    </button>
+
+                                    @if (b.Status == ACI.Web.Data.Entities.BaselineStatus.Frozen)
+                                    {
+                                        <!-- Submit for approval -->
+                                        <form method="post" asp-page-handler="Submit" class="d-inline">
+                                            <input type="hidden" name="baselineId" value="@b.Id" />
+                                            <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                            <button type="submit" class="btn btn-outline-warning" title="Submit for Owner Approval">
+                                                <i class="bi bi-send"></i>
+                                            </button>
+                                        </form>
+                                    }
+
+                                    @if (b.Status == ACI.Web.Data.Entities.BaselineStatus.Submitted)
+                                    {
+                                        <!-- Approve -->
+                                        <button class="btn btn-outline-success" title="Approve"
+                                                data-bs-toggle="modal" data-bs-target="#approveModal"
+                                                onclick="setApproveTarget(@b.Id, '@b.VersionLabel')">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <!-- Reject -->
+                                        <button class="btn btn-outline-danger" title="Reject"
+                                                data-bs-toggle="modal" data-bs-target="#rejectModal"
+                                                onclick="setRejectTarget(@b.Id, '@b.VersionLabel')">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- ─── Evolution Gantt (Animation target) ───────────────────── -->
+    <div id="evolutionSection" class="mt-4" style="display:none">
+        <div class="aci-card">
+            <div class="p-3 d-flex justify-content-between align-items-center border-bottom">
+                <h5 class="mb-0"><i class="bi bi-play-circle me-2"></i>Baseline Evolution</h5>
+                <div class="d-flex align-items-center gap-3">
+                    <span id="evolutionLabel" class="badge bg-primary fs-6"></span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="prevFrame()"><i class="bi bi-skip-backward"></i></button>
+                        <button id="playPauseBtn" class="btn btn-outline-primary" onclick="togglePlay()"><i class="bi bi-play-fill"></i></button>
+                        <button class="btn btn-outline-secondary" onclick="nextFrame()"><i class="bi bi-skip-forward"></i></button>
+                    </div>
+                    <input type="range" id="evolutionSlider" min="0" max="0" value="0" class="form-range" style="width:200px" oninput="goToFrame(this.value)">
+                </div>
+            </div>
+            <div id="evolutionGantt" style="width:100%; height:450px;"></div>
+        </div>
+    </div>
+
+    <!-- ─── Comparison Panel ──────────────────────────────────────── -->
+    <div id="comparisonSection" class="mt-4" style="display:none">
+        <div class="aci-card">
+            <div class="p-3 d-flex justify-content-between align-items-center border-bottom">
+                <h5 class="mb-0"><i class="bi bi-layout-split me-2"></i><span id="comparisonTitle">Comparison</span></h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="closeComparison()">
+                    <i class="bi bi-x-lg"></i> Close
+                </button>
+            </div>
+            <div class="p-3">
+                <div class="row g-3 mb-3" id="comparisonStats"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover" id="comparisonTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>WBS</th>
+                                <th>Task</th>
+                                <th id="colA">Side A</th>
+                                <th id="colB">Side B</th>
+                                <th>Shift</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Freeze Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="freezeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-snow me-2"></i>Freeze Baseline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Freeze">
+                <div class="modal-body">
+                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                    <div class="alert alert-info mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        This will create an immutable snapshot of the current schedule as
+                        <strong>Baseline v@(Model.Baselines.Any() ? Model.Baselines.Max(b => b.VersionNumber) + 1 : 1)</strong>.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Title *</label>
+                        <input type="text" name="title" class="form-control" required
+                               placeholder="e.g. Original Contract Schedule" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="3"
+                                  placeholder="Optional notes about this baseline version..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-snow me-1"></i>Freeze</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Approve Modal ─────────────────────────────────────────── -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-check-circle me-2 text-success"></i>Approve Baseline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Approve">
+                <div class="modal-body">
+                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                    <input type="hidden" name="baselineId" id="approveBaselineId" />
+                    <p>Approve <strong id="approveVersionLabel"></strong> as the official baseline?</p>
+                    <div class="mb-3">
+                        <label class="form-label">Approved By *</label>
+                        <input type="text" name="approvedByName" class="form-control" required
+                               placeholder="Owner / CM name" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Approval Notes</label>
+                        <textarea name="approvalNotes" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg me-1"></i>Approve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Reject Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-x-circle me-2 text-danger"></i>Reject Baseline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Reject">
+                <div class="modal-body">
+                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                    <input type="hidden" name="baselineId" id="rejectBaselineId" />
+                    <p>Reject <strong id="rejectVersionLabel"></strong>?</p>
+                    <div class="mb-3">
+                        <label class="form-label">Rejection Notes</label>
+                        <textarea name="rejectionNotes" class="form-control" rows="3"
+                                  placeholder="Reason for rejection..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-x-lg me-1"></i>Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Compare Modal ─────────────────────────────────────────── -->
+<div class="modal fade" id="compareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-layout-split me-2"></i>Compare Baselines</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Side A (Earlier)</label>
+                    <select id="compareA" class="form-select">
+                        @foreach (var b in Model.Baselines.OrderBy(b => b.VersionNumber))
+                        {
+                            <option value="@b.Id">@b.VersionLabel — @b.Title</option>
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Side B (Later)</label>
+                    <select id="compareB" class="form-select">
+                        @foreach (var b in Model.Baselines.OrderBy(b => b.VersionNumber))
+                        {
+                            var isFirst = b == Model.Baselines.OrderBy(x => x.VersionNumber).First();
+                            if (isFirst)
+                            {
+                                <option value="@b.Id" selected>@b.VersionLabel — @b.Title</option>
+                            }
+                            else
+                            {
+                                <option value="@b.Id">@b.VersionLabel — @b.Title</option>
+                            }
+                        }
+                        <option value="current">Current Plan</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="executeCompare()">
+                    <i class="bi bi-layout-split me-1"></i>Compare
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+const PROJECT_ID = @Model.ProjectId;
+
+// ── Modal helpers ────────────────────────────────────────────────────────────
+function setApproveTarget(id, label) {
+    document.getElementById('approveBaselineId').value = id;
+    document.getElementById('approveVersionLabel').textContent = label;
+}
+function setRejectTarget(id, label) {
+    document.getElementById('rejectBaselineId').value = id;
+    document.getElementById('rejectVersionLabel').textContent = label;
+}
+
+// ── Comparison ───────────────────────────────────────────────────────────────
+async function compareToCurrent(baselineId) {
+    const res = await fetch(`?handler=CompareCurrent&projectId=${PROJECT_ID}&baselineId=${baselineId}`);
+    const data = await res.json();
+    showComparison(data);
+}
+
+async function executeCompare() {
+    const a = document.getElementById('compareA').value;
+    const b = document.getElementById('compareB').value;
+
+    let res;
+    if (b === 'current') {
+        res = await fetch(`?handler=CompareCurrent&projectId=${PROJECT_ID}&baselineId=${a}`);
+    } else {
+        res = await fetch(`?handler=Compare&projectId=${PROJECT_ID}&baselineIdA=${a}&baselineIdB=${b}`);
+    }
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('compareModal')).hide();
+    showComparison(data);
+}
+
+function showComparison(data) {
+    const section = document.getElementById('comparisonSection');
+    section.style.display = '';
+    document.getElementById('comparisonTitle').textContent = `${data.labelA} vs ${data.labelB}`;
+    document.getElementById('colA').textContent = data.labelA;
+    document.getElementById('colB').textContent = data.labelB;
+
+    const s = data.summary;
+    document.getElementById('comparisonStats').innerHTML = `
+        <div class="col"><div class="aci-stat-card"><div><div class="stat-value">${s.totalTasks}</div><div class="stat-label">Total</div></div></div></div>
+        <div class="col"><div class="aci-stat-card"><div><div class="stat-value text-warning">${s.changedTasks}</div><div class="stat-label">Changed</div></div></div></div>
+        <div class="col"><div class="aci-stat-card"><div><div class="stat-value text-success">${s.newTasks}</div><div class="stat-label">New</div></div></div></div>
+        <div class="col"><div class="aci-stat-card"><div><div class="stat-value text-danger">${s.removedTasks}</div><div class="stat-label">Removed</div></div></div></div>
+        <div class="col"><div class="aci-stat-card"><div><div class="stat-value text-info">${s.netDaysShift ?? 0}</div><div class="stat-label">Net Days Shift</div></div></div></div>`;
+
+    const tbody = document.querySelector('#comparisonTable tbody');
+    tbody.innerHTML = data.tasks.map(t => {
+        let cls = '';
+        let status = '';
+        if (t.isNew) { cls = 'table-success'; status = '<span class="badge bg-success">New</span>'; }
+        else if (t.isRemoved) { cls = 'table-danger'; status = '<span class="badge bg-danger">Removed</span>'; }
+        else if (t.isChanged) { cls = 'table-warning'; status = '<span class="badge bg-warning text-dark">Changed</span>'; }
+
+        const fmtDate = d => d ? new Date(d).toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '—';
+        return `<tr class="${cls}">
+            <td>${t.wbsCode || ''}</td>
+            <td>${t.text}</td>
+            <td>${fmtDate(t.startDateA)} – ${fmtDate(t.endDateA)}</td>
+            <td>${fmtDate(t.startDateB)} – ${fmtDate(t.endDateB)}</td>
+            <td>${t.daysShifted ? (t.daysShifted > 0 ? '+' : '') + t.daysShifted + 'd' : '—'}</td>
+            <td>${status}</td>
+        </tr>`;
+    }).join('');
+
+    section.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeComparison() {
+    document.getElementById('comparisonSection').style.display = 'none';
+}
+
+// ── Evolution Animation ──────────────────────────────────────────────────────
+let _frames = [];
+let _currentFrame = 0;
+let _playing = false;
+let _playTimer = null;
+
+async function playEvolution() {
+    const res = await fetch(`?handler=AnimationData&projectId=${PROJECT_ID}`);
+    _frames = await res.json();
+    if (_frames.length < 2) { alert('Need at least 2 approved baselines for animation.'); return; }
+
+    const section = document.getElementById('evolutionSection');
+    section.style.display = '';
+    section.scrollIntoView({ behavior: 'smooth' });
+
+    const slider = document.getElementById('evolutionSlider');
+    slider.max = _frames.length - 1;
+    slider.value = 0;
+
+    _currentFrame = 0;
+
+    // Initialize gantt for evolution
+    gantt.config.readonly = true;
+    gantt.config.show_grid = true;
+    gantt.config.columns = [
+        { name: "wbs", label: "WBS", width: 60, template: t => t.wbsCode || '' },
+        { name: "text", label: "Task", tree: true, width: 250 },
+        { name: "start_date", label: "Start", align: "center", width: 90 },
+        { name: "end_date", label: "End", align: "center", width: 90 },
+    ];
+    gantt.config.scale_unit = "month";
+    gantt.config.date_scale = "%F %Y";
+    gantt.config.subscales = [{ unit: "week", step: 1, date: "W%W" }];
+    gantt.init("evolutionGantt");
+
+    renderFrame(0);
+    togglePlay();
+}
+
+function renderFrame(idx) {
+    if (idx < 0 || idx >= _frames.length) return;
+    _currentFrame = idx;
+
+    const frame = _frames[idx];
+    document.getElementById('evolutionLabel').textContent =
+        `${frame.title} (v${frame.versionNumber})`;
+    document.getElementById('evolutionSlider').value = idx;
+
+    const data = frame.tasks.map(t => ({
+        id:         t.id,
+        text:       t.text,
+        wbsCode:    t.wbsCode,
+        start_date: new Date(t.startDate),
+        end_date:   new Date(t.endDate),
+        duration:   t.duration,
+        progress:   t.progress,
+        parent:     t.parentId || 0,
+        type:       t.taskType,
+        color:      t.color
+    }));
+
+    gantt.clearAll();
+    gantt.parse({ data: data, links: [] });
+}
+
+function nextFrame() {
+    if (_currentFrame < _frames.length - 1) renderFrame(_currentFrame + 1);
+}
+function prevFrame() {
+    if (_currentFrame > 0) renderFrame(_currentFrame - 1);
+}
+function goToFrame(val) {
+    renderFrame(parseInt(val));
+}
+function togglePlay() {
+    _playing = !_playing;
+    const btn = document.getElementById('playPauseBtn');
+    btn.innerHTML = _playing ? '<i class="bi bi-pause-fill"></i>' : '<i class="bi bi-play-fill"></i>';
+
+    if (_playing) {
+        if (_currentFrame >= _frames.length - 1) _currentFrame = -1;
+        _playTimer = setInterval(() => {
+            if (_currentFrame >= _frames.length - 1) { togglePlay(); return; }
+            nextFrame();
+        }, 2000);
+    } else {
+        clearInterval(_playTimer);
+    }
+}
+</script>
+}

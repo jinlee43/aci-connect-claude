@@ -77,6 +77,8 @@ public class Project : BaseEntity
     public ICollection<ProjectExternalParty> ExternalParties   { get; set; } = [];
     public ICollection<Trade>                Trades            { get; set; } = [];
     public ICollection<ScheduleTask>   Tasks         { get; set; } = [];
+    public ICollection<ScheduleBaseline> Baselines   { get; set; } = [];
+    public ICollection<ScheduleSimulation> Simulations { get; set; } = [];
     public ICollection<Lookahead>      Lookaheads    { get; set; } = [];
     public ICollection<WeeklyWorkPlan> WeeklyPlans   { get; set; } = [];
 

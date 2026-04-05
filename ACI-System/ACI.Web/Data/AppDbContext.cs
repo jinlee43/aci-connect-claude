@@ -33,11 +33,19 @@ public class AppDbContext : DbContext
     public DbSet<ScheduleTask>         ScheduleTasks        => Set<ScheduleTask>();
     public DbSet<TaskDependency>       TaskDependencies     => Set<TaskDependency>();
 
-    // ─── Progress Schedule ────────────────────────────────────────────────────
+    // ─── Baselines ───────────────────────────────────────────────────────────
+    public DbSet<ScheduleBaseline>     ScheduleBaselines    => Set<ScheduleBaseline>();
+    public DbSet<BaselineTaskSnapshot> BaselineTaskSnapshots => Set<BaselineTaskSnapshot>();
+
+    // ─── Current Plan (Current Schedule) ────────────────────────────────────
     public DbSet<WorkingTask>          WorkingTasks         => Set<WorkingTask>();
     public DbSet<ScheduleRevision>     ScheduleRevisions    => Set<ScheduleRevision>();
     public DbSet<ScheduleChange>       ScheduleChanges      => Set<ScheduleChange>();
     public DbSet<RevisionDocument>     RevisionDocuments    => Set<RevisionDocument>();
+
+    // ─── Simulations (What-If) ───────────────────────────────────────────────
+    public DbSet<ScheduleSimulation>   ScheduleSimulations  => Set<ScheduleSimulation>();
+    public DbSet<SimulationTask>       SimulationTasks      => Set<SimulationTask>();
 
     // ─── Lookahead ────────────────────────────────────────────────────────
     public DbSet<Lookahead>            Lookaheads           => Set<Lookahead>();
@@ -260,7 +268,7 @@ public class AppDbContext : DbContext
              .OnDelete(DeleteBehavior.SetNull);
         });
 
-        // ── WorkingTask (Progress Schedule, self-referencing WBS) ────────────
+        // ── WorkingTask (Current Schedule, self-referencing WBS) ────────────
         builder.Entity<WorkingTask>(e =>
         {
             e.HasKey(t => t.Id);
@@ -295,6 +303,54 @@ public class AppDbContext : DbContext
             e.HasIndex(t => t.BaselineTaskId);
         });
 
+        // ── ScheduleBaseline ──────────────────────────────────────────────────
+        builder.Entity<ScheduleBaseline>(e =>
+        {
+            e.HasKey(b => b.Id);
+
+            e.HasOne(b => b.Project)
+             .WithMany(p => p.Baselines)
+             .HasForeignKey(b => b.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(b => b.FrozenBy)
+             .WithMany()
+             .HasForeignKey(b => b.FrozenById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(b => b.TaskSnapshots)
+             .WithOne(s => s.Baseline)
+             .HasForeignKey(s => s.BaselineId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(b => new { b.ProjectId, b.VersionNumber }).IsUnique();
+        });
+
+        // ── BaselineTaskSnapshot ─────────────────────────────────────────────
+        builder.Entity<BaselineTaskSnapshot>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Progress).HasPrecision(5, 4);
+
+            e.HasOne(s => s.SourceScheduleTask)
+             .WithMany()
+             .HasForeignKey(s => s.SourceScheduleTaskId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(s => s.SourceWorkingTask)
+             .WithMany()
+             .HasForeignKey(s => s.SourceWorkingTaskId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            // Self-referencing hierarchy within a baseline snapshot
+            e.HasOne(s => s.ParentSnapshot)
+             .WithMany(s => s.ChildSnapshots)
+             .HasForeignKey(s => s.ParentSnapshotId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(s => s.BaselineId);
+        });
+
         // ── ScheduleRevision ──────────────────────────────────────────────────
         builder.Entity<ScheduleRevision>(e =>
         {
@@ -304,6 +360,11 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(r => r.ProjectId)
              .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.Baseline)
+             .WithMany()
+             .HasForeignKey(r => r.BaselineId)
+             .OnDelete(DeleteBehavior.SetNull);
 
             e.HasOne(r => r.SubmittedBy)
              .WithMany()
@@ -353,6 +414,53 @@ public class AppDbContext : DbContext
              .OnDelete(DeleteBehavior.SetNull);
 
             e.HasIndex(d => d.RevisionId);
+        });
+
+        // ── ScheduleSimulation ────────────────────────────────────────────────
+        builder.Entity<ScheduleSimulation>(e =>
+        {
+            e.HasKey(s => s.Id);
+
+            e.HasOne(s => s.Project)
+             .WithMany(p => p.Simulations)
+             .HasForeignKey(s => s.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(s => s.SourceBaseline)
+             .WithMany()
+             .HasForeignKey(s => s.SourceBaselineId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(s => s.CreatedByUser)
+             .WithMany()
+             .HasForeignKey(s => s.CreatedByUserId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(s => s.Tasks)
+             .WithOne(t => t.Simulation)
+             .HasForeignKey(t => t.SimulationId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(s => s.ProjectId);
+        });
+
+        // ── SimulationTask ───────────────────────────────────────────────────
+        builder.Entity<SimulationTask>(e =>
+        {
+            e.HasKey(t => t.Id);
+            // Progress is double? (nullable) — no precision needed for double
+
+            e.HasOne(t => t.SourceWorkingTask)
+             .WithMany()
+             .HasForeignKey(t => t.SourceWorkingTaskId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(t => t.SourceSnapshot)
+             .WithMany()
+             .HasForeignKey(t => t.SourceSnapshotId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(t => t.SimulationId);
         });
 
         // ── WeeklyWorkPlan ────────────────────────────────────────────────

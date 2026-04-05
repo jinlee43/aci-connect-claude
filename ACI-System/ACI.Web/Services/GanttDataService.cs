@@ -50,9 +50,12 @@ public class GanttDataService : IGanttDataService
             TradeId     = dto.TradeId,
             Color       = dto.Color,
             Location    = dto.Location,
-            Description = dto.Description,
-            SortOrder   = dto.SortOrder,
-            UpdatedAt   = DateTime.UtcNow
+            Description    = dto.Description,
+            SortOrder      = dto.SortOrder,
+            ConstraintType = ParseConstraintType(dto.ConstraintType),
+            ConstraintDate = string.IsNullOrWhiteSpace(dto.ConstraintDate)
+                ? null : ParseDate(dto.ConstraintDate),
+            UpdatedAt      = DateTime.UtcNow
         };
 
         _db.ScheduleTasks.Add(task);
@@ -79,8 +82,11 @@ public class GanttDataService : IGanttDataService
         task.Color       = dto.Color;
         task.Location    = dto.Location;
         task.Description = dto.Description;
-        task.SortOrder   = dto.SortOrder;
-        task.UpdatedAt   = DateTime.UtcNow;
+        task.SortOrder      = dto.SortOrder;
+        task.ConstraintType = ParseConstraintType(dto.ConstraintType);
+        task.ConstraintDate = string.IsNullOrWhiteSpace(dto.ConstraintDate)
+            ? null : ParseDate(dto.ConstraintDate);
+        task.UpdatedAt      = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
 
@@ -229,6 +235,16 @@ public class GanttDataService : IGanttDataService
         Location    = t.Location,
         Description = t.Description,
         SortOrder   = t.SortOrder,
+        ConstraintType = t.ConstraintType.HasValue ? t.ConstraintType.Value switch
+        {
+            TaskConstraintType.StartNoEarlierThan => "snet",
+            TaskConstraintType.FinishNoLaterThan  => "fnlt",
+            TaskConstraintType.MustStartOn        => "mso",
+            TaskConstraintType.MustFinishOn       => "mfo",
+            _ => null
+        } : null,
+        ConstraintDate = t.ConstraintDate.HasValue
+            ? t.ConstraintDate.Value.ToDateTime(TimeOnly.MinValue).ToString(DateFormat) : null,
         PlannedStart = t.BaselineStart.HasValue
             ? t.BaselineStart.Value.ToDateTime(TimeOnly.MinValue).ToString(DateFormat) : null,
         PlannedEnd   = t.BaselineEnd.HasValue
@@ -270,5 +286,14 @@ public class GanttDataService : IGanttDataService
         "project"   => GanttTaskType.Project,
         "milestone" => GanttTaskType.Milestone,
         _           => GanttTaskType.Task
+    };
+
+    private static TaskConstraintType? ParseConstraintType(string? type) => type?.ToLowerInvariant() switch
+    {
+        "snet" => TaskConstraintType.StartNoEarlierThan,
+        "fnlt" => TaskConstraintType.FinishNoLaterThan,
+        "mso"  => TaskConstraintType.MustStartOn,
+        "mfo"  => TaskConstraintType.MustFinishOn,
+        _      => null
     };
 }

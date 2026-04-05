@@ -1,7 +1,7 @@
 @page "{projectId:int}"
 @model ACI.Web.Pages.Schedule.IndexModel
 @{
-    ViewData["Title"] = "Master Schedule";
+    ViewData["Title"] = "Baseline Schedule";
     ViewData["ActiveMenu"] = "schedule";
     ViewData["CurrentProjectId"] = Model.ProjectId;
     ViewData["CurrentProjectName"] = Model.ProjectName;
@@ -107,13 +107,37 @@ html, body { height: 100%; }
 .gantt_task_link.aci-link-active {
     opacity: 1;
 }
-/* Links 버튼 켜면 전체 연하게 표시, 호버된 것은 진하게 */
+/* Links 버튼 켜면 전체 표시 */
 #gantt-chart.aci-links-visible .gantt_task_link {
-    opacity: 0.25;
+    opacity: 1;
     pointer-events: auto;
 }
-#gantt-chart.aci-links-visible .gantt_task_link.aci-link-active {
-    opacity: 1;
+
+/* ── Dependency Type 별 시각 구분 ────────────── */
+/* FS (Finish-to-Start) — 기본: 파란색 실선 */
+.gantt_task_link.link-fs .gantt_line_wrapper div { background: #3b82f6; }
+.gantt_task_link.link-fs .gantt_link_arrow { border-color: #3b82f6; }
+
+/* SS (Start-to-Start) — 초록색 */
+.gantt_task_link.link-ss .gantt_line_wrapper div { background: #16a34a; }
+.gantt_task_link.link-ss .gantt_link_arrow { border-color: #16a34a; }
+
+/* FF (Finish-to-Finish) — 주황색 */
+.gantt_task_link.link-ff .gantt_line_wrapper div { background: #ea580c; }
+.gantt_task_link.link-ff .gantt_link_arrow { border-color: #ea580c; }
+
+/* SF (Start-to-Finish) — 보라색, 점선 */
+.gantt_task_link.link-sf .gantt_line_wrapper div { background: #9333ea; }
+.gantt_task_link.link-sf .gantt_link_arrow { border-color: #9333ea; }
+
+/* Lag 있는 링크: 점선 패턴 */
+.gantt_task_link.link-has-lag .gantt_line_wrapper div {
+    background: repeating-linear-gradient(
+        90deg,
+        currentColor 0px, currentColor 6px,
+        transparent 6px, transparent 10px
+    ) !important;
+    background-size: 10px 2px !important;
 }
 
 /* ── Critical Path ─────────────────────────── */
@@ -171,7 +195,7 @@ html, body { height: 100%; }
 <!-- Page Header -->
 <div class="aci-page-header">
     <div>
-        <h1><i class="bi bi-bar-chart-steps me-2 text-primary"></i>Master Schedule</h1>
+        <h1><i class="bi bi-bar-chart-steps me-2 text-primary"></i>Baseline Schedule</h1>
         <nav aria-label="breadcrumb">
             <ol class="breadcrumb mb-0">
                 <li class="breadcrumb-item"><a asp-page="/Projects/Index">Projects</a></li>
@@ -259,8 +283,31 @@ html, body { height: 100%; }
                     <span style="width:28px;height:12px;border-radius:2px;background:#1e40af;display:inline-block;flex-shrink:0;"></span>
                     <span style="font-size:12px;color:#374151;">Summary / Phase</span>
                 </li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li class="mb-1 px-1" style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;">Link Types</li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:2px;background:#3b82f6;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">FS (Finish→Start)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:2px;background:#16a34a;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">SS (Start→Start)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:2px;background:#ea580c;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">FF (Finish→Finish)</span>
+                </li>
+                <li class="d-flex align-items-center gap-2 px-1 py-1">
+                    <span style="width:28px;height:2px;background:#9333ea;display:inline-block;flex-shrink:0;"></span>
+                    <span style="font-size:12px;color:#374151;">SF (Start→Finish)</span>
+                </li>
             </ul>
         </div>
+
+        <!-- Freeze Baseline -->
+        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#freezeModal">
+            <i class="bi bi-snow me-1"></i>Freeze Baseline
+        </button>
 
         <!-- Import / Export -->
         <div class="dropdown">
@@ -289,6 +336,44 @@ html, body { height: 100%; }
 <!-- Gantt Chart Container -->
 <div id="gantt-chart-wrapper" style="overflow-x:auto; width:100%;">
     <div id="gantt-chart"></div>
+</div>
+
+<!-- ─── Freeze Baseline Modal ────────────────────────────────── -->
+<div class="modal fade" id="freezeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-snow me-2 text-primary"></i>Freeze Baseline</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" asp-page-handler="Freeze">
+                <div class="modal-body">
+                    <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                    <div class="alert alert-info small mb-3">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Freezing creates an immutable snapshot of the current Baseline Schedule.
+                        This snapshot can then be submitted for Owner approval.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Baseline Title *</label>
+                        <input type="text" name="title" class="form-control" required
+                               placeholder="e.g. Initial Baseline, Revised Baseline #2" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea name="description" class="form-control" rows="2"
+                                  placeholder="Optional notes about this baseline version"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-snow me-1"></i>Freeze
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -355,7 +440,7 @@ gantt.config.columns = [
 
 // ── 타임스케일 ──────────────────────────────────────────────
 gantt.config.scales = [
-    { unit: "month", step: 1, format: "%B %Y" },
+    { unit: "month", step: 1, format: "%F %Y" },
     { unit: "week",  step: 1, format: "W%W" },
 ];
 gantt.config.row_height = 32;
@@ -402,6 +487,114 @@ gantt.templates.tooltip_text = (start, end, task) => {
             Duration: ${dur} day${dur !== 1 ? 's' : ''}<br>
             Progress: ${pct}%`;
 };
+
+// ── Dependency link 타입별 시각 구분 ──────────────────────────
+gantt.templates.link_class = function(link) {
+    const classes = [];
+    switch (link.type) {
+        case gantt.config.links.finish_to_start:  classes.push('link-fs'); break;
+        case gantt.config.links.start_to_start:   classes.push('link-ss'); break;
+        case gantt.config.links.finish_to_finish: classes.push('link-ff'); break;
+        case gantt.config.links.start_to_finish:  classes.push('link-sf'); break;
+    }
+    if (link.lag) classes.push('link-has-lag');
+    return classes.join(' ');
+};
+
+// ── Procore-style drag: SNET 자동 적용 + Ctrl 누르면 후속 고정 ─────────
+let _lastDragCtrl = false;
+
+gantt.attachEvent('onBeforeTaskDrag', function(id, mode, e) {
+    if (gantt.hasChild(id)) {
+        showParentLockTip(e);
+        return false;
+    }
+    _lastDragCtrl = e.ctrlKey || e.metaKey;   // Ctrl/Cmd 상태 캡처
+    return true;
+});
+
+gantt.attachEvent('onAfterTaskDrag', function(id, mode, e) {
+    if (mode !== gantt.config.drag_mode.move && mode !== gantt.config.drag_mode.resize) return;
+
+    const task = gantt.getTask(id);
+
+    // Procore 방식: 드래그하면 SNET(Start No Earlier Than) 제약 자동 적용
+    task.constraint_type = 'snet';
+    task.constraint_date = new Date(task.start_date);
+
+    // updateTask → DataProcessor가 서버 저장 트리거
+    gantt.updateTask(id);
+
+    // Ctrl/Cmd + 드래그: 후속 태스크 고정 (나만 이동)
+    // 일반 드래그: 후속 태스크 cascade
+    if (!_lastDragCtrl) {
+        cascadeSuccessors(id, new Set());
+    }
+});
+
+/**
+ * Cascade date changes to all successor tasks based on dependency type + lag.
+ * Uses FS/SS/FF/SF rules from CPM scheduling.
+ * Visited set prevents infinite loops in circular references.
+ */
+function cascadeSuccessors(taskId, visited) {
+    if (visited.has(taskId)) return;
+    visited.add(taskId);
+
+    const task = gantt.getTask(taskId);
+    const links = task.$source || [];   // outgoing links from this task
+
+    links.forEach(function(linkId) {
+        const link = gantt.getLink(linkId);
+        if (!link) return;
+
+        const successor = gantt.getTask(link.target);
+        if (!successor || successor.type === 'project') return;
+
+        const lagDays = (link.lag || 0);
+        let newStart = null;
+
+        switch (link.type) {
+            case gantt.config.links.finish_to_start:   // FS
+                // Successor starts after predecessor ends + lag
+                newStart = gantt.calculateEndDate(task.end_date, lagDays, 'day');
+                break;
+
+            case gantt.config.links.start_to_start:    // SS
+                // Successor starts when predecessor starts + lag
+                newStart = gantt.calculateEndDate(task.start_date, lagDays, 'day');
+                break;
+
+            case gantt.config.links.finish_to_finish:  // FF
+                // Successor ends when predecessor ends + lag
+                // → compute start = (predecessor end + lag) - successor duration
+                var targetEnd = gantt.calculateEndDate(task.end_date, lagDays, 'day');
+                newStart = gantt.calculateEndDate(targetEnd, -successor.duration, 'day');
+                break;
+
+            case gantt.config.links.start_to_finish:   // SF
+                // Successor ends when predecessor starts + lag
+                var targetEnd2 = gantt.calculateEndDate(task.start_date, lagDays, 'day');
+                newStart = gantt.calculateEndDate(targetEnd2, -successor.duration, 'day');
+                break;
+        }
+
+        if (newStart && newStart > successor.start_date) {
+            // Only push forward (never pull backward — respect construction scheduling logic)
+            successor.start_date = newStart;
+            successor.end_date = gantt.calculateEndDate(newStart, successor.duration, 'day');
+            gantt.updateTask(successor.id);
+
+            // Mark as changed for save tracking
+            if (typeof window.trackUnsavedChange === 'function') {
+                window.trackUnsavedChange(successor.id);
+            }
+
+            // Recursively cascade to this successor's successors
+            cascadeSuccessors(successor.id, visited);
+        }
+    });
+}
 
 // ── 커스텀 컬럼 리사이즈 (GPL 버전은 resize:true 미지원 → 직접 구현) ──
 // ※ 반드시 gantt.init() 보다 먼저 이벤트를 등록해야 함
@@ -575,15 +768,17 @@ const dp = gantt.createDataProcessor(async function(entity, action, data, id) {
 
     const payload = action !== 'delete' ? {
         ...data,
-        id:         action === 'create' ? 0 : (toInt(data.id) ?? 0),  // create 시 임시 ID는 0으로
-        parent:     toInt(data.parent),              // null allowed
-        duration:   toInt(data.duration)  ?? 1,
-        progress:   toDbl(data.progress),
-        sortOrder:  toInt(data.sortOrder) ?? 0,
-        tradeId:    toInt(data.tradeId),             // null allowed
-        source:     toInt(data.source)    ?? 0,
-        target:     toInt(data.target)    ?? 0,
-        start_date: fmtDate(data.start_date),
+        id:              action === 'create' ? 0 : (toInt(data.id) ?? 0),
+        parent:          toInt(data.parent),
+        duration:        toInt(data.duration)  ?? 1,
+        progress:        toDbl(data.progress),
+        sortOrder:       toInt(data.sortOrder) ?? 0,
+        tradeId:         toInt(data.tradeId),
+        source:          toInt(data.source)    ?? 0,
+        target:          toInt(data.target)    ?? 0,
+        start_date:      fmtDate(data.start_date),
+        constraint_type: data.constraint_type || null,
+        constraint_date: fmtDate(data.constraint_date),
     } : undefined;
 
     console.log(`[DP] ${action} ${entity}`, JSON.stringify(payload));
@@ -713,14 +908,7 @@ gantt.attachEvent('onBeforeLightbox', function(id) {
     return true;
 });
 
-// 타임라인 드래그/리사이즈 차단
-gantt.attachEvent('onBeforeTaskDrag', function(id, mode, e) {
-    if (gantt.hasChild(id)) {
-        showParentLockTip(e);
-        return false;
-    }
-    return true;
-});
+// (onBeforeTaskDrag는 Procore-style 핸들러에서 이미 등록됨 — 중복 방지)
 
 // ── % 더블클릭 팝업 ────────────────────────────────────────
 (function() {
@@ -841,7 +1029,7 @@ gantt.attachEvent('onBeforeTaskDrag', function(id, mode, e) {
 window.ACIGantt = {
     setScale(unit) {
         const scaleMap = {
-            week:    [{ unit:"month",   step:1, format:"%B %Y" },
+            week:    [{ unit:"month",   step:1, format:"%F %Y" },
                       { unit:"week",    step:1, format:"W%W" }],
             month:   [{ unit:"year",    step:1, format:"%Y" },
                       { unit:"month",   step:1, format:"%b" }],
