@@ -1,0 +1,70 @@
+/* ── ACI Gantt Custom Styles ──────────────────────────────────────────────── */
+
+/* ── SVAR Gantt CSS 변수 오버라이드 ─────────────────────────────────────────── */
+:root {
+  --wx-gantt-task-color: #3b82f6;
+  --wx-gantt-task-font-color: #fff;
+  --wx-gantt-task-fill-color: rgba(255,255,255,0.3);
+  --wx-gantt-summary-color: #1e40af;
+  --wx-gantt-summary-font-color: #fff;
+  --wx-gantt-summary-fill-color: rgba(255,255,255,0.3);
+  --wx-gantt-milestone-color: #d97706;
+  --wx-gantt-bar-border-radius: 4px;
+}
+
+/* ── Today Marker ─────────────────────────────────────────────────────────── */
+.aci-today-marker {
+  background: rgba(59, 130, 246, 0.8);
+  width: 2px;
+}
+.aci-today-marker .wx-marker-label {
+  background: #3b82f6;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* ── SVAR Baseline overlay bar ────────────────────────────────────────────── */
+.wx-baseline {
+  background: rgba(100, 116, 139, 0.45) !important;
+  border-radius: 2px;
+}
+
+/* ── Row hover ────────────────────────────────────────────────────────────── */
+.wx-row:hover {
+  background: #f0f7ff !important;
+}
+
+/* ── Weekend cells ────────────────────────────────────────────────────────── */
+.wx-weekend {
+  background: #fafafa;
+}
+
+/* ── Action buttons in grid ───────────────────────────────────────────────── */
+.aci-act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.aci-act-btn:hover {
+  background: #f3f4f6;
+}
+
+/* ── Gantt container rounded ──────────────────────────────────────────────── */
+.aci-gantt-container {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+/* ── Removed task (Current Schedule) ─────────────────────────────────────── */
+.aci-row-removed {
+  opacity: 0.5;
+}
