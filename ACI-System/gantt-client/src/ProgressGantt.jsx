@@ -7,11 +7,11 @@ import "./styles/aci-gantt.css";
 
 const SCALE_CONFIGS = {
   day: [
-    { unit: "week",  step: 1, format: "'Week' w, yyyy" },
+    { unit: "week",  step: 1, format: "'W'w MMM yy" },
     { unit: "day",   step: 1, format: "d EEE" },
   ],
   week: [
-    { unit: "month", step: 1, format: "MMMM yyyy" },
+    { unit: "month", step: 1, format: "MMM yyyy" },
     { unit: "week",  step: 1, format: "'W'w" },
   ],
   month: [
@@ -115,61 +115,53 @@ function calcCriticalPath(tasks, links) {
   return criticalIds;
 }
 
-// ── Current Schedule 컬럼 ────────────────────────────────────────────────────
+// ── Current Schedule 컬럼 (SVAR template = textNode, plain text only) ────────
 const PROGRESS_COLUMNS = [
   {
     id: "wbs",
     header: "ID",
-    width: 45,
+    width: 55,
     align: "center",
-    template: (t) =>
-      t.wbs_code
-        ? `<span style="font-size:11px;color:#6b7280">${t.wbs_code}</span>`
-        : `<span style="font-size:11px;color:#9ca3af">${t.id}</span>`,
+    template: (t) => t.wbs_code || String(t.id),
   },
   {
     id: "text",
     header: "Task",
     flexgrow: 1,
-    minWidth: 180,
+    minWidth: 200,
     tree: true,
     template: (t) => {
-      const prefix = t.type === "summary" ? "▸ " : t.type === "milestone" ? "⬥ " : "";
-      if (t.type === "milestone") {
-        return `<span title="${t.text}" style="font-weight:600;color:#d97706">${prefix}${t.text}</span>`;
-      }
-      const lvl = t.$level ?? 0;
-      let style = lvl === 0 ? "font-weight:700;font-size:13px;color:#111827"
-                : lvl === 1 ? "color:#374151"
-                : "color:#6b7280;font-size:11.5px";
-      if (t.working_status === "Removed") style += ";text-decoration:line-through;opacity:.5";
-      return `<span title="${t.text}" style="${style}">${prefix}${t.text}</span>`;
+      const prefix = t.type === "summary" ? "▸ " : t.type === "milestone" ? "◆ " : "  ";
+      const removed = t.working_status === "Removed" ? " [removed]" : "";
+      return prefix + (t.text || "") + removed;
     },
   },
   {
     id: "trade_name",
     header: "Trade",
-    width: 80,
-    template: (t) => {
-      if (!t.trade_name) return "";
-      const c = t.trade_color || "#6b7280";
-      return `<span style="font-size:11px;color:${c};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block" title="${t.trade_name}">${t.trade_name}</span>`;
-    },
+    width: 85,
+    template: (t) => t.trade_name || "",
   },
-  { id: "start", header: "Start", width: 85, align: "center" },
+  {
+    id: "start",
+    header: "Start",
+    width: 75,
+    align: "center",
+    template: (t) => t.start ? displayDate(t.start) : "",
+  },
   {
     id: "duration",
     header: "Dur",
-    width: 55,
+    width: 48,
     align: "center",
-    template: (t) => `<span style="font-size:12px">${t.duration}d</span>`,
+    template: (t) => (t.duration || "") + "d",
   },
   {
     id: "end",
     header: "End",
-    width: 85,
+    width: 75,
     align: "center",
-    template: (t) => (t.end ? `<span style="font-size:12px">${displayDate(t.end)}</span>` : ""),
+    template: (t) => t.end ? displayDate(t.end) : "",
   },
   {
     id: "days_shifted",
@@ -178,37 +170,29 @@ const PROGRESS_COLUMNS = [
     align: "center",
     template: (t) => {
       if (t.days_shifted == null) return "–";
-      if (t.days_shifted === 0) return '<span style="color:#16a34a">●</span>';
-      if (t.days_shifted > 0) return `<span style="color:#d97706;font-weight:600;font-size:11px">+${t.days_shifted}d</span>`;
-      return `<span style="color:#16a34a;font-weight:600;font-size:11px">${t.days_shifted}d</span>`;
+      if (t.days_shifted === 0) return "✓";
+      if (t.days_shifted > 0) return "+" + t.days_shifted + "d";
+      return t.days_shifted + "d";
     },
   },
   {
     id: "progress",
     header: "%",
-    width: 60,
+    width: 48,
     align: "center",
-    template: (t) => {
-      const pct = Math.round((t.progress || 0) * 100);
-      const color = pct >= 100 ? "#16a34a" : pct >= 50 ? "#059669" : pct > 0 ? "#d97706" : "#9ca3af";
-      return `<span style="font-weight:700;color:${color};font-size:12px">${pct}%</span>`;
-    },
+    template: (t) => Math.round((t.progress || 0) * 100) + "%",
   },
   {
     id: "responsible",
     header: "Owner",
-    width: 60,
+    width: 55,
     align: "center",
     template: (t) => {
       if (!t.assigned_to_name) return "";
       const parts = t.assigned_to_name.split(" ").filter(Boolean);
-      const initials = parts.length >= 2
+      return parts.length >= 2
         ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
         : (parts[0] || "").substring(0, 2).toUpperCase();
-      const colors = ["#3b82f6", "#16a34a", "#d97706", "#9333ea", "#dc2626", "#0891b2", "#db2777"];
-      const ci = (t.assigned_to_id || 0) % colors.length;
-      return `<span title="${t.assigned_to_name}" style="display:inline-flex;align-items:center;justify-content:center;
-        width:26px;height:26px;border-radius:50%;background:${colors[ci]};color:#fff;font-size:10px;font-weight:700">${initials}</span>`;
     },
   },
 ];

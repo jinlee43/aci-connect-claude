@@ -29,16 +29,15 @@ export function formatDate(date) {
 }
 
 /**
- * Date → "MMM DD, YYYY" 표시용
+ * Date → "MM/DD/YY" 표시용 (간트차트 셀)
  */
 export function displayDate(date) {
   if (!date) return "";
   const d = date instanceof Date ? date : new Date(date);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const m  = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const y  = String(d.getFullYear()).slice(2);
+  return `${m}/${day}/${y}`;
 }
 
 /**

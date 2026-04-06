@@ -8,11 +8,11 @@ import "./styles/aci-gantt.css";
 // ── 스케일 설정 ──────────────────────────────────────────────────────────────
 const SCALE_CONFIGS = {
   day: [
-    { unit: "week",  step: 1, format: "'W'w MMM yyyy" },
+    { unit: "week",  step: 1, format: "'W'w MMM yy" },
     { unit: "day",   step: 1, format: "d EEE" },
   ],
   week: [
-    { unit: "month", step: 1, format: "MMMM yyyy" },
+    { unit: "month", step: 1, format: "MMM yyyy" },
     { unit: "week",  step: 1, format: "'W'w" },
   ],
   month: [
@@ -117,91 +117,60 @@ function calcCriticalPath(tasks, links) {
   return criticalIds;
 }
 
-// ── 컬럼 설정 ────────────────────────────────────────────────────────────────
+// ── 컬럼 설정 (SVAR는 template 결과를 textNode로 렌더링 → plain text only) ───
 function buildColumns() {
   return [
     {
       id: "wbs",
       header: "ID",
-      width: 45,
+      width: 55,
       align: "center",
-      template: (t) =>
-        t.wbs_code
-          ? `<span style="font-size:11px;color:#6b7280">${t.wbs_code}</span>`
-          : `<span style="font-size:11px;color:#9ca3af">${t.id}</span>`,
+      template: (t) => t.wbs_code || String(t.id),
     },
     {
       id: "text",
       header: "Task",
       flexgrow: 1,
-      minWidth: 180,
+      minWidth: 200,
       tree: true,
       template: (t) => {
-        const prefix = t.type === "summary" ? "▸ " : t.type === "milestone" ? "⬥ " : "";
-        if (t.type === "milestone") {
-          return `<span title="${t.text}" style="font-weight:600;color:#d97706">${prefix}${t.text}</span>`;
-        }
-        const lvl = t.$level ?? 0;
-        let style =
-          lvl === 0 ? "font-weight:700;font-size:13px;color:#111827"
-          : lvl === 1 ? "color:#374151"
-          : "color:#6b7280;font-size:11.5px";
-        return `<span title="${t.text}" style="${style}">${prefix}${t.text}</span>`;
-      },
-    },
-    {
-      id: "actions",
-      header: "",
-      width: 65,
-      align: "center",
-      template: (t) => {
-        if (t.type === "summary") {
-          return `<span class="aci-act-btn" title="Add subtask" data-action="add" data-id="${t.id}">
-            <i class="bi bi-plus" style="font-size:14px;color:#3b82f6"></i></span>`;
-        }
-        const isDone = (t.progress || 0) >= 1;
-        const chk = isDone ? "bi-check-circle-fill" : "bi-circle";
-        const chkColor = isDone ? "#16a34a" : "#d1d5db";
-        return `
-          <span class="aci-act-btn" title="Add after" data-action="add" data-id="${t.id}" data-after="1">
-            <i class="bi bi-plus" style="font-size:14px;color:#3b82f6"></i></span>
-          <span class="aci-act-btn" title="${isDone ? "Mark incomplete" : "Mark complete"}" data-action="done" data-id="${t.id}">
-            <i class="bi ${chk}" style="font-size:12px;color:${chkColor}"></i></span>
-          <span class="aci-act-btn" title="Delete" data-action="delete" data-id="${t.id}">
-            <i class="bi bi-trash3" style="font-size:11px;color:#d1d5db"></i></span>`;
+        const prefix = t.type === "summary" ? "▸ " : t.type === "milestone" ? "◆ " : "  ";
+        return prefix + (t.text || "");
       },
     },
     {
       id: "trade_name",
       header: "Trade",
-      width: 90,
-      template: (t) => {
-        if (!t.trade_name) return "";
-        const c = t.trade_color || "#6b7280";
-        return `<span style="font-size:11px;color:${c};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block" title="${t.trade_name}">${t.trade_name}</span>`;
-      },
+      width: 85,
+      template: (t) => t.trade_name || "",
     },
-    { id: "start", header: "Start", width: 85, align: "center" },
+    {
+      id: "start",
+      header: "Start",
+      width: 75,
+      align: "center",
+      template: (t) => t.start ? displayDate(t.start) : "",
+    },
     {
       id: "duration",
       header: "Dur",
-      width: 50,
+      width: 48,
       align: "center",
-      template: (t) => `<span style="font-size:12px">${t.duration || ""}d</span>`,
+      template: (t) => (t.duration || "") + "d",
     },
-    { id: "end", header: "End", width: 85, align: "center",
-      template: (t) => t.end ? `<span style="font-size:12px">${displayDate(t.end)}</span>` : "",
+    {
+      id: "end",
+      header: "End",
+      width: 75,
+      align: "center",
+      template: (t) => t.end ? displayDate(t.end) : "",
     },
     {
       id: "progress",
       header: "%",
-      width: 55,
+      width: 48,
       align: "center",
-      template: (t) => {
-        const pct = Math.round((t.progress || 0) * 100);
-        const c = pct >= 100 ? "#16a34a" : pct >= 50 ? "#059669" : pct > 0 ? "#d97706" : "#9ca3af";
-        return `<span style="font-weight:700;color:${c};font-size:12px">${pct}%</span>`;
-      },
+      template: (t) => Math.round((t.progress || 0) * 100) + "%",
     },
     {
       id: "responsible",
@@ -211,15 +180,9 @@ function buildColumns() {
       template: (t) => {
         if (!t.assigned_to_name) return "";
         const parts = t.assigned_to_name.split(" ").filter(Boolean);
-        const initials = parts.length >= 2
+        return parts.length >= 2
           ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
           : (parts[0] || "").substring(0, 2).toUpperCase();
-        const palette = ["#3b82f6","#16a34a","#d97706","#9333ea","#dc2626","#0891b2","#db2777"];
-        const ci = (t.assigned_to_id || 0) % palette.length;
-        return `<span title="${t.assigned_to_name}"
-          style="display:inline-flex;align-items:center;justify-content:center;
-          width:26px;height:26px;border-radius:50%;background:${palette[ci]};
-          color:#fff;font-size:10px;font-weight:700">${initials}</span>`;
       },
     },
   ];
@@ -262,6 +225,11 @@ export default function BaselineGantt({ projectId, apiBase = "/api", importXmlUr
       })
       .catch((e) => { setError(e.message); setLoading(false); });
   }, [projectId, apiBase]);
+
+  // ── 링크 디버그 ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    console.log(`[Gantt] tasks=${allTasks.length}, links=${allLinks.length}`, allLinks.slice(0, 5));
+  }, [allTasks, allLinks]);
 
   // ── Critical Path 계산 ───────────────────────────────────────────────────
   useEffect(() => {
