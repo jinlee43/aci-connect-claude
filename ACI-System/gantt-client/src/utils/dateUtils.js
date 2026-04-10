@@ -1,6 +1,6 @@
 /**
  * ASP.NET 날짜 문자열 → Date 객체 변환
- * GanttDataService가 "MM-dd-yyyy HH:mm" 형식으로 반환함
+ * GanttDataService가 "MM-dd-yyyy HH:mm" 또는 ISO "yyyy-MM-dd" 형식으로 반환
  */
 export function parseGanttDate(str) {
   if (!str) return null;
@@ -41,7 +41,7 @@ export function displayDate(date) {
 }
 
 /**
- * dhtmlxGantt link type (string "0"~"3") → SVAR link type string
+ * DB 링크 타입 숫자 → SVAR link type string
  * FS=0→"e2s", SS=1→"s2s", FF=2→"e2e", SF=3→"s2e"
  */
 export function parseLinkType(type) {
@@ -58,12 +58,15 @@ export function toSvarTask(dto) {
 
   const type = dto.type === "project" ? "summary" : dto.type || "task";
 
+  // duration은 Working Days 기준으로 재계산 (start+end 둘 다 있을 때)
+  const duration = (start && end) ? countWorkingDays(start, end) : (dto.duration || 1);
+
   return {
     id: Number(dto.id),
     text: dto.text || dto.label || "",
     start: start,
     end: end,
-    duration: dto.duration || 1,
+    duration,
     parent: Number(dto.parent) || 0,
     progress: dto.progress || 0,
     type,
@@ -108,4 +111,61 @@ export function toSvarLink(dto) {
 export function normalizeId(v) {
   const n = Number(v);
   return isNaN(n) ? v : n;
+}
+
+/**
+ * 두 날짜 사이의 Working Days 수 (시작·종료 포함, 토·일 제외)
+ * 예) 월~금 = 5, 금~다음월 = 2
+ */
+export function countWorkingDays(start, end) {
+  const s = new Date(start); s.setHours(0, 0, 0, 0);
+  const e = new Date(end);   e.setHours(0, 0, 0, 0);
+  if (s > e) return 1;
+  let count = 0;
+  const cur = new Date(s);
+  while (cur <= e) {
+    const day = cur.getDay();
+    if (day !== 0 && day !== 6) count++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return Math.max(1, count);
+}
+
+/**
+ * 시작일로부터 N Working Days 후의 날짜 반환 (시작일 = 1일째)
+ * 시작일이 주말이면 다음 월요일을 시작으로 간주
+ */
+export function addWorkingDays(start, days) {
+  const d = new Date(start); d.setHours(0, 0, 0, 0);
+  // 시작일이 주말이면 월요일로 이동
+  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  let remaining = Math.max(1, days) - 1; // 시작일 자체가 1일째
+  while (remaining > 0) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) remaining--;
+  }
+  return d;
+}
+
+/**
+ * 태스크 배열을 DB id 기준 depth-first pre-order로 정렬
+ * siblings 내에서 id 오름차순 → SVAR 표시 순서 = DB id 순서
+ */
+export function sortByTreeId(tasks) {
+  const childMap = new Map();
+  tasks.forEach(t => {
+    const pid = t.parent ?? 0;
+    if (!childMap.has(pid)) childMap.set(pid, []);
+    childMap.get(pid).push(t);
+  });
+  childMap.forEach(children => children.sort((a, b) => a.id - b.id));
+  const result = [];
+  const walk = (pid) => {
+    (childMap.get(pid) || []).forEach(task => {
+      result.push(task);
+      walk(task.id);
+    });
+  };
+  walk(0);
+  return result;
 }

@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
-import BaselineGantt from "./BaselineGantt";
-import ProgressGantt from "./ProgressGantt";
+import BaselineGantt    from "./BaselineGantt";
+import ProgressGantt    from "./ProgressGantt";
+import ComparisonGantt  from "./ComparisonGantt";
 
 // ── Baseline Schedule 마운트 ──────────────────────────────────────────────
 const baselineEl = document.getElementById("baseline-gantt-root");
@@ -26,6 +27,20 @@ if (progressEl) {
 
   createRoot(progressEl).render(
     <ProgressGantt
+      projectId={projectId}
+      isInitialized={isInitialized}
+    />
+  );
+}
+
+// ── Schedule Comparison 마운트 ────────────────────────────────────────────
+const comparisonEl = document.getElementById("comparison-gantt-root");
+if (comparisonEl) {
+  const projectId     = parseInt(comparisonEl.dataset.projectId, 10);
+  const isInitialized = comparisonEl.dataset.initialized === "true";
+
+  createRoot(comparisonEl).render(
+    <ComparisonGantt
       projectId={projectId}
       isInitialized={isInitialized}
     />

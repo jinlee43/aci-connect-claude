@@ -5,12 +5,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Xml.Linq;
+using ACI.Web.Data.Entities;
 
 namespace ACI.Web.Controllers;
 
 /// <summary>
-/// dhtmlxGantt와 통신하는 REST API 컨트롤러
-/// dhtmlxGantt의 dataProcessor가 이 엔드포인트로 CRUD 요청을 보냄
+/// SVAR Gantt (wx-react-gantt) REST API 컨트롤러
+/// React 프론트엔드의 CRUD 요청을 처리함
 /// </summary>
 [ApiController]
 [Route("api/gantt")]
@@ -20,12 +21,49 @@ public class GanttController : ControllerBase
     private readonly IGanttDataService _gantt;
     private readonly ILogger<GanttController> _logger;
     private readonly AppDbContext _db;
+    private readonly IBaselineService _baselineSvc;
 
-    public GanttController(IGanttDataService gantt, ILogger<GanttController> logger, AppDbContext db)
+    public GanttController(IGanttDataService gantt, ILogger<GanttController> logger,
+                           AppDbContext db, IBaselineService baselineSvc)
     {
-        _gantt  = gantt;
-        _logger = logger;
-        _db     = db;
+        _gantt       = gantt;
+        _logger      = logger;
+        _db          = db;
+        _baselineSvc = baselineSvc;
+    }
+
+    // ─── 스케줄 편집 가능 여부 ────────────────────────────────────
+    // GET /api/gantt/projects/{projectId}/schedule-status
+    [HttpGet("projects/{projectId:int}/schedule-status")]
+    public async Task<IActionResult> GetScheduleStatus(int projectId)
+    {
+        var editable = await _baselineSvc.IsScheduleEditableAsync(projectId);
+        ScheduleBaseline? draft = null;
+        if (editable)
+        {
+            draft = await _db.ScheduleBaselines
+                .Where(b => b.ProjectId == projectId && !b.IsAutoSnapshot
+                         && b.IsActive && b.Status == BaselineStatus.Draft)
+                .OrderByDescending(b => b.VersionNumber)
+                .FirstOrDefaultAsync();
+        }
+        return Ok(new { editable, draftTitle = draft?.Title, draftVersion = draft?.VersionNumber });
+    }
+
+    // ─── Revision 시작 ───────────────────────────────────────────
+    // POST /api/gantt/projects/{projectId}/start-revision
+    [HttpPost("projects/{projectId:int}/start-revision")]
+    public async Task<IActionResult> StartRevision(int projectId, [FromBody] StartRevisionDto dto)
+    {
+        try
+        {
+            var draft = await _baselineSvc.StartRevisionAsync(projectId, dto.Title, dto.Description);
+            return Ok(new { message = $"Revision v{draft.VersionNumber} started.", version = draft.VersionNumber });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     // ─── 프로젝트 전체 데이터 로드 ────────────────────────────
@@ -37,12 +75,14 @@ public class GanttController : ControllerBase
         return Ok(data);
     }
 
-    // ─── Task CRUD (dhtmlxGantt dataProcessor 형식) ────────────
+    // ─── Task CRUD ──────────────────────────────────────────────
 
     // POST /api/gantt/projects/{projectId}/task
     [HttpPost("projects/{projectId:int}/task")]
     public async Task<IActionResult> CreateTask(int projectId, [FromBody] GanttTaskDto task)
     {
+        if (!await _baselineSvc.IsScheduleEditableAsync(projectId))
+            return StatusCode(423, new { message = "Schedule is locked. Start a revision to edit." });
         var created = await _gantt.CreateTaskAsync(projectId, task);
         return Ok(new { action = "inserted", tid = created.Id });
     }
@@ -51,6 +91,8 @@ public class GanttController : ControllerBase
     [HttpPut("projects/{projectId:int}/task/{id:int}")]
     public async Task<IActionResult> UpdateTask(int projectId, int id, [FromBody] GanttTaskDto task)
     {
+        if (!await _baselineSvc.IsScheduleEditableAsync(projectId))
+            return StatusCode(423, new { message = "Schedule is locked. Start a revision to edit." });
         await _gantt.UpdateTaskAsync(projectId, id, task);
         return Ok(new { action = "updated" });
     }
@@ -59,6 +101,8 @@ public class GanttController : ControllerBase
     [HttpDelete("projects/{projectId:int}/task/{id:int}")]
     public async Task<IActionResult> DeleteTask(int projectId, int id)
     {
+        if (!await _baselineSvc.IsScheduleEditableAsync(id))
+            return StatusCode(423, new { message = "Schedule is locked. Start a revision to edit." });
         await _gantt.DeleteTaskAsync(id);
         return Ok(new { action = "deleted" });
     }
@@ -67,6 +111,8 @@ public class GanttController : ControllerBase
     [HttpDelete("projects/{projectId:int}/task/{id:int}/subtree")]
     public async Task<IActionResult> DeleteTaskSubtree(int projectId, int id)
     {
+        if (!await _baselineSvc.IsScheduleEditableAsync(projectId))
+            return StatusCode(423, new { message = "Schedule is locked. Start a revision to edit." });
         var count = await _gantt.DeleteTaskSubtreeAsync(id);
         return Ok(new { action = "deleted", count });
     }
@@ -95,6 +141,25 @@ public class GanttController : ControllerBase
     {
         await _gantt.DeleteLinkAsync(id);
         return Ok(new { action = "deleted" });
+    }
+
+    // ─── Dialog 용 메타데이터 (Trades + Employees) ────────────────
+    // GET /api/gantt/projects/{projectId}/meta
+    [HttpGet("projects/{projectId:int}/meta")]
+    public async Task<IActionResult> GetMeta(int projectId)
+    {
+        var trades = await _db.Trades
+            .Where(t => t.ProjectId == projectId)
+            .OrderBy(t => t.Name)
+            .Select(t => new { t.Id, t.Name, t.Color, t.Code })
+            .ToListAsync();
+
+        var employees = await _db.Employees
+            .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+            .Select(e => new { e.Id, name = e.FirstName + " " + e.LastName })
+            .ToListAsync();
+
+        return Ok(new { trades, employees });
     }
 
     // ─── MS Project XML Export ─────────────────────────────────
@@ -173,3 +238,5 @@ public class GanttController : ControllerBase
         return File(bytes, "application/xml", fileName);
     }
 }
+
+public record StartRevisionDto(string Title, string? Description);

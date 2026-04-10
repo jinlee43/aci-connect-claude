@@ -19,7 +19,7 @@ public enum TaskConstraintType
 }
 
 /// <summary>
-/// Baseline Schedule WBS item. Maps directly to dhtmlxGantt's task object.
+/// Baseline Schedule WBS item. Rendered by SVAR Gantt (wx-react-gantt).
 /// Equivalent to old system's AciProjItem.
 /// </summary>
 public class ScheduleTask : BaseEntity
@@ -32,7 +32,7 @@ public class ScheduleTask : BaseEntity
     public string? WbsCode { get; set; }
 
     [Required, MaxLength(300)]
-    public string Text { get; set; } = string.Empty;   // dhtmlxGantt "text" field
+    public string Text { get; set; } = string.Empty;   // SVAR Gantt "text" field
 
     [MaxLength(1000)]
     public string? Description { get; set; }
@@ -65,7 +65,7 @@ public class ScheduleTask : BaseEntity
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate   { get; set; }
 
-    /// <summary>Calendar days (dhtmlxGantt calculates from start+end).</summary>
+    /// <summary>Working days (토/일 제외, GanttDataService.CountWorkingDays 계산).</summary>
     public int Duration { get; set; } = 1;
 
     /// <summary>Progress 0.0 – 1.0 (e.g. 0.75 = 75%)</summary>

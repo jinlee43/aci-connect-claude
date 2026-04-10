@@ -196,6 +196,12 @@
 
 <script src="~/js/site.js" asp-append-version="true"></script>
 
+@* SVAR React Gantt 번들 — gantt 페이지에서만 로드 *@
+@if (ViewData["LoadGanttBundle"] as bool? == true)
+{
+    <script src="~/gantt-dist/gantt-bundle.js" asp-append-version="true"></script>
+}
+
 @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

@@ -1,7 +1,301 @@
 /* ── ACI Gantt Custom Styles ──────────────────────────────────────────────── */
 
+/* ── Outbuild-style Toolbar ───────────────────────────────────────────────── */
+.aci-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-height: 44px;
+}
+.aci-toolbar__left,
+.aci-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+.aci-toolbar__right { margin-left: auto; }
+
+/* 구분선 */
+.aci-tb-sep {
+  width: 1px;
+  height: 20px;
+  background: #e5e7eb;
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+/* 아이콘 버튼 */
+.aci-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.aci-tb-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
+.aci-tb-btn--active {
+  background: #eff6ff !important;
+  border-color: #3b82f6 !important;
+  color: #2563eb !important;
+}
+.aci-tb-btn--danger-active {
+  background: #fef2f2 !important;
+  border-color: #ef4444 !important;
+  color: #dc2626 !important;
+}
+/* dropdown-toggle 화살표 제거 후 패딩 조정 */
+.aci-tb-btn.dropdown-toggle::after { display: none; }
+
+/* 버튼 그룹 */
+.aci-tb-group {
+  display: inline-flex;
+  align-items: center;
+}
+.aci-tb-group .aci-tb-btn { border-radius: 0; border-right-width: 0; }
+.aci-tb-group .aci-tb-btn:first-child { border-radius: 6px 0 0 6px; }
+.aci-tb-group .aci-tb-btn:last-child  { border-radius: 0 6px 6px 0; border-right-width: 1px; }
+
+/* Scale 드롭다운 */
+.aci-tb-dropdown {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  gap: 4px;
+  transition: background .12s, border-color .12s;
+}
+.aci-tb-dropdown:hover { background: #f3f4f6; border-color: #d1d5db; }
+.aci-tb-dropdown.dropdown-toggle::after { margin-left: 4px; }
+
+/* 검색 */
+.aci-tb-search {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  padding: 0 8px;
+  gap: 6px;
+  width: 180px;
+  transition: border-color .12s;
+}
+.aci-tb-search:focus-within { border-color: #3b82f6; }
+.aci-tb-search__icon { font-size: 12px; color: #9ca3af; flex-shrink: 0; }
+.aci-tb-search__input {
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: #374151;
+  width: 100%;
+  background: transparent;
+}
+.aci-tb-search__input::placeholder { color: #9ca3af; }
+.aci-tb-search__clear {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #9ca3af;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+.aci-tb-search__clear:hover { color: #374151; }
+
+/* 강조 버튼 (Freeze / Save) */
+.aci-tb-btn--primary {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 6px;
+  background: #16a34a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s;
+  white-space: nowrap;
+}
+.aci-tb-btn--primary:hover:not(:disabled) { background: #15803d; }
+.aci-tb-btn--primary:disabled { opacity: .55; cursor: default; }
+
+/* unsaved badge */
+.aci-tb-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* ── /Outbuild-style Toolbar ──────────────────────────────────────────────── */
+
+/* ── Task Dialog ──────────────────────────────────────────────────────────── */
+.aci-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.aci-dialog {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+  width: 520px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.aci-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.aci-dialog__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  display: flex;
+  align-items: center;
+}
+.aci-dialog__close {
+  border: none;
+  background: none;
+  padding: 4px;
+  border-radius: 5px;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+}
+.aci-dialog__close:hover { background: #f3f4f6; color: #111827; }
+.aci-dialog__body {
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.aci-dialog__field { display: flex; flex-direction: column; gap: 4px; }
+.aci-dialog__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.aci-dialog__input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  background: #fff;
+  width: 100%;
+  outline: none;
+  transition: border-color .12s;
+}
+.aci-dialog__input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+.aci-dialog__input.is-invalid { border-color: #ef4444; }
+textarea.aci-dialog__input { height: auto; padding: 8px 10px; resize: vertical; }
+select.aci-dialog__input { padding-right: 28px; }
+.aci-dialog__error { font-size: 11px; color: #ef4444; margin-top: 2px; }
+/* 2열 / 3열 그리드 */
+.aci-dialog__row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.aci-dialog__row3 { display: grid; grid-template-columns: 1fr 1fr 110px; gap: 12px; }
+/* Type 라디오 */
+.aci-dialog__radio-group { display: flex; gap: 8px; }
+.aci-dialog__radio {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all .12s;
+  user-select: none;
+}
+.aci-dialog__radio:hover { background: #f3f4f6; }
+.aci-dialog__radio--active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+/* 푸터 */
+.aci-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid #e5e7eb;
+}
+.aci-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background .12s;
+}
+.aci-dialog__btn--secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+.aci-dialog__btn--secondary:hover { background: #e5e7eb; }
+.aci-dialog__btn--primary { background: #2563eb; color: #fff; }
+.aci-dialog__btn--primary:hover { background: #1d4ed8; }
+/* ── /Task Dialog ─────────────────────────────────────────────────────────── */
+
 /* ── SVAR Gantt CSS 변수 오버라이드 ─────────────────────────────────────────── */
 :root {
+  /* Bar colors */
   --wx-gantt-task-color: #3b82f6;
   --wx-gantt-task-font-color: #fff;
   --wx-gantt-task-fill-color: rgba(255,255,255,0.3);
@@ -10,6 +304,31 @@
   --wx-gantt-summary-fill-color: rgba(255,255,255,0.3);
   --wx-gantt-milestone-color: #d97706;
   --wx-gantt-bar-border-radius: 4px;
+
+  /* ── 폰트 크기 축소 (Outbuild 스타일) ────────────────────────────────────── */
+  --wx-font-size: 12px;
+  --wx-font-size-sm: 11px;
+  --wx-line-height: 16px;
+
+  /* Grid 폰트 */
+  --wx-grid-body-font: 400 12px var(--wx-font-family);
+  --wx-grid-header-font: 600 11px var(--wx-font-family);
+
+  /* ── 행 높이 축소 (Outbuild 스타일 ~28px) ───────────────────────────────── */
+  --wx-row-height: 28px;
+}
+
+/* SVAR가 내부 scoped CSS로 row height를 관리하므로 직접 강제              */
+/* ⚠️ [data-header-id]에는 height 강제 금지: .wx-h-row(71px)와 불일치 시    */
+/*   header 셀이 28px로 축소되어 43px 빈 공간(유령 행)이 생김               */
+.wx-row {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+[data-col-id] {
+  height: 28px !important;
+  min-height: 28px !important;
 }
 
 /* ── Today Marker ─────────────────────────────────────────────────────────── */
@@ -67,4 +386,294 @@
 /* ── Removed task (Current Schedule) ─────────────────────────────────────── */
 .aci-row-removed {
   opacity: 0.5;
+}
+
+/* ── Outbuild-style Grid ────────────────────────────────────────────────────── */
+/* SVAR DOM: 데이터 셀 = [data-col-id], 헤더 셀 = [data-header-id]             */
+
+/* 모든 데이터 셀: 흰색 배경 + 하단 가로선만 (세로선 제거) */
+[data-col-id] {
+  background: #ffffff !important;
+  border-right: none !important;
+  border-left: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  font-size: 12px !important;
+  color: #374151 !important;
+}
+
+/* 모든 헤더 셀: 흰색 배경 + 하단 강조선만 (세로선 제거) */
+[data-header-id] {
+  background: #ffffff !important;
+  border-right: none !important;
+  border-left: none !important;
+  border-bottom: 2px solid #d1d5db !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  color: #6b7280 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* 하위 태스크를 가진 부모 태스크: 굵은 글씨
+   SVAR 구조: 부모행 = wx-toggle-icon, 일반행 = wx-toggle-placeholder
+   wx-toggle-icon 형제인 wx-text만 bold 처리                              */
+[data-col-id="text"] .wx-toggle-icon ~ .wx-text {
+  font-weight: 700 !important;
+}
+
+/* Task 컬럼 헤더 텍스트: 가운데 정렬
+   SVAR 헤더 셀은 flex 컨테이너, .wx-text가 flex-grow:0 이므로
+   flex-grow:1 로 확장 후 text-align:center 적용 */
+[data-header-id="text"] .wx-text {
+  flex-grow: 1 !important;
+  text-align: center !important;
+}
+
+/* Trade 컬럼: 약간 연한 배경으로 구분 */
+[data-col-id="trade_name"],
+[data-header-id="trade_name"] {
+  background: #f8f9fa !important;
+}
+
+/* ── 보조 컬럼 회색 배경 (ID, ACTIONS, DUR, RESPONSIBLE) ──────────────────── */
+[data-col-id="wbs"],
+[data-header-id="wbs"],
+[data-col-id="action"],
+[data-header-id="action"],
+[data-col-id="duration"],
+[data-header-id="duration"],
+[data-col-id="responsible"],
+[data-header-id="responsible"] {
+  background: #f3f4f6 !important;
+}
+
+/* Responsible 컬럼: 오른쪽 세로선 (그리드↔타임라인 경계 구분) */
+[data-col-id="responsible"],
+[data-header-id="responsible"] {
+  border-right: 1px solid #d1d5db !important;
+}
+
+/* row hover: Outbuild 스타일 연한 파란 하이라이트 */
+.wx-row:hover [data-col-id] {
+  background: #eff6ff !important;
+}
+
+/* 선택된 row */
+.wx-row.wx-selected [data-col-id] {
+  background: #dbeafe !important;
+}
+
+/* 차트 영역 가로선: 헤더 구분선
+   ⚠️ height를 scale 총 높이(2 × cellHeight=28px = 56px)와 맞춰야
+      left 패널 행과 right 패널 gantt bar가 정렬됨
+      SVAR가 JS로 row 및 각 cell 모두에 height:71px inline style을 주입하므로
+      row + cell 모두 !important로 override 필요 */
+.wx-h-row {
+  height: 56px !important;
+  border-bottom: 2px solid #d1d5db !important;
+}
+/* 헤더 셀 높이도 row와 동일하게 강제 (SVAR inline height:71px override) */
+.wx-h-row .wx-cell {
+  height: 56px !important;
+  min-height: 56px !important;
+  max-height: 56px !important;
+}
+
+/* ── 타임라인 바디: cellBorders="" → PNG 완전 투명 (선 없음) ──────────────── */
+
+/* ── 타임라인 헤더: 세로선 + 가로선 모두 표시 ──────────────────────────────
+   구조: .wx-scale > .wx-row (월행) + .wx-row (주행)
+   --wx-timescale-border: 헤더 셀 사이 세로선
+   .wx-scale .wx-row:not(:last-child) → 월행 하단 가로선                    */
+.wx-gantt {
+  --wx-timescale-border: 1px solid #d1d5db;
+}
+.wx-scale .wx-row:not(:last-child) {
+  border-bottom: 1px solid #d1d5db !important;
+}
+/* 타임라인 헤더 하단선: inset box-shadow (바깥 box-shadow는 높이가 2px 더 길어 보임) */
+.wx-scale {
+  box-shadow: inset 0 -2px 0 0 #d1d5db !important;
+}
+
+/* ── Timeline 스케일 폰트 축소 (Outbuild처럼 작게) ───────────────────────────── */
+/* 상단 스케일 (Sep 2023, Oct 2023) */
+.wx-scale .wx-cell {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #6b7280 !important;
+}
+/* 하단 스케일 (W37, W38 ...) */
+.wx-scale .wx-cell:not(:first-child),
+.wx-scale ~ .wx-scale .wx-cell {
+  font-size: 10px !important;
+  color: #9ca3af !important;
+}
+
+/* ── wxi 아이콘 폰트 → Bootstrap Icons 대체 ──────────────────────────────────
+   SVAR는 wxi-* 아이콘 폰트를 사용하지만 번들에 포함되지 않음.
+   Bootstrap Icons 1.11.3 (전역 로드됨)으로 대체.                            */
+i[class^="wxi-"]::before,
+i[class*=" wxi-"]::before {
+  font-family: "bootstrap-icons" !important;
+  font-style: normal !important;
+  font-weight: normal !important;
+  display: inline-block;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+}
+/* expand/collapse 화살표 (chevron-down=\f282, left=\f283, right=\f284, up=\f285) */
+i.wxi-angle-down::before   { content: "\f282" !important; }
+i.wxi-angle-left::before   { content: "\f283" !important; }
+i.wxi-angle-right::before  { content: "\f284" !important; }
+i.wxi-angle-up::before     { content: "\f285" !important; }
+/* Action 컬럼 + 버튼 (bi-plus = \f4fe) */
+i.wxi-plus::before         { content: "\f4fe" !important; font-size: 16px !important; }
+/* 닫기 (bi-x = \f659) */
+i.wxi-close::before        { content: "\f659" !important; }
+/* 삭제 (bi-trash = \f5de) */
+i.wxi-delete::before       { content: "\f5de" !important; }
+/* 편집 (bi-pencil = \f4cb) */
+i.wxi-edit::before         { content: "\f4cb" !important; }
+/* 더보기 (bi-three-dots = \f4e0) */
+i.wxi-dots-h::before       { content: "\f4e0" !important; }
+/* 달력 (bi-calendar = \f1f0) */
+i.wxi-calendar::before     { content: "\f1f0" !important; }
+/* 기타 */
+i.wxi-menu-down::before    { content: "\f282" !important; }
+i.wxi-swap-vertical::before   { content: "\f62d" !important; }
+i.wxi-swap-horizontal::before { content: "\f62c" !important; }
+
+/* ── SVAR action cell: 버튼 가로 배치 ────────────────────────────────────── */
+/* action cell 자체의 overflow 허용 */
+[data-col-id="action"] {
+  overflow: visible !important;
+}
+/* SVAR가 생성하는 inner div → flex row로 변경 */
+[data-col-id="action"] > div {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  flex-wrap: nowrap !important;
+}
+
+/* ── SVAR 내장 wxi-plus 버튼 항상 표시 ───────────────────────────────────── */
+[data-col-id="action"] i.wxi-plus,
+[data-col-id="action"] i[class^="wxi-"],
+[data-col-id="action"] i[class*=" wxi-"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  font-size: 13px !important;  /* pencil/trash 와 크기 통일 */
+  color: #9ca3af !important;
+  cursor: pointer;
+  vertical-align: middle;
+  margin: 0 !important;
+}
+[data-col-id="action"] i[class^="wxi-"]:hover,
+[data-col-id="action"] i[class*=" wxi-"]:hover {
+  color: #3b82f6 !important;
+}
+
+/* ── 주입된 편집/삭제 버튼 (useGanttActionButtons hook) ─────────────────────── */
+.aci-act-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #9ca3af;
+  cursor: pointer;
+  margin: 0 !important;     /* gap으로 간격 제어 */
+  flex-shrink: 0;
+  transition: color 0.12s, background 0.12s;
+}
+.aci-act-icon:hover {
+  color: #3b82f6 !important;
+  background: #eff6ff;
+}
+.aci-act-icon--danger:hover {
+  color: #ef4444 !important;
+  background: #fef2f2;
+}
+
+/* ── 링크(화살표) 표시 ────────────────────────────────────────────────────────
+   SVAR는 SVG polyline.wx-line으로 링크를 그리지만 기본 stroke가 none임.
+   CSS로 직접 stroke 색상을 지정해야 화살표가 보임.                          */
+.wx-links polyline.wx-line {
+  stroke: #94a3b8 !important;   /* slate-400: 회색 화살표 */
+  stroke-width: 1.5px !important;
+  fill: none !important;
+}
+
+/* ── 타임라인 바 레이블: Outbuild 스타일 - 바 오른쪽에 텍스트 표시 ────────────
+   .wx-bar를 overflow:visible로 만들고 .wx-content를 absolute로 바 우측에 배치  */
+
+/* 바 컨테이너: 레이블 overflow 허용 */
+.wx-bar {
+  overflow: visible !important;
+}
+/* 레이블을 바 오른쪽 20px 위치에 dark text로 표시 (화살표와 중첩 방지) */
+.wx-bar .wx-content {
+  position: absolute !important;
+  left: calc(100% + 20px) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  width: auto !important;
+  max-width: 180px !important;
+  text-overflow: ellipsis !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;            /* dark text on white timeline bg */
+  background: transparent !important;
+  padding: 0 !important;
+  pointer-events: none;
+}
+/* 바 내부 진행률 마커는 그대로 유지 */
+.wx-bar .wx-progress-marker {
+  position: absolute !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: rgba(255,255,255,0.8) !important;
+  font-size: 10px !important;
+  padding: 0 4px !important;
+  pointer-events: none;
+}
+/* 너무 좁은 바: 레이블 완전 숨김 (20px 이하) */
+.wx-bar--narrow .wx-content {
+  display: none !important;
+}
+
+/* 넓은 summary 바 (400px 이상): 레이블을 바 안쪽 왼쪽에 표시
+   오른쪽에 표시하면 화면 밖으로 나가므로 */
+.wx-bar--wide .wx-content {
+  position: absolute !important;
+  left: 8px !important;          /* 바 안쪽 좌측 여백 */
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  color: #ffffff !important;     /* 흰색 텍스트 (진한 summary 바 위) */
+  max-width: calc(100% - 16px) !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  background: transparent !important;
+}
+
+/* ── Action 컬럼 헤더: SVAR 내장 아이콘(□) 숨기고 "ACTIONS" 텍스트 표시 ──── */
+[data-header-id="action"] {
+  font-size: 0 !important;
+  color: transparent !important;
+}
+[data-header-id="action"]::before {
+  content: "ACTIONS";
+  font-size: 11px;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }

@@ -92,7 +92,38 @@ public class IndexModel : PageModel
             baseline_start = t.BaselineTask?.StartDate.ToString("yyyy-MM-dd"),
             baseline_end   = t.BaselineTask?.EndDate.ToString("yyyy-MM-dd"),
         });
-        return new JsonResult(new { data });
+
+        // BaselineTaskId → WorkingTaskId 매핑 (링크 변환용)
+        var baselineToWorking = tasks
+            .Where(t => t.BaselineTaskId.HasValue)
+            .ToDictionary(t => t.BaselineTaskId!.Value, t => t.Id);
+
+        var baselineIds = baselineToWorking.Keys.ToList();
+
+        // Baseline TaskDependency → Working Task 링크로 변환
+        var deps = await _db.TaskDependencies
+            .Where(d => baselineIds.Contains(d.SourceId) && baselineIds.Contains(d.TargetId))
+            .ToListAsync();
+
+        static string ToSvarLinkType(DependencyType t) => t switch
+        {
+            DependencyType.StartToStart   => "s2s",
+            DependencyType.FinishToFinish => "e2e",
+            DependencyType.StartToFinish  => "s2e",
+            _                             => "e2s",  // FinishToStart (기본)
+        };
+
+        var links = deps
+            .Where(d => baselineToWorking.ContainsKey(d.SourceId) && baselineToWorking.ContainsKey(d.TargetId))
+            .Select(d => new
+            {
+                id     = d.Id,
+                source = baselineToWorking[d.SourceId],
+                target = baselineToWorking[d.TargetId],
+                type   = ToSvarLinkType(d.Type),
+            });
+
+        return new JsonResult(new { data, links });
     }
 
     // API: Batch save all pending Gantt changes

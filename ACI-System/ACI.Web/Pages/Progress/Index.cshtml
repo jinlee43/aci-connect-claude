@@ -5,6 +5,7 @@
     ViewData["ActiveMenu"] = "progress";
     ViewData["CurrentProjectId"] = Model.ProjectId;
     ViewData["CurrentProjectName"] = Model.ProjectName;
+    ViewData["LoadGanttBundle"] = true;
 }
 
 @section Styles {
@@ -55,5 +56,4 @@ html, body { height: 100%; }
 </div>
 
 @section Scripts {
-<script src="~/gantt-dist/gantt-bundle.js" asp-append-version="true"></script>
 }

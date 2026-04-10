@@ -51,110 +51,14 @@ if (typeof htmx !== 'undefined') {
     });
 }
 
-// ─── ACI Gantt Helper ────────────────────────────────────────
-window.ACIGantt = {
-    /**
-     * dhtmlxGantt 초기화
-     * @param {string} containerId  - gantt 컨테이너 div id
-     * @param {number} projectId    - 프로젝트 ID
-     * @param {boolean} readonly    - 읽기전용 여부
-     */
-    init(containerId, projectId, readonly = false) {
-        const container = document.getElementById(containerId);
-        if (!container || typeof gantt === 'undefined') return;
-
-        // ── 기본 설정 ──────────────────────────────────────
-        gantt.config.date_format = "%m-%d-%Y %H:%i";
-        gantt.config.xml_date = "%m-%d-%Y %H:%i";
-        gantt.config.work_time = true;          // 주말 제외
-        gantt.config.correct_work_time = true;
-        gantt.config.fit_tasks = true;
-        gantt.config.show_progress = true;
-        gantt.config.drag_progress = !readonly;
-        gantt.config.drag_resize = !readonly;
-        gantt.config.drag_move = !readonly;
-        gantt.config.readonly = readonly;
-
-        // ── 그리드 컬럼 설정 ──────────────────────────────
-        gantt.config.columns = [
-            {
-                name: "text", label: "Activity Name", tree: true,
-                width: 220, resize: true,
-                template: task => `<span title="${task.text}">${task.text}</span>`
-            },
-            {
-                name: "start_date", label: "Start", align: "center",
-                width: 90, resize: true
-            },
-            {
-                name: "duration", label: "Dur.", align: "center",
-                width: 55, resize: true
-            },
-            {
-                name: "progress", label: "%", align: "center",
-                width: 55, resize: true,
-                template: task => Math.round(task.progress * 100) + "%"
-            },
-        ];
-
-        // ── 타임스케일 (월 + 주) ──────────────────────────
-        gantt.config.scales = [
-            { unit: "month", step: 1, format: "%M %Y" },
-            { unit: "week", step: 1, format: "W%W" },
-        ];
-
-        // ── 태스크 색상 (trade color 적용) ────────────────
-        gantt.templates.task_class = (start, end, task) => {
-            if (task.color) return '';
-            return task.type === 'project' ? 'gantt-task-project' : '';
-        };
-        gantt.templates.task_text = (start, end, task) => {
-            const pct = Math.round(task.progress * 100);
-            return `${task.text} <b style="opacity:.7">${pct}%</b>`;
-        };
-
-        // ── 크리티컬 패스 ──────────────────────────────────
-        gantt.plugins({ critical_path: true, tooltip: true, marker: true });
-        gantt.config.highlight_critical_path = true;
-
-        // ── Today marker ──────────────────────────────────
-        gantt.addMarker({
-            start_date: new Date(),
-            css: "today-marker",
-            text: "Today",
-            title: new Date().toLocaleDateString()
-        });
-
-        // ── 베이스라인 ─────────────────────────────────────
-        gantt.plugins({ baselines: false });  // GPL에서는 별도 구현 필요
-
-        // ── 데이터 로드 & DataProcessor 설정 ──────────────
-        gantt.init(containerId);
-        gantt.load(`/api/gantt/projects/${projectId}/data`);
-
-        if (!readonly) {
-            const dp = gantt.createDataProcessor({
-                url: `/api/gantt/projects/${projectId}`,
-                mode: "REST",
-                deleteAfterConfirmation: true
-            });
-            dp.attachEvent("onAfterUpdate", (id, action, tid, response) => {
-                if (action === "error") {
-                    console.error("Gantt save error:", response);
-                    ACIGantt.showToast("Save failed. Please try again.", "danger");
-                }
-            });
-        }
-    },
-
-    showToast(msg, type = "success") {
-        const el = document.createElement('div');
-        el.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
-        el.style.zIndex = 9999;
-        el.textContent = msg;
-        document.body.appendChild(el);
-        setTimeout(() => el.remove(), 3000);
-    }
+// ─── Toast 알림 헬퍼 ────────────────────────────────────────────
+window.showToast = function (msg, type = "success") {
+    const el = document.createElement('div');
+    el.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+    el.style.zIndex = 9999;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
 };
 
 // ─── PPC 도넛 차트 ───────────────────────────────────────────

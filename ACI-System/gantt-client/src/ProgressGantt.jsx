@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Gantt } from "wx-react-gantt";
+import { Gantt, defaultEditorShape } from "wx-react-gantt";
 import "wx-react-gantt/dist/gantt.css";
 import GanttToolbar from "./components/GanttToolbar";
-import { toSvarTask, toSvarLink, formatDate, displayDate } from "./utils/dateUtils";
+import TaskDialog from "./components/TaskDialog";
+import { toSvarTask, toSvarLink, formatDate, displayDate, sortByTreeId } from "./utils/dateUtils";
+import { cascadeFS } from "./utils/cascadeUtils";
 import "./styles/aci-gantt.css";
+import { useGanttActionButtons } from "./hooks/useGanttActionButtons";
+import { useNarrowBarHider } from "./hooks/useNarrowBarHider";
 
 const SCALE_CONFIGS = {
   day: [
@@ -115,87 +119,99 @@ function calcCriticalPath(tasks, links) {
   return criticalIds;
 }
 
-// ── Current Schedule 컬럼 (SVAR template = textNode, plain text only) ────────
-const PROGRESS_COLUMNS = [
+// ── Current Schedule 컬럼 (SVAR: template(fieldValue, task, col)) ────────────
+// ── 컬럼 순서: Outbuild 스타일 (ID → Task → Actions → Start → Dur → End → Delay → % → Responsible → Trade)
+// seqMap: Map<taskId, sequentialNumber>
+function buildProgressColumns(seqMap = new Map()) {
+  return [
   {
     id: "wbs",
     header: "ID",
-    width: 55,
+    width: 45,
     align: "center",
-    template: (t) => t.wbs_code || String(t.id),
+    template: (_, task) => String(seqMap.get(task.id) ?? task.id),
   },
   {
+    // flexgrow 제거: SVAR는 flexgrow 컬럼 존재 시 grid를 440px로 고정 → Task 컬럼 사라짐
     id: "text",
     header: "Task",
-    flexgrow: 1,
-    minWidth: 200,
+    width: 200,
     tree: true,
-    template: (t) => {
-      const prefix = t.type === "summary" ? "▸ " : t.type === "milestone" ? "◆ " : "  ";
-      const removed = t.working_status === "Removed" ? " [removed]" : "";
-      return prefix + (t.text || "") + removed;
+    template: (t, task) => {
+      const prefix = task.type === "summary" ? "▸ " : task.type === "milestone" ? "◆ " : "  ";
+      const removed = task.working_status === "Removed" ? " [removed]" : "";
+      const text = prefix + (t || "") + removed;
+      return task.type === "summary" ? `<b>${text}</b>` : text;
     },
   },
+  // ── Action 컬럼: Outbuild처럼 Task 바로 옆에 ──────────────────────────────
   {
-    id: "trade_name",
-    header: "Trade",
-    width: 85,
-    template: (t) => t.trade_name || "",
+    id: "action",
+    header: "Actions",
+    width: 88,
+    align: "center",
   },
   {
     id: "start",
     header: "Start",
-    width: 75,
+    width: 68,
     align: "center",
-    template: (t) => t.start ? displayDate(t.start) : "",
+    template: (t) => t ? displayDate(t) : "",
   },
   {
     id: "duration",
     header: "Dur",
-    width: 48,
+    width: 46,
     align: "center",
-    template: (t) => (t.duration || "") + "d",
+    template: (t) => (t != null ? t : "") + " d",
   },
   {
     id: "end",
     header: "End",
-    width: 75,
+    width: 68,
     align: "center",
-    template: (t) => t.end ? displayDate(t.end) : "",
+    template: (t) => t ? displayDate(t) : "",
   },
   {
     id: "days_shifted",
     header: "Delay",
-    width: 55,
+    width: 48,
     align: "center",
     template: (t) => {
-      if (t.days_shifted == null) return "–";
-      if (t.days_shifted === 0) return "✓";
-      if (t.days_shifted > 0) return "+" + t.days_shifted + "d";
-      return t.days_shifted + "d";
+      if (t == null) return "–";
+      if (t === 0) return "✓";
+      if (t > 0) return "+" + t + "d";
+      return t + "d";
     },
   },
   {
     id: "progress",
     header: "%",
-    width: 48,
+    width: 44,
     align: "center",
-    template: (t) => Math.round((t.progress || 0) * 100) + "%",
+    template: (t) => Math.round((t || 0) * 100) + "%",
   },
   {
     id: "responsible",
-    header: "Owner",
-    width: 55,
+    header: "Responsible",
+    width: 96,
     align: "center",
-    template: (t) => {
-      if (!t.assigned_to_name) return "";
-      const parts = t.assigned_to_name.split(" ").filter(Boolean);
+    template: (_, task) => {
+      if (!task.assigned_to_name) return "";
+      const parts = task.assigned_to_name.split(" ").filter(Boolean);
       return parts.length >= 2
         ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
         : (parts[0] || "").substring(0, 2).toUpperCase();
     },
   },
-];
+  {
+    id: "trade_name",
+    header: "Trade",
+    width: 80,
+    template: (t) => t || "",
+  },
+  ]; // end of buildProgressColumns return
+}
 
 // ── ProgressGantt 컴포넌트 ───────────────────────────────────────────────────
 export default function ProgressGantt({ projectId, isInitialized }) {
@@ -205,8 +221,8 @@ export default function ProgressGantt({ projectId, isInitialized }) {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [currentScale, setCurrentScale] = useState("week");
-  const [showLinks, setShowLinks]   = useState(false);
-  const [showBaseline, setShowBaseline] = useState(true);
+  const [showLinks, setShowLinks]   = useState(true);
+  const [showBaseline, setShowBaseline] = useState(false);
   const [showDelayedOnly, setShowDelayedOnly] = useState(false);
   const [pendingChanges, setPendingChanges] = useState(new Map());
   const [isSaving, setIsSaving]     = useState(false);
@@ -219,8 +235,48 @@ export default function ProgressGantt({ projectId, isInitialized }) {
   const [showCriticalPath, setShowCriticalPath] = useState(false);
   const [criticalIds, setCriticalIds] = useState(new Set());
   const [activeLookahead, setActiveLookahead] = useState(null); // weeks | null
+  const [showTrade, setShowTrade]   = useState(false);
 
-  const ganttApi = useRef(null);
+  // ── Dialog 상태 ───────────────────────────────────────────────────────────
+  const [dialogState, setDialogState]     = useState(null);
+  const [metaTrades, setMetaTrades]       = useState([]);
+  const [metaEmployees, setMetaEmployees] = useState([]);
+
+  const ganttApi       = useRef(null);
+  const ganttContainer = useRef(null);
+
+  // ── Cascade용 최신 상태 ref (stale closure 방지) ──────────────────────────
+  const allTasksRef  = useRef([]);
+  const linksRef     = useRef([]);
+  const isCascading  = useRef(false);   // 재진입 방지
+
+  // ── 편집/삭제 버튼 주입 (MutationObserver + SVAR API) ──────────────────────
+  const openAddDialog = useCallback((parentId = 0) => {
+    setDialogState({ mode: "add", task: null, parentId });
+  }, []);
+
+  const openEditDialog = useCallback((taskId) => {
+    const task = ganttApi.current?.getTask?.(taskId) ?? allTasks.find(t => t.id === taskId);
+    if (!task) return;
+    setDialogState({ mode: "edit", task, parentId: task.parent ?? 0 });
+  }, [allTasks]);
+
+  useGanttActionButtons(ganttApi, ganttContainer, { onEditTask: openEditDialog });
+
+  // ── SVAR add-task 인터셉트 → 다이얼로그로 대체 ──────────────────────────────
+  useEffect(() => {
+    const api = ganttApi.current;
+    if (!api?.intercept) return;
+    return api.intercept("add-task", (ev) => {
+      if (ev._fromDialog) return true;
+      openAddDialog(ev.parent ?? 0);
+      return false;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ganttApi.current]);
+  // ── 좁은 바 레이블 숨김 ──────────────────────────────────────────────────
+  useNarrowBarHider(ganttContainer);
+
   const antiForgeryToken = useRef(
     document.querySelector('input[name="__RequestVerificationToken"]')?.value || ""
   );
@@ -234,7 +290,7 @@ export default function ProgressGantt({ projectId, isInitialized }) {
         return r.json();
       })
       .then((d) => {
-        const svarTasks = (d.data || []).map(toSvarTask);
+        const svarTasks = sortByTreeId((d.data || []).map(toSvarTask));
         const svarLinks = (d.links || []).map(toSvarLink);
         setAllTasks(svarTasks);
         setLinks(svarLinks);
@@ -252,6 +308,90 @@ export default function ProgressGantt({ projectId, isInitialized }) {
     else setLoading(false);
   }, [isInitialized, loadTasks]);
 
+  // ── Cascade ref 동기화 ───────────────────────────────────────────────────
+  useEffect(() => { allTasksRef.current = allTasks; }, [allTasks]);
+  useEffect(() => { linksRef.current    = links;    }, [links]);
+
+  // ── Meta (Trades + Employees) ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/gantt/projects/${projectId}/meta`, { credentials: "include" })
+      .then(r => r.ok ? r.json() : { trades: [], employees: [] })
+      .then(m => { setMetaTrades(m.trades || []); setMetaEmployees(m.employees || []); })
+      .catch(() => {});
+  }, [projectId]);
+
+  // ── Add Task (Progress 모드) ───────────────────────────────────────────────
+  const handleAddTask = useCallback(async ({ id, task }) => {
+    try {
+      const res = await fetch(`/api/gantt/projects/${projectId}/task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          text: task.text || "New Task",
+          start_date: task.start ? formatDate(task.start) : formatDate(new Date()),
+          end_date: task.end ? formatDate(task.end) : null,
+          duration: task.duration || 1,
+          progress: task.progress || 0,
+          parent: task.parent ?? 0,
+          type: task.type || "task",
+          trade_id: task.trade_id ?? null,
+          assigned_to: task.assigned_to ?? null,
+          notes: task.notes ?? null,
+        }),
+      });
+      const data = await res.json();
+      if (data.tid && ganttApi.current) {
+        const updatedTask = { ...task, id: data.tid };
+        ganttApi.current.exec("update-task", { id, task: updatedTask });
+        setAllTasks(prev => sortByTreeId([...prev, updatedTask]));
+        setTasks(prev => sortByTreeId([...prev, updatedTask]));
+      }
+    } catch (e) { console.error("[ProgressGantt] add-task:", e); }
+  }, [projectId]);
+
+  // ── Dialog Save (Progress 모드 - 편집/추가) ───────────────────────────────
+  const handleDialogSave = useCallback(async (formData) => {
+    const state = dialogState;
+    setDialogState(null);
+    if (state?.mode === "add") {
+      const tempId = Date.now();
+      const newTask = { ...formData, id: tempId, parent: state.parentId ?? 0, _fromDialog: true };
+      ganttApi.current?.exec("add-task", { task: newTask, id: tempId });
+      return;
+    }
+    if (state?.mode !== "edit") return;
+    const id = state.task.id;
+    const updatedTask = { ...state.task, ...formData };
+    ganttApi.current?.exec("update-task", { id, task: updatedTask });
+    setAllTasks(prev => sortByTreeId(prev.map(t => t.id === id ? { ...t, ...updatedTask } : t)));
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updatedTask } : t));
+    setPendingChanges(prev => {
+      const m = new Map(prev);
+      m.set(id, { id, task: updatedTask });
+      return m;
+    });
+
+    // ── FS Cascade: 날짜가 바뀐 경우 후속 태스크 이동 ────────────────────────
+    const startChanged = state.task.start?.getTime() !== updatedTask.start?.getTime();
+    const endChanged   = state.task.end?.getTime()   !== updatedTask.end?.getTime();
+    if (startChanged || endChanged) {
+      const snapshot = allTasks.map(t => t.id === id ? updatedTask : t);
+      cascadeFS(updatedTask, state.task, links, snapshot, (succId, newStart, newEnd, newDuration) => {
+        const shifted = { ...snapshot.find(t => t.id === succId), start: newStart, end: newEnd, duration: newDuration };
+        ganttApi.current?.exec("update-task", { id: succId, task: shifted });
+        setTasks(prev => prev.map(t => t.id === succId ? { ...t, ...shifted } : t));
+        setAllTasks(prev => prev.map(t => t.id === succId ? { ...t, ...shifted } : t));
+        setPendingChanges(prev => {
+          const m = new Map(prev);
+          m.set(succId, { id: succId, task: shifted });
+          return m;
+        });
+      });
+    }
+  }, [dialogState, links, allTasks]);
+
   // ── Critical Path 계산 ───────────────────────────────────────────────────
   useEffect(() => {
     if (showCriticalPath && allTasks.length) {
@@ -261,25 +401,29 @@ export default function ProgressGantt({ projectId, isInitialized }) {
     }
   }, [showCriticalPath, allTasks, links]);
 
-  // ── CSS 색상 인젝션 ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const styleId = "aci-progress-task-colors";
-    let el = document.getElementById(styleId);
-    if (!el) {
-      el = document.createElement("style");
-      el.id = styleId;
-      document.head.appendChild(el);
-    }
-    const rules = tasks
-      .map((t) => {
-        const c = getProgressTaskColor(t, colorMode, criticalIds);
-        if (!c) return "";
-        return `.wx-bar[data-id="${t.id}"] { background: ${c} !important; }`;
-      })
-      .filter(Boolean)
-      .join("\n");
-    el.textContent = rules;
-  }, [tasks, colorMode, criticalIds]);
+  // ── 컬럼 (Trade 토글 + seqMap) — text(Task)·action 은 항상 유지 ─────────────
+  const ALWAYS_VISIBLE = new Set(["wbs", "text", "action"]);
+  const visibleColumns = useMemo(() => {
+    const childMap = new Map();
+    allTasks.forEach(t => {
+      const pid = t.parent ?? 0;
+      if (!childMap.has(pid)) childMap.set(pid, []);
+      childMap.get(pid).push(t);
+    });
+    const seqMap = new Map();
+    let counter = 0;
+    const walk = (pid) => {
+      (childMap.get(pid) || []).sort((a, b) => a.id - b.id).forEach(task => {
+        seqMap.set(task.id, ++counter);
+        walk(task.id);
+      });
+    };
+    walk(0);
+    const all = buildProgressColumns(seqMap);
+    return showTrade
+      ? all
+      : all.filter((c) => ALWAYS_VISIBLE.has(c.id) || c.id !== "trade_name");
+  }, [showTrade, allTasks]);
 
   // ── 필터 ─────────────────────────────────────────────────────────────────
   function applyFilters(taskList, searchQ, delayedOnly) {
@@ -396,12 +540,13 @@ export default function ProgressGantt({ projectId, isInitialized }) {
     setActiveLookahead(null);
   };
 
-  // ── 태스크 업데이트 (변경 추적) ──────────────────────────────────────────
+  // ── 태스크 업데이트 (드래그/리사이즈 + cascadeFS) ────────────────────────
   const handleUpdateTask = useCallback((ev) => {
     const { id, task } = ev;
     if (task.working_status === "Removed") return;
     if (task.type === "summary") return;
 
+    // 1) pendingChanges 등록
     setPendingChanges((prev) => {
       const next = new Map(prev);
       next.set(id, {
@@ -414,12 +559,50 @@ export default function ProgressGantt({ projectId, isInitialized }) {
       return next;
     });
 
-    // Cascade FS successors
-    const fwdLinks = links.filter((l) => l.source === id && l.type === "e2s");
-    fwdLinks.forEach((link) =>
-      cascadeSuccessor(link, task, links, setTasks, setPendingChanges)
-    );
-  }, [links]);
+    // 2) allTasks/tasks 상태 동기화 (cascade snapshot 및 재렌더 위해)
+    setAllTasks(prev => prev.map(t => t.id === id ? { ...t, ...task } : t));
+    setTasks(prev    => prev.map(t => t.id === id ? { ...t, ...task } : t));
+
+    // 3) FS Cascade — 재진입(cascade로 인한 update-task) 은 건너뜀
+    if (isCascading.current) return;
+
+    const currentAllTasks = allTasksRef.current;
+    const currentLinks    = linksRef.current;
+    const oldTask         = currentAllTasks.find(t => t.id === id);
+    if (!oldTask) return;
+
+    const startChanged = oldTask.start?.getTime() !== task.start?.getTime();
+    const endChanged   = oldTask.end?.getTime()   !== task.end?.getTime();
+    if (!startChanged && !endChanged) return;
+    if (currentLinks.length === 0) return;
+
+    const snapshot = currentAllTasks.map(t => t.id === id ? { ...t, ...task } : t);
+    isCascading.current = true;
+
+    cascadeFS(task, oldTask, currentLinks, snapshot, (succId, newStart, newEnd, newDuration) => {
+      const succTask = snapshot.find(t => t.id === succId) ?? {};
+      const shifted  = { ...succTask, start: newStart, end: newEnd, duration: newDuration };
+
+      ganttApi.current?.exec("update-task", { id: succId, task: shifted });
+
+      setTasks(prev    => prev.map(t => t.id === succId ? { ...t, ...shifted } : t));
+      setAllTasks(prev => prev.map(t => t.id === succId ? { ...t, ...shifted } : t));
+
+      setPendingChanges(prev => {
+        const m = new Map(prev);
+        m.set(succId, {
+          taskId:    succId,
+          startDate: formatDate(newStart),
+          endDate:   formatDate(newEnd),
+          duration:  newDuration,
+          progress:  succTask.progress || 0,
+        });
+        return m;
+      });
+    });
+
+    isCascading.current = false;
+  }, []);
 
   // ── 저장 ─────────────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -495,10 +678,17 @@ export default function ProgressGantt({ projectId, isInitialized }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [pendingChanges]);
 
-  // ── Baseline overlay 토글 (base_start/base_end null 처리) ──────────────
-  const displayTasks = showBaseline
-    ? tasks
-    : tasks.map((t) => ({ ...t, base_start: null, base_end: null }));
+  // ── Baseline overlay 토글 + bar color 직접 적용 ─────────────────────────
+  // SVAR는 task.color 프로퍼티로 bar 색상을 직접 지정함 (CSS 인젝션 불필요)
+  const displayTasks = useMemo(() => {
+    const base = showBaseline
+      ? tasks
+      : tasks.map((t) => ({ ...t, base_start: null, base_end: null }));
+    return base.map((t) => {
+      const c = getProgressTaskColor(t, colorMode, criticalIds);
+      return c ? { ...t, color: c } : t;
+    });
+  }, [tasks, showBaseline, colorMode, criticalIds]);
 
   const markers = useMemo(
     () => [{ id: "today", start: new Date(), text: "Today", css: "aci-today-marker" }],
@@ -563,6 +753,8 @@ export default function ProgressGantt({ projectId, isInitialized }) {
         activeLookahead={activeLookahead}
         showLinks={showLinks}
         onToggleLinks={() => setShowLinks(!showLinks)}
+        showTrade={showTrade}
+        onToggleTrade={() => setShowTrade((v) => !v)}
         showCriticalPath={showCriticalPath}
         onToggleCriticalPath={() => setShowCriticalPath((v) => !v)}
         colorMode={colorMode}
@@ -582,53 +774,38 @@ export default function ProgressGantt({ projectId, isInitialized }) {
         draftTitle={draftTitle}
       />
 
-      <div style={{ width: "100%", height: "calc(100vh - 190px)" }}>
+      <div ref={ganttContainer} className="aci-gantt-container" style={{ width: "100%", height: "calc(100vh - 190px)" }}>
         <Gantt
+          key={`progress-${showTrade}`}
           api={ganttApi}
           tasks={displayTasks}
           links={showLinks ? links : []}
           scales={SCALE_CONFIGS[currentScale]}
-          columns={PROGRESS_COLUMNS}
+          columns={visibleColumns}
           markers={markers}
           start={ganttStart}
           end={ganttEnd}
           cellWidth={currentScale === "day" ? 38 : currentScale === "week" ? 50 : 80}
-          cellHeight={32}
+          cellHeight={28}
+          cellBorders=""
           readonly={false}
           baselines={showBaseline}
+          onAddTask={handleAddTask}
           onUpdateTask={handleUpdateTask}
         />
       </div>
+
+      {dialogState && (
+        <TaskDialog
+          task={dialogState.task}
+          parentId={dialogState.parentId}
+          trades={metaTrades}
+          employees={metaEmployees}
+          onSave={handleDialogSave}
+          onClose={() => setDialogState(null)}
+        />
+      )}
     </>
   );
 }
 
-// ── Cascade FS successors ────────────────────────────────────────────────────
-function cascadeSuccessor(link, movedTask, allLinks, setTasks, setPendingChanges) {
-  if (link.type !== "e2s") return; // FS 링크만 처리
-  const lag = link.lag || 0;
-  const newStart = new Date(movedTask.end.getTime() + lag * 24 * 3600 * 1000);
-  setTasks((prev) =>
-    prev.map((t) => {
-      if (t.id !== link.target) return t;
-      const dur = t.duration || 1;
-      const newEnd = new Date(newStart.getTime() + dur * 24 * 3600 * 1000);
-      setPendingChanges((pc) => {
-        const next = new Map(pc);
-        next.set(t.id, {
-          taskId: t.id,
-          startDate: formatDate(newStart),
-          endDate: formatDate(newEnd),
-          duration: dur,
-          progress: t.progress || 0,
-        });
-        return next;
-      });
-      // 재귀: 이 태스크의 FS 후속도 cascade
-      allLinks.filter((l) => l.source === t.id && l.type === "e2s").forEach((nl) =>
-        cascadeSuccessor(nl, { ...t, start: newStart, end: newEnd }, allLinks, setTasks, setPendingChanges)
-      );
-      return { ...t, start: newStart, end: newEnd };
-    })
-  );
-}

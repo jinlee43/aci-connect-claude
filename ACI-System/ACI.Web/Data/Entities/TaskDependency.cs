@@ -2,7 +2,8 @@ namespace ACI.Web.Data.Entities;
 
 /// <summary>
 /// Gantt dependency link between two ScheduleTasks.
-/// dhtmlxGantt type values: 0=FS, 1=SS, 2=FF, 3=SF
+/// DB 저장값: 0=FS, 1=SS, 2=FF, 3=SF
+/// SVAR Gantt 표기: "e2s"=FS, "s2s"=SS, "e2e"=FF, "s2e"=SF
 /// </summary>
 public class TaskDependency
 {

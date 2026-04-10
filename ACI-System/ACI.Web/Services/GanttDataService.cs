@@ -37,13 +37,16 @@ public class GanttDataService : IGanttDataService
     public async Task<GanttTaskDto> CreateTaskAsync(int projectId, GanttTaskDto dto)
     {
         var start = ParseDate(dto.StartDate);
+        // EndDate: DTO에 있으면 그대로, 없으면 Working Days로 계산
+        var end = !string.IsNullOrWhiteSpace(dto.EndDate) ? ParseDate(dto.EndDate)
+                                                           : AddWorkingDays(start, dto.Duration);
         var task = new ScheduleTask
         {
             ProjectId   = projectId,
             Text        = dto.Text,
             StartDate   = start,
-            Duration    = dto.Duration,
-            EndDate     = start.AddDays(dto.Duration),
+            Duration    = CountWorkingDays(start, end),
+            EndDate     = end,
             Progress    = dto.Progress,
             ParentId    = dto.Parent == 0 ? null : dto.Parent,
             TaskType    = ParseTaskType(dto.Type),
@@ -71,10 +74,12 @@ public class GanttDataService : IGanttDataService
             ?? throw new KeyNotFoundException($"Task {taskId} not found");
 
         var start = ParseDate(dto.StartDate);
+        var end   = !string.IsNullOrWhiteSpace(dto.EndDate) ? ParseDate(dto.EndDate)
+                                                             : AddWorkingDays(start, dto.Duration);
         task.Text        = dto.Text;
         task.StartDate   = start;
-        task.Duration    = dto.Duration;
-        task.EndDate     = start.AddDays(dto.Duration);
+        task.Duration    = CountWorkingDays(start, end);
+        task.EndDate     = end;
         task.Progress    = dto.Progress;
         task.ParentId    = dto.Parent == 0 ? null : dto.Parent;
         task.TaskType    = ParseTaskType(dto.Type);
@@ -119,7 +124,7 @@ public class GanttDataService : IGanttDataService
 
         parent.StartDate  = minStart;
         parent.EndDate    = maxEnd;
-        parent.Duration   = (maxEnd.DayNumber - minStart.DayNumber);
+        parent.Duration   = CountWorkingDays(minStart, maxEnd);
         parent.Progress   = weightedProg;
         parent.UpdatedAt  = DateTime.UtcNow;
 
@@ -268,19 +273,19 @@ public class GanttDataService : IGanttDataService
         Lag    = d.Lag
     };
 
-    // dhtmlxGantt sends dates as "MM-dd-yyyy HH:mm" → DateOnly
+    // 날짜 문자열 → DateOnly (레거시 포맷 "MM-dd-yyyy HH:mm" 및 ISO 형식 모두 지원)
     private static DateOnly ParseDate(string? date)
     {
         if (string.IsNullOrWhiteSpace(date))
             return DateOnly.FromDateTime(DateTime.Today);
 
-        // 1) 정확한 포맷 먼저 시도
+        // 1) 정확한 포맷 먼저 시도 ("MM-dd-yyyy HH:mm")
         if (DateTime.TryParseExact(date, DateFormat,
             System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var dt1))
             return DateOnly.FromDateTime(dt1);
 
-        // 2) 다양한 포맷 허용 (dhtmlxGantt 버전에 따라 다를 수 있음)
+        // 2) ISO 및 기타 포맷 허용 (ISO 8601, "yyyy-MM-dd" 등)
         if (DateTime.TryParse(date,
             System.Globalization.CultureInfo.InvariantCulture,
             System.Globalization.DateTimeStyles.None, out var dt2))
@@ -304,4 +309,38 @@ public class GanttDataService : IGanttDataService
         "mfo"  => TaskConstraintType.MustFinishOn,
         _      => null
     };
+
+    // ── Working Days 헬퍼 ─────────────────────────────────────────────────────
+
+    /// <summary>start ~ end 사이 평일 수 (토·일 제외, inclusive, 최소 1)</summary>
+    private static int CountWorkingDays(DateOnly start, DateOnly end)
+    {
+        if (end < start) return 1;
+        int count = 0;
+        for (var d = start; d <= end; d = d.AddDays(1))
+        {
+            var dow = d.DayOfWeek;
+            if (dow != DayOfWeek.Saturday && dow != DayOfWeek.Sunday)
+                count++;
+        }
+        return Math.Max(1, count);
+    }
+
+    /// <summary>start 기준 N 평일 후 날짜 (시작일 = 1일째, 시작일이 주말이면 월요일로 이동)</summary>
+    private static DateOnly AddWorkingDays(DateOnly start, int days)
+    {
+        // 시작일이 주말이면 다음 월요일로
+        while (start.DayOfWeek == DayOfWeek.Saturday || start.DayOfWeek == DayOfWeek.Sunday)
+            start = start.AddDays(1);
+
+        int remaining = Math.Max(1, days) - 1; // 시작일 자체가 1일째
+        var d = start;
+        while (remaining > 0)
+        {
+            d = d.AddDays(1);
+            if (d.DayOfWeek != DayOfWeek.Saturday && d.DayOfWeek != DayOfWeek.Sunday)
+                remaining--;
+        }
+        return d;
+    }
 }

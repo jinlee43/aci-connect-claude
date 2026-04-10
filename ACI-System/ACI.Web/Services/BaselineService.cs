@@ -39,6 +39,20 @@ public interface IBaselineService
         int baselineId, string approvedByName, string? notes, DateOnly? approvedDate);
     Task<ScheduleBaseline> RejectBaselineAsync(int baselineId, string? notes);
 
+    // ── Revision workflow ────────────────────────────────────────────────────
+    /// <summary>
+    /// 스케줄 편집 가능 여부.
+    /// Draft baseline이 존재하거나 아직 baseline이 없는 경우 true.
+    /// Frozen/Submitted/Approved 상태의 baseline만 있으면 false (잠금).
+    /// </summary>
+    Task<bool> IsScheduleEditableAsync(int projectId);
+
+    /// <summary>
+    /// 새 Revision 시작 — Draft baseline 레코드를 생성하여 편집을 재개.
+    /// 오너 승인 후 PM이 호출. 이전 Approved baseline은 Superseded로 전환.
+    /// </summary>
+    Task<ScheduleBaseline> StartRevisionAsync(int projectId, string title, string? description);
+
     // ── Comparison ───────────────────────────────────────────────────────────
     /// <summary>Compare two baseline versions side by side.</summary>
     Task<BaselineComparisonDto> CompareBaselinesAsync(int baselineIdA, int baselineIdB);
@@ -394,6 +408,49 @@ public class BaselineService : IBaselineService
         baseline.UpdatedAt     = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return baseline;
+    }
+
+    // ── Revision workflow ─────────────────────────────────────────────────────
+
+    public async Task<bool> IsScheduleEditableAsync(int projectId)
+    {
+        // Auto-snapshot 제외, 실제 baseline만 확인
+        var baselines = await _db.ScheduleBaselines
+            .Where(b => b.ProjectId == projectId && !b.IsAutoSnapshot && b.IsActive)
+            .ToListAsync();
+
+        if (!baselines.Any()) return true;  // baseline 없음 → 편집 가능
+
+        // Draft가 하나라도 있으면 편집 가능
+        if (baselines.Any(b => b.Status == BaselineStatus.Draft)) return true;
+
+        // Frozen/Submitted/Approved만 있으면 잠금
+        return false;
+    }
+
+    public async Task<ScheduleBaseline> StartRevisionAsync(
+        int projectId, string title, string? description)
+    {
+        if (await IsScheduleEditableAsync(projectId))
+            throw new InvalidOperationException("Schedule is already editable. No revision needed.");
+
+        var nextVersion = (await _db.ScheduleBaselines
+            .Where(b => b.ProjectId == projectId && !b.IsAutoSnapshot)
+            .MaxAsync(b => (int?)b.VersionNumber) ?? 0) + 1;
+
+        // 새 Draft 생성 → 편집 재개 허용
+        var draft = new ScheduleBaseline
+        {
+            ProjectId     = projectId,
+            VersionNumber = nextVersion,
+            Title         = title,
+            Description   = description,
+            Status        = BaselineStatus.Draft,
+            UpdatedAt     = DateTime.UtcNow,
+        };
+        _db.ScheduleBaselines.Add(draft);
+        await _db.SaveChangesAsync();
+        return draft;
     }
 
     // ── Comparison ───────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace ACI.Web.Services;
 
-/// <summary>dhtmlxGantt 전용 데이터 서비스 인터페이스</summary>
+/// <summary>SVAR Gantt 데이터 서비스 인터페이스</summary>
 public interface IGanttDataService
 {
     Task<GanttDataDto> GetProjectDataAsync(int projectId);
@@ -15,9 +15,8 @@ public interface IGanttDataService
     Task DeleteLinkAsync(int linkId);
 }
 
-// ─── DTOs (dhtmlxGantt JSON 형식과 정확히 매칭) ────────────────────
-// dhtmlxGantt는 snake_case를 사용 (start_date, planned_start 등)
-// ASP.NET Core 기본값은 camelCase이므로 [JsonPropertyName]으로 명시
+// ─── DTOs (SVAR Gantt ↔ API JSON 형식) ────────────────────────────
+// snake_case 필드는 [JsonPropertyName]으로 명시 (ASP.NET Core 기본값 camelCase)
 
 public class GanttDataDto
 {
@@ -27,14 +26,14 @@ public class GanttDataDto
 
 public class GanttTaskDto
 {
-    public long Id { get; set; }   // long: dhtmlxGantt assigns timestamp-based temp IDs on create
+    public long Id { get; set; }   // long: React 프론트엔드가 임시 ID로 timestamp를 사용
     public string Text { get; set; } = string.Empty;
 
     [JsonPropertyName("start_date")]
-    public string StartDate { get; set; } = string.Empty;   // "MM-dd-yyyy HH:mm"
+    public string StartDate { get; set; } = string.Empty;   // "MM-dd-yyyy HH:mm" (레거시 포맷 유지)
 
     [JsonPropertyName("end_date")]
-    public string? EndDate { get; set; }                     // read-only, computed from start+duration
+    public string? EndDate { get; set; }                     // 선택적, start+duration으로 계산 가능
 
     public int Duration { get; set; }
     public double Progress { get; set; }
@@ -71,7 +70,7 @@ public class GanttTaskDto
     [JsonPropertyName("constraint_date")]
     public string? ConstraintDate { get; set; }
 
-    // 베이스라인 (dhtmlxGantt extension)
+    // 베이스라인 오버레이 (SVAR base_start / base_end)
     [JsonPropertyName("planned_start")]
     public string? PlannedStart { get; set; }
 
@@ -84,6 +83,6 @@ public class GanttLinkDto
     public int Id { get; set; }
     public int Source { get; set; }
     public int Target { get; set; }
-    public string Type { get; set; } = "0";     // "0"=FS, "1"=SS, "2"=FF, "3"=SF
+    public string Type { get; set; } = "0";     // SVAR: "e2s"=FS, "s2s"=SS, "e2e"=FF, "s2e"=SF (DB에는 숫자 저장)
     public int Lag { get; set; } = 0;
 }
