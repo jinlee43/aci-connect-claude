@@ -2,20 +2,18 @@ using System.ComponentModel.DataAnnotations;
 
 namespace ACI.Web.Data.Entities;
 
-public enum UserRole
-{
-    Admin          = 0,  // 시스템 관리자 (HR Admin 포함)
-    ProjectManager = 1,  // PM - 전체 편집권
-    Superintendent = 2,  // 현장소장 - 룩어헤드/주간계획 편집
-    SafetyOfficer  = 3,  // 안전관리자
-    TradePartner   = 4,  // 하도급 - 본인 작업만
-    Viewer         = 5,  // 읽기 전용
-    HrAdmin        = 6   // HR 관리자 - 직원 민감정보 접근
-}
-
 /// <summary>
 /// Custom auth user (BCrypt). NOT ASP.NET Identity.
 /// Linked to Employee record if the user is also a company employee.
+///
+/// <para>
+/// <b>권한</b>: 구 <c>UserRole</c> enum 은 제거되고 <see cref="Privilege"/> 엔티티 +
+/// <see cref="UserPrivilege"/> 조인 테이블로 이행했습니다 (many-to-many).
+/// 로그인 시 <see cref="UserPrivileges"/> 를
+/// <see cref="ACI.Web.Services.PrivilegeExpander"/> 로 확장한 뒤 각 코드를
+/// <c>ClaimTypes.Role</c> 클레임으로 쿠키에 심어 <c>User.IsInRole(...)</c> 체크가
+/// 상하위 관계를 자동 만족하게 합니다.
+/// </para>
 /// </summary>
 public class ApplicationUser
 {
@@ -31,8 +29,6 @@ public class ApplicationUser
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
 
-    public UserRole Role { get; set; } = UserRole.Viewer;
-
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
@@ -41,18 +37,9 @@ public class ApplicationUser
     public int? EmployeeId { get; set; }
     public Employee? Employee { get; set; }
 
-    public string RoleDisplayName => Role switch
-    {
-        UserRole.Admin          => "Admin",
-        UserRole.ProjectManager => "Project Manager",
-        UserRole.Superintendent => "Superintendent",
-        UserRole.SafetyOfficer  => "Safety Officer",
-        UserRole.TradePartner   => "Trade Partner",
-        UserRole.Viewer         => "Viewer",
-        UserRole.HrAdmin        => "HR Admin",
-        _                       => Role.ToString()
-    };
-
-    /// <summary>True if this user can access HR Admin (sensitive employee data).</summary>
-    public bool IsHrAdmin => Role == UserRole.Admin || Role == UserRole.HrAdmin;
+    /// <summary>
+    /// 직접 부여된 권한(Privilege) 목록. 상속(implies) 관계는 로그인 시 코드로 expand.
+    /// 관리 UI: <c>/Hr/Users</c>(HrAdmin).
+    /// </summary>
+    public ICollection<UserPrivilege> UserPrivileges { get; set; } = new List<UserPrivilege>();
 }

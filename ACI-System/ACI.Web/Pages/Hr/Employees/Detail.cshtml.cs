@@ -2,11 +2,15 @@ using ACI.Web.Data;
 using ACI.Web.Data.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACI.Web.Pages.Admin.Employees;
+namespace ACI.Web.Pages.Hr.Employees;
 
+/// <summary>
+/// 직원 기본 정보 편집(Detail). HrUser 이상 접근 가능.
+/// EmpRole(부서/직책) 부여/변경/해제는 HrAdmin 권한이 필요하므로 AdminDetail 페이지로 분리.
+/// Detail 에서는 Roles 목록을 읽기 전용으로만 표시.
+/// </summary>
 public class DetailModel : PageModel
 {
     private readonly AppDbContext _db;
@@ -17,22 +21,12 @@ public class DetailModel : PageModel
 
     public bool IsNew => Emp.Id == 0;
 
-    public List<SelectListItem> OrgUnitOptions { get; set; } = [];
-    public List<SelectListItem> JobPositionOptions { get; set; } = [];
+    /// <summary>읽기 전용 역할(부서·직책) 목록 — 편집은 AdminDetail 에서.</summary>
     public List<EmpRole> Roles { get; set; } = [];
     public List<EmployeeDocument> Documents { get; set; } = [];
 
-    // For adding a new role
-    [BindProperty] public int NewRoleOrgUnitId { get; set; }
-    [BindProperty] public int? NewRoleJobPositionId { get; set; }
-    [BindProperty] public bool NewRoleIsPrimary { get; set; }
-    [BindProperty] public DateOnly? NewRoleStartDate { get; set; }
-    [BindProperty] public DateOnly? NewRoleEndDate { get; set; }
-
     public async Task<IActionResult> OnGetAsync(int id)
     {
-        await LoadDropdownsAsync();
-
         if (id == 0)
         {
             Emp = new Employee { IsActive = true };
@@ -49,7 +43,10 @@ public class DetailModel : PageModel
         if (emp == null) return NotFound();
 
         Emp = emp;
-        Roles = emp.EmpRoles.OrderByDescending(r => r.IsPrimary).ThenBy(r => r.OrgUnit?.Name).ToList();
+        Roles = emp.EmpRoles
+            .OrderByDescending(r => r.IsPrimary)
+            .ThenBy(r => r.OrgUnit?.Name)
+            .ToList();
         Documents = await _db.EmployeeDocuments
             .Where(d => d.EmployeeId == id && d.IsActive)
             .OrderByDescending(d => d.CreatedAt)
@@ -65,7 +62,6 @@ public class DetailModel : PageModel
 
         if (!ModelState.IsValid)
         {
-            await LoadDropdownsAsync();
             await ReloadRolesAsync();
             return Page();
         }
@@ -119,87 +115,16 @@ public class DetailModel : PageModel
             existing.EmgContact3Tel      = Emp.EmgContact3Tel;
             existing.EmgContact3Cell     = Emp.EmgContact3Cell;
             // Employment
-            existing.HireDate      = Emp.HireDate;
+            existing.HireDate        = Emp.HireDate;
             existing.TerminationDate = Emp.TerminationDate;
-            existing.IsActive      = Emp.IsActive;
-            existing.Notes         = Emp.Notes;
-            existing.UpdatedAt     = DateTime.UtcNow;
+            existing.IsActive        = Emp.IsActive;
+            existing.Notes           = Emp.Notes;
+            existing.UpdatedAt       = DateTime.UtcNow;
         }
 
         await _db.SaveChangesAsync();
         TempData["Success"] = $"{Emp.DisplayName} saved successfully.";
         return RedirectToPage("Detail", new { id = Emp.Id });
-    }
-
-    public async Task<IActionResult> OnPostAddRoleAsync(int id)
-    {
-        if (NewRoleOrgUnitId == 0)
-        {
-            TempData["Error"] = "Please select a department/team.";
-            return RedirectToPage("Detail", new { id });
-        }
-
-        // If setting as primary, clear existing primary
-        if (NewRoleIsPrimary)
-        {
-            var existing = await _db.EmpRoles
-                .Where(r => r.EmployeeId == id && r.IsPrimary)
-                .ToListAsync();
-            existing.ForEach(r => r.IsPrimary = false);
-        }
-
-        _db.EmpRoles.Add(new EmpRole
-        {
-            EmployeeId    = id,
-            OrgUnitId     = NewRoleOrgUnitId,
-            JobPositionId = NewRoleJobPositionId,
-            IsPrimary     = NewRoleIsPrimary,
-            StartDate     = NewRoleStartDate,
-            EndDate       = NewRoleEndDate,
-            CreatedAt     = DateTime.UtcNow,
-            UpdatedAt     = DateTime.UtcNow,
-        });
-
-        await _db.SaveChangesAsync();
-        TempData["Success"] = "Role added.";
-        return RedirectToPage("Detail", new { id });
-    }
-
-    public async Task<IActionResult> OnPostDeleteRoleAsync(int id, int roleId)
-    {
-        var role = await _db.EmpRoles.FindAsync(roleId);
-        if (role != null)
-        {
-            _db.EmpRoles.Remove(role);
-            await _db.SaveChangesAsync();
-            TempData["Success"] = "Role removed.";
-        }
-        return RedirectToPage("Detail", new { id });
-    }
-
-    public async Task<IActionResult> OnPostSetPrimaryAsync(int id, int roleId)
-    {
-        var roles = await _db.EmpRoles.Where(r => r.EmployeeId == id).ToListAsync();
-        foreach (var r in roles)
-            r.IsPrimary = (r.Id == roleId);
-        await _db.SaveChangesAsync();
-        TempData["Success"] = "Primary role updated.";
-        return RedirectToPage("Detail", new { id });
-    }
-
-    private async Task LoadDropdownsAsync()
-    {
-        OrgUnitOptions = await _db.OrgUnits
-            .Where(o => o.IsActive)
-            .OrderBy(o => o.Name)
-            .Select(o => new SelectListItem { Value = o.Id.ToString(), Text = o.Name })
-            .ToListAsync();
-
-        JobPositionOptions = await _db.JobPositions
-            .Where(p => p.IsActive)
-            .OrderBy(p => p.Name)
-            .Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Name })
-            .ToListAsync();
     }
 
     private async Task ReloadRolesAsync()

@@ -1,0 +1,363 @@
+@page
+@using ACI.Web.Data.Entities
+@model ACI.Web.Pages.Safety.MyReportsModel
+@{
+    ViewData["Title"] = "My Safety Reports";
+    ViewData["ActiveMenu"] = "safety-mine";
+}
+
+@* ── Status badge helper ─────────────────────────────────────────── *@
+@functions {
+    static (string Css, string Icon, string Label) StatusBadge(SafetyWkRepStatus s) => s switch
+    {
+        SafetyWkRepStatus.Draft    => ("bg-secondary",       "bi-file-earmark",      "Draft"),
+        SafetyWkRepStatus.Reviewed => ("bg-info text-dark",  "bi-eye-fill",          "Reviewed"),
+        SafetyWkRepStatus.Approved => ("bg-success",         "bi-shield-check",      "Approved"),
+        SafetyWkRepStatus.NoWork   => ("bg-warning text-dark","bi-dash-circle",      "No Work"),
+        SafetyWkRepStatus.Voided   => ("bg-danger",          "bi-x-circle-fill",    "Voided"),
+        _                          => ("bg-secondary",       "bi-question",          "Unknown"),
+    };
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-clipboard2-check me-2 text-warning"></i>My Safety Reports</h1>
+        <p class="text-muted mb-0 small">Weekly reports for your assigned projects.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-page="/Safety/Reports" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-grid-3x3-gap me-1"></i>All Projects Grid
+        </a>
+    </div>
+</div>
+
+<!-- ─── Date range filter ─────────────────────────────────────────── -->
+<div class="px-3 pb-2">
+    <form method="get" class="d-flex align-items-center gap-2 flex-wrap">
+        <label class="fw-semibold small">From</label>
+        <input type="date" class="form-control form-control-sm" style="width:160px;"
+               name="from" value="@Model.From" />
+        <label class="fw-semibold small">To</label>
+        <input type="date" class="form-control form-control-sm" style="width:160px;"
+               name="to" value="@Model.To" />
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+    </form>
+</div>
+
+<div class="p-3">
+
+    @if (!Model.Rows.Any())
+    {
+        <div class="aci-card p-5 text-center text-muted">
+            <i class="bi bi-person-slash display-4 d-block mb-3"></i>
+            <h5>No assigned projects found.</h5>
+            <p>You must be assigned to an organizational unit linked to a project.</p>
+        </div>
+    }
+    else
+    {
+        <!-- ─── Upload modal ─────────────────────────────────────── -->
+        <div class="modal fade" id="uploadModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Upload Safety Report</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted small mb-3">
+                            Project: <strong id="upload-project-name"></strong> &nbsp;·&nbsp;
+                            Week of: <strong id="upload-week-label"></strong>
+                        </p>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Select File</label>
+                            <input type="file" id="upload-file" class="form-control"
+                                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" required />
+                            <div class="form-text">Accepted: PDF, JPG, PNG, Word, Excel (max 30 MB)</div>
+                        </div>
+                        <div id="upload-error" class="alert alert-danger d-none"></div>
+                        <div id="upload-progress" class="progress d-none" style="height:6px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="upload-confirm-btn">
+                            <i class="bi bi-upload me-1"></i>Upload
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── Review modal ─────────────────────────────────────── -->
+        @if (Model.CanReview)
+        {
+            <div class="modal fade" id="reviewModal" tabindex="-1">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <form method="post" asp-page-handler="Review">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="reportId" id="review-report-id" />
+                            <input type="hidden" name="from"     value="@Model.From" />
+                            <input type="hidden" name="to"       value="@Model.To" />
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Review Report</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Review Notes (optional)</label>
+                                    <textarea class="form-control" name="notes" rows="3"
+                                              placeholder="Optional notes…"></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
+                                <button class="btn btn-info text-white" type="submit">
+                                    <i class="bi bi-check2 me-1"></i>Mark Reviewed
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- ─── Grid table ───────────────────────────────────────── -->
+        <div class="aci-card overflow-auto">
+            <table class="table table-bordered table-sm mb-0 safety-grid">
+                <thead class="table-light">
+                    <tr>
+                        <th class="text-nowrap" style="min-width:200px;">Project</th>
+                        @foreach (var w in Model.Weeks)
+                        {
+                            <th class="text-center text-nowrap" style="min-width:130px;">
+                                <div class="fw-semibold">Wk @System.Globalization.ISOWeek.GetWeekOfYear(w.ToDateTime(TimeOnly.MinValue))</div>
+                                <div class="text-muted" style="font-size:.75rem;">@w.ToString("MMM d")</div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="fw-semibold align-middle">
+                                <div>@row.ProjectCode</div>
+                                <div class="text-muted" style="font-size:.8rem;">@row.ProjectName</div>
+                            </td>
+                            @foreach (var week in Model.Weeks)
+                            {
+                                var rep = row.Slots.TryGetValue(week, out var r) ? r : null;
+                                <td class="text-center align-middle p-1">
+                                    @{
+                                        // 현재 사용자가 이 셀에서 편집 가능한 상태인지 판단
+                                        // SafetyManager+ : Reviewed 포함 모든 비잠금 상태 편집 가능
+                                        // 그 외 (PM/Superintendent 등) : Draft/NoWork/Voided만
+                                        var canEditCell = rep == null
+                                            ? true   // 빈 셀 — 항상 액션 가능
+                                            : Model.CanUnreview   // SafetyManager+
+                                                ? !rep.IsLocked
+                                                : rep.Status != SafetyWkRepStatus.Reviewed && !rep.IsLocked;
+                                    }
+
+                                    @if (rep == null)
+                                    {
+                                        <!-- 빈 셀 — 업로드 또는 No Work -->
+                                        <div class="d-flex flex-column gap-1 align-items-center">
+                                            <button class="btn btn-outline-primary btn-sm"
+                                                    onclick="openUpload(@row.ProjectId, '@row.ProjectCode — @row.ProjectName', '@week.ToString("yyyy-MM-dd")', '@week.ToString("MMM d, yyyy")')"
+                                                    title="Upload Report">
+                                                <i class="bi bi-upload"></i>
+                                            </button>
+                                            <form method="post" asp-page-handler="MarkNoWork">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="projectId" value="@row.ProjectId" />
+                                                <input type="hidden" name="weekStart" value="@week.ToString("yyyy-MM-dd")" />
+                                                <input type="hidden" name="from"      value="@Model.From" />
+                                                <input type="hidden" name="to"        value="@Model.To" />
+                                                <button type="submit" class="btn btn-outline-warning btn-sm"
+                                                        title="Mark as No Work"
+                                                        onclick="return confirm('Mark this week as No Work?')">
+                                                    <i class="bi bi-dash-circle"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        var (css, icon, label) = StatusBadge(rep.Status);
+                                        <div>
+                                            <span class="badge @css mb-1">
+                                                <i class="bi @icon me-1"></i>@label
+                                            </span>
+                                            <div class="d-flex justify-content-center gap-1 flex-wrap">
+
+                                                @* Preview / Download *@
+                                                @if (rep.HasFile)
+                                                {
+                                                    <a href="/api/safety-reports/@rep.Id/file?inline=true"
+                                                       target="_blank" class="btn btn-outline-secondary btn-sm"
+                                                       title="Preview">
+                                                        <i class="bi bi-eye"></i>
+                                                    </a>
+                                                    <a href="/api/safety-reports/@rep.Id/file"
+                                                       class="btn btn-outline-secondary btn-sm"
+                                                       title="Download">
+                                                        <i class="bi bi-download"></i>
+                                                    </a>
+                                                }
+
+                                                @* Replace file — Reviewed/Approved 상태에선 비표시 (field user 기준) *@
+                                                @if (canEditCell)
+                                                {
+                                                    <button class="btn btn-outline-primary btn-sm"
+                                                            onclick="openUpload(@row.ProjectId, '@row.ProjectCode', '@week.ToString("yyyy-MM-dd")', '@week.ToString("MMM d, yyyy")')"
+                                                            title="Replace File">
+                                                        <i class="bi bi-arrow-repeat"></i>
+                                                    </button>
+                                                }
+
+                                                @* Review (PM + SafetyManager+, Draft만) *@
+                                                @if (Model.CanReview && rep.Status == SafetyWkRepStatus.Draft)
+                                                {
+                                                    <button class="btn btn-outline-info btn-sm"
+                                                            onclick="openReview(@rep.Id)"
+                                                            title="Mark Reviewed">
+                                                        <i class="bi bi-eye-fill"></i>
+                                                    </button>
+                                                }
+
+                                                @* Unreview (SafetyManager+ 전용) *@
+                                                @if (Model.CanUnreview && rep.Status == SafetyWkRepStatus.Reviewed)
+                                                {
+                                                    <form method="post" asp-page-handler="Unreview" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="reportId" value="@rep.Id" />
+                                                        <input type="hidden" name="from" value="@Model.From" />
+                                                        <input type="hidden" name="to"   value="@Model.To" />
+                                                        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                                title="Clear Review"
+                                                                onclick="return confirm('Clear the review status?')">
+                                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                                @* Delete — Reviewed/Approved 상태에선 비표시 (field user 기준) *@
+                                                @if (canEditCell && rep.Status != SafetyWkRepStatus.Approved)
+                                                {
+                                                    <form method="post" asp-page-handler="Delete" class="d-inline">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="reportId" value="@rep.Id" />
+                                                        <input type="hidden" name="from" value="@Model.From" />
+                                                        <input type="hidden" name="to"   value="@Model.To" />
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                                title="Delete"
+                                                                onclick="return confirm('Delete this report?')">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+
+                                            </div>
+                                            @if (rep.UploadedAt.HasValue)
+                                            {
+                                                <div class="text-muted" style="font-size:.7rem;">
+                                                    @rep.UploadedAt.Value.ToString("MMM d")
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+<script>
+// ── Upload modal ──────────────────────────────────────────────────────────
+let _uploadProjectId = 0;
+let _uploadWeekStart = '';
+const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
+
+function openUpload(projectId, projectName, weekStart, weekLabel) {
+    _uploadProjectId = projectId;
+    _uploadWeekStart = weekStart;
+    document.getElementById('upload-project-name').textContent = projectName;
+    document.getElementById('upload-week-label').textContent   = weekLabel;
+    document.getElementById('upload-file').value = '';
+    document.getElementById('upload-error').classList.add('d-none');
+    document.getElementById('upload-progress').classList.add('d-none');
+    uploadModal.show();
+}
+
+document.getElementById('upload-confirm-btn').addEventListener('click', async () => {
+    const fileInput = document.getElementById('upload-file');
+    if (!fileInput.files.length) {
+        showUploadError('Please select a file.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('projectId',     _uploadProjectId);
+    formData.append('weekStartDate', _uploadWeekStart);
+    formData.append('file',          fileInput.files[0]);
+
+    document.getElementById('upload-error').classList.add('d-none');
+    document.getElementById('upload-progress').classList.remove('d-none');
+    document.getElementById('upload-confirm-btn').disabled = true;
+
+    try {
+        const resp = await fetch('/api/safety-reports/upload', {
+            method: 'POST',
+            headers: { 'RequestVerificationToken': getAntiForgeryToken() },
+            body: formData
+        });
+        if (resp.ok) {
+            uploadModal.hide();
+            location.reload();
+        } else {
+            const text = await resp.text();
+            showUploadError(text || 'Upload failed.');
+        }
+    } catch (e) {
+        showUploadError('Network error: ' + e.message);
+    } finally {
+        document.getElementById('upload-progress').classList.add('d-none');
+        document.getElementById('upload-confirm-btn').disabled = false;
+    }
+});
+
+function showUploadError(msg) {
+    const el = document.getElementById('upload-error');
+    el.textContent = msg;
+    el.classList.remove('d-none');
+}
+
+@if (Model.CanReview)
+{
+    <text>
+// ── Review modal ──────────────────────────────────────────────────────────
+const reviewModal = new bootstrap.Modal(document.getElementById('reviewModal'));
+function openReview(reportId) {
+    document.getElementById('review-report-id').value = reportId;
+    reviewModal.show();
+}
+    </text>
+}
+
+function getAntiForgeryToken() {
+    return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+}
+</script>
+}

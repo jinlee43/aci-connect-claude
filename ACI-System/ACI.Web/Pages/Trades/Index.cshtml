@@ -1,0 +1,35 @@
+@page
+@model ACI.Web.Pages.Trades.IndexModel
+@{
+    ViewData["Title"] = "Trades & Subs";
+    ViewData["ActiveMenu"] = "trades";
+}
+
+<div class="p-3">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-tools me-2 text-primary"></i>Trades &amp; Subs</h5>
+        @if (Model.CanEdit)
+        {
+            <button class="btn btn-primary btn-sm" type="button" disabled>
+                <i class="bi bi-plus me-1"></i>Add New
+            </button>
+        }
+        else
+        {
+            <span class="badge bg-secondary-subtle text-secondary">
+                <i class="bi bi-eye me-1"></i>Read-only
+            </span>
+        }
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-tools fs-1 text-muted mb-3 d-block"></i>
+            <p class="text-muted mb-1">Trades &amp; Subs management is under construction.</p>
+            <p class="small text-muted mb-0">
+                Viewing is open to all authenticated users. Editing is restricted to
+                <code>Admin</code> / <code>LsProjAdmin</code> / <code>JocProjAdmin</code>.
+            </p>
+        </div>
+    </div>
+</div>

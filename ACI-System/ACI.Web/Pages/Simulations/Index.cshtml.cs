@@ -48,7 +48,9 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnPostCreateAsync(
         string name, string? description, int sourceType, int? sourceBaselineId)
     {
-        var userId   = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
+        var idStr = User.FindFirst("UserId")?.Value
+                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idStr, out var userId) || userId <= 0) return Forbid();
         var userName = User.Identity?.Name ?? "System";
 
         var sim = await _simSvc.CreateSimulationAsync(
@@ -79,7 +81,9 @@ public class IndexModel : PageModel
     // ── POST: Promote to Current Plan ────────────────────────────────────────
     public async Task<IActionResult> OnPostPromoteAsync(int simulationId)
     {
-        var userId   = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
+        var idStr = User.FindFirst("UserId")?.Value
+                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idStr, out var userId) || userId <= 0) return Forbid();
         var userName = User.Identity?.Name ?? "System";
 
         var revision = await _progressSvc.GetOrCreateDraftRevisionAsync(

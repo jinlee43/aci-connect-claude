@@ -70,6 +70,7 @@ public class ScheduleBaseline : BaseEntity
 
     /// <summary>The simulation that triggered this auto snapshot (if any).</summary>
     public int? SourceSimulationId { get; set; }
+    public ScheduleSimulation? SourceSimulation { get; set; }
 
     // ── Stats (denormalized for quick display) ───────────────────────────────
     public int TaskCount { get; set; }

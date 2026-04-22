@@ -1,10 +1,11 @@
 using ACI.Web.Data;
 using ACI.Web.Data.Entities;
+using ACI.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACI.Web.Pages.Admin.JobPositions;
+namespace ACI.Web.Pages.Hr.JobPositions;
 
 public class IndexModel : PageModel
 {
@@ -15,15 +16,28 @@ public class IndexModel : PageModel
 
     [BindProperty] public JobPosition Input { get; set; } = new();
 
-    public async Task OnGetAsync()
+    /// <summary>편집 모드 여부 — 폼을 기존 레코드로 채워서 열어둔다.</summary>
+    public bool IsEditing => Input.Id != 0;
+
+    public async Task<IActionResult> OnGetAsync(int? editId = null)
     {
         JobPositions = await _db.JobPositions
             .OrderBy(p => p.OrdNum).ThenBy(p => p.Name)
             .ToListAsync();
+
+        if (editId is int id && id > 0)
+        {
+            var existing = await _db.JobPositions.FindAsync(id);
+            if (existing == null) return NotFound();
+            Input = existing;
+        }
+        return Page();
     }
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
+        if (!User.IsInRole(PrivilegeCodes.HrAdmin)) return Forbid();
+
         ModelState.Remove("Input.EmpRoles");
 
         if (!ModelState.IsValid)
@@ -56,6 +70,8 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostToggleAsync(int id)
     {
+        if (!User.IsInRole(PrivilegeCodes.HrAdmin)) return Forbid();
+
         var pos = await _db.JobPositions.FindAsync(id);
         if (pos != null) { pos.IsActive = !pos.IsActive; await _db.SaveChangesAsync(); }
         return RedirectToPage();

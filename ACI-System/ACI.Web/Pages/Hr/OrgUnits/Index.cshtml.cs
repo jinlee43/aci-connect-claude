@@ -1,10 +1,11 @@
 using ACI.Web.Data;
 using ACI.Web.Data.Entities;
+using ACI.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACI.Web.Pages.Admin.OrgUnits;
+namespace ACI.Web.Pages.Hr.OrgUnits;
 
 public class IndexModel : PageModel
 {
@@ -16,13 +17,26 @@ public class IndexModel : PageModel
     [BindProperty] public OrgUnit Input { get; set; } = new();
     public List<OrgUnit> ParentOptions { get; set; } = [];
 
-    public async Task OnGetAsync()
+    /// <summary>편집 모드 여부 — 폼을 기존 레코드로 채워서 열어둔다.</summary>
+    public bool IsEditing => Input.Id != 0;
+
+    public async Task<IActionResult> OnGetAsync(int? editId = null)
     {
-        await LoadAsync();
+        await LoadAsync(editId);
+
+        if (editId is int id && id > 0)
+        {
+            var existing = await _db.OrgUnits.FindAsync(id);
+            if (existing == null) return NotFound();
+            Input = existing;
+        }
+        return Page();
     }
 
     public async Task<IActionResult> OnPostSaveAsync()
     {
+        if (!User.IsInRole(PrivilegeCodes.HrAdmin)) return Forbid();
+
         ModelState.Remove("Input.Children");
         ModelState.Remove("Input.Parent");
         ModelState.Remove("Input.EmpRoles");
@@ -59,6 +73,8 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnPostToggleAsync(int id)
     {
+        if (!User.IsInRole(PrivilegeCodes.HrAdmin)) return Forbid();
+
         var org = await _db.OrgUnits.FindAsync(id);
         if (org != null)
         {
@@ -68,15 +84,16 @@ public class IndexModel : PageModel
         return RedirectToPage();
     }
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(int? editId = null)
     {
         OrgUnits = await _db.OrgUnits
             .Include(o => o.Parent)
             .OrderBy(o => o.Type).ThenBy(o => o.Name)
             .ToListAsync();
 
+        // Parent 드롭다운: 활성 항목만, 편집 중인 자기 자신은 제외 (순환 방지)
         ParentOptions = await _db.OrgUnits
-            .Where(o => o.IsActive)
+            .Where(o => o.IsActive && (!editId.HasValue || o.Id != editId.Value))
             .OrderBy(o => o.Name)
             .ToListAsync();
     }

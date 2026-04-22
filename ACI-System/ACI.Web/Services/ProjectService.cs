@@ -41,6 +41,26 @@ public class ProjectService : IProjectService
         project.UpdatedAt = DateTime.UtcNow;
         _db.Projects.Add(project);
         await _db.SaveChangesAsync();
+
+        // 프로젝트 타입에 따라 적절한 Division 아래에 ProjectTeam OrgUnit 자동 생성
+        // LumpSum / GMP / CostPlus → LS Division, JOC → JOC Division
+        var divisionCode = project.Type == ProjectType.JOC ? "JOC" : "LS";
+        var division = await _db.OrgUnits
+            .FirstOrDefaultAsync(o => o.Code == divisionCode && o.Type == OrgUnitType.Division);
+
+        if (division != null)
+        {
+            _db.OrgUnits.Add(new OrgUnit
+            {
+                Code      = project.ProjectCode,
+                Name      = project.Name,
+                Type      = OrgUnitType.ProjectTeam,
+                ParentId  = division.Id,
+                ProjectId = project.Id,
+            });
+            await _db.SaveChangesAsync();
+        }
+
         return project;
     }
 

@@ -131,39 +131,114 @@
         </div>
     }
 
-    <div class="sidebar-section">
-        <div class="sidebar-section-title">ADMIN</div>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "employees" ? "active" : "")"
-           asp-page="/Admin/Employees/Index">
-            <i class="bi bi-people"></i><span>Employees</span>
-        </a>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "orgunits" ? "active" : "")"
-           asp-page="/Admin/OrgUnits/Index">
-            <i class="bi bi-diagram-3"></i><span>Org Units</span>
-        </a>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "jobpositions" ? "active" : "")"
-           asp-page="/Admin/JobPositions/Index">
-            <i class="bi bi-person-badge"></i><span>Job Positions</span>
-        </a>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "users" ? "active" : "")"
-           asp-page="/Admin/Users">
-            <i class="bi bi-person-gear"></i><span>Users</span>
-        </a>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "trades" ? "active" : "")"
-           asp-page="/Admin/Trades">
-            <i class="bi bi-tools"></i><span>Trades & Subs</span>
-        </a>
-    </div>
+    @*
+        권한 원칙:
+        - Admin       : 시스템 전체 관리자 (HR/Project 모든 영역 포함)
+        - HrAdmin     : HR 민감 데이터(AdminDetail) 및 Role 부여
+        - HrManager   : HrUser 이상 (현재는 enum만, 정책 로직은 추후 확장)
+        - HrUser      : HR 기본 조회 및 Detail 편집
+        - LsProjAdmin : Lump Sum 프로젝트 마스터 편집 (Trades & Subs 등)
+        - JocProjAdmin: JOC 프로젝트 마스터 편집 (Trades & Subs 등)
+        메뉴는 정책 체크와 일치해야 하므로, 보유 권한이 있는 사용자에게만 해당 섹션을 노출.
+        단, Trades & Subs는 조회가 전체 허용이므로 인증된 모든 사용자에게 노출.
+    *@
+    @{
+        var isAdmin         = User.IsInRole("Admin");
+        var isHrAdmin       = isAdmin || User.IsInRole("HrAdmin");            // Admin ⊇ HrAdmin
+        var isHr            = isHrAdmin
+                              || User.IsInRole("HrManager")
+                              || User.IsInRole("HrUser");                     // HR 폴더 전체 접근
+        var isProjectAdmin  = isAdmin
+                              || User.IsInRole("LsProjAdmin")
+                              || User.IsInRole("JocProjAdmin");
+        var isSafetyUser    = isAdmin || User.IsInRole("SafetyAdmin")
+                              || User.IsInRole("SafetyManager")
+                              || User.IsInRole("SafetyUser");
+        var isSafetyManager = isAdmin || User.IsInRole("SafetyAdmin")
+                              || User.IsInRole("SafetyManager");
+        var isSafetyAdmin   = isAdmin || User.IsInRole("SafetyAdmin");
+        // Settings 메뉴: SafetyManager+ 또는 담당 프로젝트가 있는 현장 인력
+        var canSeeSettings  = isSafetyManager
+                              || User.IsInRole("Superintendent")
+                              || User.IsInRole("ProjectManager");
+    }
 
-    @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+    @* ─── 프로젝트 마스터 (인증된 모든 사용자 조회 가능) ────────────── *@
+    @if (User.Identity?.IsAuthenticated == true)
     {
-    <div class="sidebar-section">
-        <div class="sidebar-section-title" style="color:#dc3545;">HR ADMIN</div>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "employees" ? "active" : "")"
-           asp-page="/Admin/Employees/Index">
-            <i class="bi bi-people text-danger"></i><span>Employee List</span>
-        </a>
-    </div>
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">MASTER DATA</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "trades" ? "active" : "")"
+               asp-page="/Trades/Index">
+                <i class="bi bi-tools"></i><span>Trades &amp; Subs</span>
+                @if (!isProjectAdmin)
+                {
+                    <i class="bi bi-eye ms-1 small text-muted" title="Read-only"></i>
+                }
+            </a>
+        </div>
+    }
+
+    @* ─── Safety 영역 (SafetyUser / SafetyManager / SafetyAdmin / Admin) ── *@
+    @if (isSafetyUser)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title" style="color:#fd7e14;">SAFETY</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-reports" ? "active" : "")"
+               asp-page="/Safety/Reports">
+                <i class="bi bi-shield-exclamation" style="color:#fd7e14;"></i><span>Weekly Reports</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-mine" ? "active" : "")"
+               asp-page="/Safety/MyReports">
+                <i class="bi bi-clipboard2-check"></i><span>My Projects</span>
+            </a>
+            @if (canSeeSettings)
+            {
+                <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-settings" ? "active" : "")"
+                   asp-page="/Safety/Settings">
+                    <i class="bi bi-gear"></i><span>Report Settings</span>
+                </a>
+            }
+        </div>
+    }
+
+    @* ─── HR 영역 (HrUser / HrManager / HrAdmin / Admin) ─────────────── *@
+    @if (isHr)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title" style="color:@(isHrAdmin ? "#dc3545" : "#6c757d");">
+                HR@(isHrAdmin ? " ADMIN" : "")
+            </div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "employees" ? "active" : "")"
+               asp-page="/Hr/Employees/Index">
+                <i class="bi bi-people @(isHrAdmin ? "text-danger" : "")"></i><span>Employees</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "orgunits" ? "active" : "")"
+               asp-page="/Hr/OrgUnits/Index">
+                <i class="bi bi-diagram-3"></i><span>Org Units</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "jobpositions" ? "active" : "")"
+               asp-page="/Hr/JobPositions/Index">
+                <i class="bi bi-person-badge"></i><span>Job Positions</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "users" ? "active" : "")"
+               asp-page="/Hr/Users/Index">
+                <i class="bi bi-person-gear"></i><span>Users</span>
+            </a>
+        </div>
+    }
+
+    @* ─── 시스템 관리 영역 (Admin 전용) ──────────────────── *@
+    @if (isAdmin)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title" style="color:#6f42c1;">SYSTEM ADMIN</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "privileges" ? "active" : "")"
+               asp-page="/SystemAdmin/Privileges/Index">
+                <i class="bi bi-key" style="color:#6f42c1;"></i><span>Privileges</span>
+            </a>
+            @* 향후 Audit Log / Email 설정 등 배치 예정 *@
+        </div>
     }
 </div>
 

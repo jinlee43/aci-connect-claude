@@ -1,4 +1,6 @@
 using ACI.Web.Data.Entities;
+using ACI.Web.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace ACI.Web.Data;
 
@@ -54,6 +56,45 @@ public static class DbInitializer
             await db.SaveChangesAsync();
         }
 
+        // ── Privileges (빌트인) ────────────────────────────────────────────
+        // PrivilegeCodes.All 기준으로 누락된 priv 를 idempotent 하게 시드.
+        // 이미 존재하는 Code 는 건드리지 않음(관리자가 Name/Description 을 수정했을 수 있음).
+        var builtInSpecs = new (string Code, string Name, string Description)[]
+        {
+            (PrivilegeCodes.Admin,          "System Admin",       "Full system access. Includes all HR and Project admin privileges."),
+            (PrivilegeCodes.HrAdmin,        "HR Admin",           "Access sensitive HR data (PII) and manage employee role assignments."),
+            (PrivilegeCodes.HrManager,      "HR Manager",         "HR approvals and management tasks. Includes HR User privileges."),
+            (PrivilegeCodes.HrUser,         "HR User",            "Basic HR access: view employees and edit general details."),
+            (PrivilegeCodes.LsProjAdmin,    "LS Project Admin",   "Edit Lump Sum project master data (Trades & Subs, etc)."),
+            (PrivilegeCodes.JocProjAdmin,   "JOC Project Admin",  "Edit JOC project master data (Trades & Subs, etc)."),
+            (PrivilegeCodes.SafetyAdmin,     "Safety Admin",       "Full safety management including approval revocation."),
+            (PrivilegeCodes.SafetyManager,  "Safety Manager",     "Safety report approval and management."),
+            (PrivilegeCodes.SafetyUser,     "Safety User",        "Safety report upload and basic access."),
+            // ProjectManager / Superintendent 은 HR 파생 롤이므로 Privilege row 없음
+            (PrivilegeCodes.TradePartner,   "Trade Partner",      "Subcontractor: update status of own tasks only."),
+            (PrivilegeCodes.Viewer,         "Viewer",             "Read-only access."),
+        };
+
+        var existingCodes = await db.Privileges
+            .Select(p => p.Code)
+            .ToListAsync();
+        var missing = builtInSpecs
+            .Where(s => !existingCodes.Contains(s.Code))
+            .Select(s => new Privilege
+            {
+                Code        = s.Code,
+                Name        = s.Name,
+                Description = s.Description,
+                IsBuiltIn   = true,
+                IsActive    = true,
+            })
+            .ToList();
+        if (missing.Count > 0)
+        {
+            db.Privileges.AddRange(missing);
+            await db.SaveChangesAsync();
+        }
+
         // ── Admin User ────────────────────────────────────────────────────
         if (!db.Users.Any())
         {
@@ -62,10 +103,19 @@ public static class DbInitializer
                 Name         = "Admin",
                 Email        = "admin@aci-la.com",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@12345"),
-                Role         = UserRole.Admin,
-                IsActive     = true
+                IsActive     = true,
             };
             db.Users.Add(adminUser);
+            await db.SaveChangesAsync();
+
+            // Admin priv 할당 (PrivilegeExpander 가 HrAdmin/LsProjAdmin/JocProjAdmin 등 상하위로 자동 전개)
+            var adminPriv = await db.Privileges.FirstAsync(p => p.Code == PrivilegeCodes.Admin);
+            db.UserPrivileges.Add(new UserPrivilege
+            {
+                UserId      = adminUser.Id,
+                PrivilegeId = adminPriv.Id,
+                GrantedAt   = DateTime.UtcNow,
+            });
             await db.SaveChangesAsync();
         }
 

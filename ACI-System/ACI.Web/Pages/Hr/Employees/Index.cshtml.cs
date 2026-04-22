@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACI.Web.Pages.Admin.Employees;
+namespace ACI.Web.Pages.Hr.Employees;
 
 public class IndexModel : PageModel
 {

@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
 
     // ─── Auth ──────────────────────────────────────────────────────────────
     public DbSet<ApplicationUser>      Users                => Set<ApplicationUser>();
+    public DbSet<Privilege>            Privileges           => Set<Privilege>();
+    public DbSet<UserPrivilege>        UserPrivileges       => Set<UserPrivilege>();
 
     // ─── HR ───────────────────────────────────────────────────────────────
     public DbSet<Employee>             Employees            => Set<Employee>();
@@ -55,6 +57,10 @@ public class AppDbContext : DbContext
     public DbSet<WeeklyWorkPlan>       WeeklyWorkPlans      => Set<WeeklyWorkPlan>();
     public DbSet<WeeklyTask>           WeeklyTasks          => Set<WeeklyTask>();
 
+    // ─── Safety Weekly Report ─────────────────────────────────────────────
+    public DbSet<SafetyWkRepSettings>  SafetyWkRepSettings  => Set<SafetyWkRepSettings>();
+    public DbSet<SafetyWkRep>          SafetyWkReps         => Set<SafetyWkRep>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -65,11 +71,41 @@ public class AppDbContext : DbContext
             e.HasKey(u => u.Id);
             e.Property(u => u.Name).IsRequired().HasMaxLength(100);
             e.Property(u => u.Email).IsRequired().HasMaxLength(200);
+            e.HasIndex(u => u.Name).IsUnique();   // 로그인 키 — 중복 Name 방지
             e.HasIndex(u => u.Email).IsUnique();
 
             e.HasOne(u => u.Employee)
              .WithOne(emp => emp.UserAccount)
              .HasForeignKey<ApplicationUser>(u => u.EmployeeId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── Privilege ─────────────────────────────────────────────────────
+        builder.Entity<Privilege>(e =>
+        {
+            e.HasKey(p => p.Id);
+            e.HasIndex(p => p.Code).IsUnique();
+        });
+
+        // ── UserPrivilege (many-to-many join) ─────────────────────────────
+        builder.Entity<UserPrivilege>(e =>
+        {
+            e.HasKey(up => new { up.UserId, up.PrivilegeId });
+
+            e.HasOne(up => up.User)
+             .WithMany(u => u.UserPrivileges)
+             .HasForeignKey(up => up.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(up => up.Privilege)
+             .WithMany(p => p.UserPrivileges)
+             .HasForeignKey(up => up.PrivilegeId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            // GrantedBy 는 감사용이며 사용자가 삭제되어도 기록은 유지 (SetNull)
+            e.HasOne(up => up.GrantedBy)
+             .WithMany()
+             .HasForeignKey(up => up.GrantedByUserId)
              .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -203,7 +239,7 @@ public class AppDbContext : DbContext
         builder.Entity<ScheduleTask>(e =>
         {
             e.HasKey(t => t.Id);
-            e.Property(t => t.Progress).HasPrecision(5, 4);
+            // Progress: DB는 double precision — numeric(5,4) 적용 안 함
 
             e.HasOne(t => t.Parent)
              .WithMany(t => t.Children)
@@ -272,7 +308,7 @@ public class AppDbContext : DbContext
         builder.Entity<WorkingTask>(e =>
         {
             e.HasKey(t => t.Id);
-            e.Property(t => t.Progress).HasPrecision(5, 4);
+            // Progress: DB는 double precision — numeric(5,4) 적용 안 함
 
             e.HasOne(t => t.Project)
              .WithMany()
@@ -316,6 +352,12 @@ public class AppDbContext : DbContext
             e.HasOne(b => b.FrozenBy)
              .WithMany()
              .HasForeignKey(b => b.FrozenById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            // Auto snapshot 을 생성시킨 Simulation (nullable, SET NULL on delete)
+            e.HasOne(b => b.SourceSimulation)
+             .WithMany()
+             .HasForeignKey(b => b.SourceSimulationId)
              .OnDelete(DeleteBehavior.SetNull);
 
             e.HasMany(b => b.TaskSnapshots)
@@ -495,6 +537,62 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(t => t.AssignedToId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── SafetyWkRepSettings ───────────────────────────────────────────────
+        builder.Entity<SafetyWkRepSettings>(e =>
+        {
+            e.HasKey(s => s.Id);
+
+            // One settings record per project
+            e.HasIndex(s => s.ProjectId).IsUnique();
+
+            e.HasOne(s => s.Project)
+             .WithMany()
+             .HasForeignKey(s => s.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(s => s.ApprovedBy)
+             .WithMany()
+             .HasForeignKey(s => s.ApprovedById)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── SafetyWkRep ───────────────────────────────────────────────────────
+        builder.Entity<SafetyWkRep>(e =>
+        {
+            e.HasKey(r => r.Id);
+
+            // One report per project per week
+            e.HasIndex(r => new { r.ProjectId, r.WeekStartDate }).IsUnique();
+
+            e.HasOne(r => r.Project)
+             .WithMany()
+             .HasForeignKey(r => r.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.UploadedBy)
+             .WithMany()
+             .HasForeignKey(r => r.UploadedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.ReviewedBy)
+             .WithMany()
+             .HasForeignKey(r => r.ReviewedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.ApprovedBy)
+             .WithMany()
+             .HasForeignKey(r => r.ApprovedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.VoidedBy)
+             .WithMany()
+             .HasForeignKey(r => r.VoidedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(r => r.ProjectId);
+            e.HasIndex(r => new { r.Year, r.WeekNumber });
         });
     }
 }

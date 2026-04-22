@@ -1,0 +1,184 @@
+@page
+@model ACI.Web.Pages.Safety.SettingsModel
+@{
+    ViewData["Title"] = "Safety Report Settings";
+    ViewData["ActiveMenu"] = "safety-settings";
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-gear-fill me-2 text-warning"></i>Safety Report Settings</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-page="/Safety/Reports">Safety Reports</a></li>
+                <li class="breadcrumb-item active">Settings</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="p-3">
+    <div class="row">
+
+        <!-- ─── Project selector ─────────────────────────────────── -->
+        <div class="col-md-3">
+            <div class="aci-card p-3 mb-3">
+                <h6 class="fw-semibold mb-3"><i class="bi bi-folder2 me-1"></i>Select Project</h6>
+                @foreach (var p in Model.Projects)
+                {
+                    <a asp-page="/Safety/Settings" asp-route-projectId="@p.Id"
+                       class="list-group-item list-group-item-action py-2 px-3 border-0 rounded mb-1
+                              @(Model.ProjectId == p.Id ? "active" : "")">
+                        <div class="fw-semibold small">@p.ProjectCode</div>
+                        <div class="text-truncate" style="max-width:200px; font-size:.8rem;">@p.Name</div>
+                    </a>
+                }
+                @if (!Model.Projects.Any())
+                {
+                    <div class="text-muted small">No active projects found.</div>
+                }
+            </div>
+        </div>
+
+        <!-- ─── Settings panel ───────────────────────────────────── -->
+        <div class="col-md-9">
+            @if (Model.SelectedProject == null)
+            {
+                <div class="aci-card p-5 text-center text-muted">
+                    <i class="bi bi-arrow-left-circle display-4 d-block mb-3"></i>
+                    <h5>Select a project to configure its safety report schedule.</h5>
+                </div>
+            }
+            else
+            {
+                <!-- Project header -->
+                <div class="aci-card p-3 mb-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h5 class="mb-0 fw-bold">@Model.SelectedProject.ProjectCode</h5>
+                            <div class="text-muted small">@Model.SelectedProject.Name</div>
+                        </div>
+                        @if (Model.Settings != null && Model.CanApprove)
+                        {
+                            @if (Model.Settings.IsApproved)
+                            {
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-success fs-6">
+                                        <i class="bi bi-shield-check me-1"></i>Approved
+                                    </span>
+                                    <form method="post" asp-page-handler="Void"
+                                          asp-route-projectId="@Model.ProjectId"
+                                          asp-route-settingsId="@Model.Settings.Id"
+                                          onsubmit="return confirm('Void the approval and unlock settings for editing?')">
+                                        @Html.AntiForgeryToken()
+                                        <button class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-x-circle me-1"></i>Void Approval
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                            else
+                            {
+                                <form method="post" asp-page-handler="Approve"
+                                      asp-route-projectId="@Model.ProjectId"
+                                      asp-route-settingsId="@Model.Settings.Id"
+                                      onsubmit="return confirm('Approve and lock these settings?')">
+                                    @Html.AntiForgeryToken()
+                                    <button class="btn btn-sm btn-success">
+                                        <i class="bi bi-shield-check me-1"></i>Approve Settings
+                                    </button>
+                                </form>
+                            }
+                        }
+                        @if (Model.Settings?.IsApproved == true && !Model.CanApprove)
+                        {
+                            <span class="badge bg-success fs-6">
+                                <i class="bi bi-shield-check me-1"></i>Approved
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Settings form -->
+                <div class="aci-card p-4">
+                    <h6 class="fw-semibold mb-3">Report Schedule Configuration</h6>
+
+                    @if (Model.Settings?.IsApproved == true)
+                    {
+                        <div class="alert alert-success d-flex align-items-center gap-2 mb-3">
+                            <i class="bi bi-lock-fill"></i>
+                            <span>Settings are approved and locked.
+                                Approved by <strong>@Model.Settings.ApprovedByName</strong>
+                                on @Model.Settings.ApprovedAt?.ToString("MMM d, yyyy").
+                                Void the approval to edit.
+                            </span>
+                        </div>
+                    }
+
+                    <form method="post" asp-page-handler="Save" asp-route-projectId="@Model.ProjectId">
+                        @Html.AntiForgeryToken()
+                        <fieldset disabled="@(!Model.CanEdit)">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Report Start Date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control"
+                                           name="InputStartDate" value="@Model.InputStartDate" required />
+                                    <div class="form-text">First Monday to track weekly reports from.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Report End Date</label>
+                                    <input type="date" class="form-control"
+                                           name="InputEndDate" value="@Model.InputEndDate" />
+                                    <div class="form-text">Leave blank for open-ended.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Default Submit Day</label>
+                                    <select class="form-select" name="InputSubmitDay">
+                                        @foreach (DayOfWeek day in Enum.GetValues<DayOfWeek>())
+                                        {
+                                            <option value="@((int)day)"
+                                                    selected="@(Model.InputSubmitDay == (int)day)">
+                                                @day.ToString()
+                                            </option>
+                                        }
+                                    </select>
+                                    <div class="form-text">Expected submission day each week.</div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Notes</label>
+                                    <textarea class="form-control" name="InputNotes" rows="2"
+                                              placeholder="Optional notes…">@Model.InputNotes</textarea>
+                                </div>
+                            </div>
+
+                            @if (Model.CanEdit)
+                            {
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-floppy me-1"></i>Save Settings
+                                    </button>
+                                </div>
+                            }
+                        </fieldset>
+                    </form>
+
+                    @if (Model.Settings != null)
+                    {
+                        <hr class="my-4" />
+                        <div class="row g-2 text-muted small">
+                            <div class="col-md-4">
+                                <i class="bi bi-pencil-square me-1"></i>
+                                Revision #@Model.Settings.RevisionNumber
+                            </div>
+                            <div class="col-md-4">
+                                <i class="bi bi-clock me-1"></i>
+                                Updated @Model.Settings.UpdatedAt.ToString("MMM d, yyyy HH:mm")
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+    </div>
+</div>

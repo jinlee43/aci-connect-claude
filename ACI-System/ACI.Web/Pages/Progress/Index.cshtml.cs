@@ -149,8 +149,12 @@ public class IndexModel : PageModel
                 if (task == null || task.WorkingStatus == WorkingTaskStatus.Removed)
                     continue;
 
-                task.StartDate = DateOnly.Parse(dto.StartDate);
-                task.EndDate   = DateOnly.Parse(dto.EndDate);
+                if (!DateOnly.TryParse(dto.StartDate, out var startDate) ||
+                    !DateOnly.TryParse(dto.EndDate,   out var endDate))
+                    return new JsonResult(new { success = false, error = $"Invalid date format for task {dto.TaskId}." }) { StatusCode = 400 };
+
+                task.StartDate = startDate;
+                task.EndDate   = endDate;
                 task.Duration  = dto.Duration;
                 task.Progress  = Math.Clamp(dto.Progress, 0.0, 1.0);
 

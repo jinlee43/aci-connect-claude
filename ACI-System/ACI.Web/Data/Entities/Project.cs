@@ -48,6 +48,9 @@ public class Project : BaseEntity
     [MaxLength(10)]
     public string? ZipCode { get; set; }
 
+    [MaxLength(50)]
+    public string? State { get; set; }
+
     // Owner / Customer
     [MaxLength(200)]
     public string? OwnerName { get; set; }
@@ -57,6 +60,18 @@ public class Project : BaseEntity
 
     [MaxLength(200)]
     public string? OwnerEmail { get; set; }
+
+    [MaxLength(300)]
+    public string? OwnerAddress { get; set; }
+
+    [MaxLength(100)]
+    public string? OwnerCity { get; set; }
+
+    [MaxLength(10)]
+    public string? OwnerZipCode { get; set; }
+
+    [MaxLength(50)]
+    public string? OwnerState { get; set; }
 
     // Contract
     public decimal ContractAmount { get; set; } = 0;

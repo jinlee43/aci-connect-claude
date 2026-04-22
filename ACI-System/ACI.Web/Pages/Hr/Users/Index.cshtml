@@ -1,0 +1,405 @@
+@page
+@model ACI.Web.Pages.Hr.Users.IndexModel
+@{
+    ViewData["Title"]      = "Users";
+    ViewData["ActiveMenu"] = "users";
+
+    // HrAdmin 여부 — 뷰에서 편집 컨트롤 노출 여부 결정
+    var canEdit = User.IsInRole("Admin") || User.IsInRole("HrAdmin");
+
+    var newLogin = TempData["NewUserLogin"] as string;
+    var newPwd   = TempData["NewUserPwd"]   as string;
+}
+
+<div class="p-3">
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-person-gear me-2 text-primary"></i>Users
+            </h5>
+            <small class="text-muted">
+                @Model.Users.Count @(Model.IncludeInactive ? "total" : "active") accounts
+            </small>
+        </div>
+        @if (canEdit)
+        {
+            <button class="btn btn-primary btn-sm" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#createUserPanel">
+                <i class="bi bi-person-plus me-1"></i>Add User
+            </button>
+        }
+    </div>
+
+    <!-- Temp Password banner -->
+    @if (!string.IsNullOrEmpty(newLogin) && !string.IsNullOrEmpty(newPwd))
+    {
+        <div class="alert alert-info border-info d-flex align-items-start gap-2 mb-3">
+            <i class="bi bi-key fs-5"></i>
+            <div class="flex-grow-1">
+                <div class="fw-semibold">Temporary credentials — shown once</div>
+                <div class="small">
+                    Login: <code>@newLogin</code><br />
+                    Password: <code id="tmpPwd">@newPwd</code>
+                </div>
+                <small class="text-muted">
+                    Share these with the user via a secure channel. They will not appear again.
+                </small>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary"
+                    onclick="navigator.clipboard.writeText(document.getElementById('tmpPwd').textContent)"
+                    title="Copy password">
+                <i class="bi bi-clipboard"></i>
+            </button>
+        </div>
+    }
+
+    <!-- Create User Panel (collapsed by default) -->
+    @if (canEdit)
+    {
+        <div class="collapse mb-3" id="createUserPanel">
+            <div class="card shadow-sm border-primary">
+                <div class="card-header py-2 fw-semibold bg-primary-subtle">
+                    <i class="bi bi-person-plus me-2"></i>New User Account
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-page-handler="Create" class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Link to Employee</label>
+                            <select asp-for="Create.EmployeeId" class="form-select form-select-sm">
+                                <option value="">— Manual (no employee link) —</option>
+                                @foreach (var e in Model.EmployeesWithoutAccount)
+                                {
+                                    <option value="@e.Id"
+                                            data-display="@e.DisplayName"
+                                            data-first="@e.FirstName"
+                                            data-last="@e.LastName"
+                                            data-email="@e.WorkEmail">
+                                        @e.DisplayName (#@e.EmpNum)
+                                    </option>
+                                }
+                            </select>
+                            <small class="text-muted">Linking pre-fills Name & generates login ID.</small>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Display Name</label>
+                            <input asp-for="Create.Name" class="form-control form-control-sm"
+                                   placeholder="required if no employee link" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Login ID</label>
+                            <input asp-for="Create.LoginId" class="form-control form-control-sm font-monospace"
+                                   placeholder="auto-generated if blank" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Initial Password</label>
+                            <input asp-for="Create.InitialPassword" class="form-control form-control-sm"
+                                   placeholder="random if blank" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold d-block mb-1">
+                                <i class="bi bi-shield-check me-1"></i>Initial Privileges
+                            </label>
+                            <div class="d-flex flex-wrap gap-2">
+                                @foreach (var p in Model.AllPrivileges.Where(p => p.IsActive))
+                                {
+                                    var cid = $"newPriv_{p.Id}";
+                                    <div class="form-check form-check-inline">
+                                        <input class="form-check-input" type="checkbox"
+                                               id="@cid" name="Create.PrivilegeCodes" value="@p.Code" />
+                                        <label class="form-check-label small" for="@cid"
+                                               title="@p.Description">
+                                            <code class="small">@p.Code</code>
+                                            <span class="text-muted">— @p.Name</span>
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="col-12 text-end">
+                            <button type="button" class="btn btn-link btn-sm text-muted"
+                                    data-bs-toggle="collapse" data-bs-target="#createUserPanel">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-check-lg me-1"></i>Create User
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Search / Filter -->
+    <form method="get" class="row g-2 mb-3 align-items-center">
+        <div class="col-md-4">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" name="Search" value="@Model.Search"
+                       class="form-control" placeholder="Search name or email..." />
+            </div>
+        </div>
+        <div class="col-auto">
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="IncludeInactive"
+                       value="true" id="chkInactive"
+                       @(Model.IncludeInactive ? "checked" : "") />
+                <label class="form-check-label small" for="chkInactive">Include Inactive</label>
+            </div>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-funnel me-1"></i>Filter
+            </button>
+            <a asp-page="Index" class="btn btn-link btn-sm text-muted">Reset</a>
+        </div>
+    </form>
+
+    <!-- User Table -->
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width:40px" class="text-center">#</th>
+                        <th>Name</th>
+                        <th>Login / Email</th>
+                        <th>Employee Link</th>
+                        <th>Privileges (direct)</th>
+                        <th class="text-center" style="width:80px;">Active</th>
+                        <th class="text-center" style="width:130px;">Last Login</th>
+                        <th class="text-end" style="width:160px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{ int seq = 0; }
+                    @foreach (var u in Model.Users)
+                    {
+                        seq++;
+                        var editing = Model.IsEditing && Model.EditId == u.Id;
+                        if (editing && canEdit)
+                        {
+                            <tr class="table-warning">
+                                <td colspan="8">
+                                    <form method="post" asp-page-handler="Update">
+                                        <input type="hidden" asp-for="EditId" />
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Display Name</label>
+                                                <input asp-for="EditName" class="form-control form-control-sm" required />
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Login / Email (readonly)</label>
+                                                <input class="form-control form-control-sm font-monospace" value="@u.Email" readonly />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0">Active</label>
+                                                <div class="form-check">
+                                                    <input asp-for="EditIsActive" class="form-check-input" type="checkbox" />
+                                                    <label class="form-check-label small">Enabled</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4 text-end">
+                                                <button type="submit" class="btn btn-primary btn-sm">
+                                                    <i class="bi bi-check-lg me-1"></i>Save
+                                                </button>
+                                                <a asp-page="Index" class="btn btn-outline-secondary btn-sm">Cancel</a>
+                                            </div>
+                                        </div>
+                                        <hr class="my-2" />
+                                        <div>
+                                            <label class="form-label small fw-semibold">
+                                                <i class="bi bi-shield-check me-1"></i>Privileges
+                                                <span class="text-muted small">
+                                                    (hierarchy auto-expands at login — grant only the highest you need)
+                                                </span>
+                                            </label>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                @foreach (var p in Model.AllPrivileges)
+                                                {
+                                                    var checkedAttr = Model.EditPrivilegeCodes.Contains(p.Code) ? "checked" : "";
+                                                    var cid = $"editPriv_{p.Id}";
+                                                    var dis = p.IsActive ? "" : "disabled";
+                                                    <div class="form-check form-check-inline @(p.IsActive ? "" : "opacity-50")">
+                                                        <input class="form-check-input" type="checkbox"
+                                                               id="@cid" name="EditPrivilegeCodes" value="@p.Code"
+                                                               @checkedAttr @dis />
+                                                        <label class="form-check-label small" for="@cid"
+                                                               title="@p.Description">
+                                                            @if (p.IsBuiltIn)
+                                                            {
+                                                                <i class="bi bi-lock-fill small text-secondary"></i>
+                                                            }
+                                                            <code class="small">@p.Code</code>
+                                                            <span class="text-muted">— @p.Name</span>
+                                                        </label>
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                        else
+                        {
+                            <tr class="@(u.IsActive ? "" : "text-muted")">
+                                <td class="text-center text-muted small">@seq</td>
+                                <td class="fw-semibold">@u.Name</td>
+                                <td class="small font-monospace">@u.Email</td>
+                                <td class="small">
+                                    @if (u.Employee != null)
+                                    {
+                                        <span><i class="bi bi-person-badge me-1 text-muted"></i>@u.Employee.DisplayName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!u.UserPrivileges.Any())
+                                    {
+                                        <span class="text-muted small">none</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var up in u.UserPrivileges.Where(up => up.Privilege != null)
+                                                                             .OrderBy(up => up.Privilege!.Code))
+                                        {
+                                            var p = up.Privilege!;
+                                            var badgeClass = p.IsActive ? "bg-primary-subtle text-primary"
+                                                                         : "bg-secondary-subtle text-muted";
+                                            <span class="badge @badgeClass border border-primary-subtle me-1"
+                                                  title="@p.Name — @p.Description">
+                                                @p.Code
+                                            </span>
+                                        }
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    @if (u.IsActive)
+                                    {
+                                        <span class="badge bg-success">Yes</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-warning text-dark">No</span>
+                                    }
+                                </td>
+                                <td class="text-center small">
+                                    @(u.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                                </td>
+                                <td class="text-end">
+                                    @if (canEdit)
+                                    {
+                                        <a asp-page="Index" asp-route-editId="@u.Id"
+                                           class="btn btn-outline-secondary btn-sm py-0 px-2" title="Edit">
+                                            <i class="bi bi-pencil" style="font-size:0.75rem"></i>
+                                        </a>
+                                        <form method="post" asp-page-handler="ResetPassword"
+                                              asp-route-id="@u.Id" class="d-inline"
+                                              onsubmit="return confirm('Reset password for @u.Email?');">
+                                            <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-2"
+                                                    title="Reset Password">
+                                                <i class="bi bi-key" style="font-size:0.75rem"></i>
+                                            </button>
+                                        </form>
+                                        @if (u.IsActive)
+                                        {
+                                            <form method="post" asp-page-handler="Deactivate"
+                                                  asp-route-id="@u.Id" class="d-inline"
+                                                  onsubmit="return confirm('Deactivate @u.Email? They will no longer be able to sign in.');">
+                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                        title="Deactivate">
+                                                    <i class="bi bi-slash-circle" style="font-size:0.75rem"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <form method="post" asp-page-handler="Reactivate"
+                                                  asp-route-id="@u.Id" class="d-inline">
+                                                <button type="submit" class="btn btn-outline-success btn-sm py-0 px-2"
+                                                        title="Reactivate">
+                                                    <i class="bi bi-arrow-counterclockwise" style="font-size:0.75rem"></i>
+                                                </button>
+                                            </form>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">
+                                            <i class="bi bi-eye"></i> read-only
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    @if (!Model.Users.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                                No users found.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-muted small mt-2">
+        <i class="bi bi-info-circle me-1"></i>
+        Privileges shown are those <strong>directly granted</strong>.
+        Inherited privileges (e.g. <code>Admin</code> implies <code>HrAdmin</code>)
+        are expanded automatically at login.
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const empSel  = document.getElementById('Create_EmployeeId');
+    const nameEl  = document.getElementById('Create_Name');
+    const loginEl = document.getElementById('Create_LoginId');
+    const pwEl    = document.getElementById('Create_InitialPassword');
+    if (!empSel) return;
+
+    // ASCII 영문/숫자만 남기고 소문자로
+    function sanitize(s) {
+        return (s || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    }
+
+    function genPassword() { return 'aci1234'; }
+
+    empSel.addEventListener('change', function () {
+        const opt = this.selectedOptions[0];
+        if (!opt || !opt.value) {
+            // 선택 해제 시 클리어
+            nameEl.value  = '';
+            loginEl.value = '';
+            pwEl.value    = '';
+            return;
+        }
+
+        const display   = opt.dataset.display || '';
+        const workEmail = opt.dataset.email   || '';
+        const first     = sanitize(opt.dataset.first || '');
+        const last      = sanitize(opt.dataset.last  || '');
+
+        nameEl.value  = display;
+        // WorkEmail 있으면 @@ 앞부분, 없으면 lastname+firstname[0] 폴백
+        const atIdx    = workEmail.indexOf('@@');
+        const emailLocal = atIdx > 0 ? workEmail.substring(0, atIdx) : '';
+        loginEl.value = emailLocal || ((last && first) ? last + first[0] : '');
+        pwEl.value    = genPassword();
+    });
+})();
+</script>
+}

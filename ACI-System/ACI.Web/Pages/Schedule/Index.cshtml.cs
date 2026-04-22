@@ -36,7 +36,9 @@ public class IndexModel : PageModel
     // ── POST: Freeze Baseline from Schedule page ────────────────────────────
     public async Task<IActionResult> OnPostFreezeAsync(string title, string? description)
     {
-        var userId   = int.Parse(User.FindFirst("UserId")?.Value ?? "0");
+        var idStr = User.FindFirst("UserId")?.Value
+                 ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(idStr, out var userId) || userId <= 0) return Forbid();
         var userName = User.Identity?.Name ?? "System";
 
         var baseline = await _baselineSvc.FreezeBaselineAsync(

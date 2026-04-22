@@ -1,5 +1,5 @@
 @page "{id:int}"
-@model ACI.Web.Pages.Admin.Employees.AdminDetailModel
+@model ACI.Web.Pages.Hr.Employees.AdminDetailModel
 @{
     ViewData["Title"] = $"HR Admin — {Model.EmpDisplayName}";
     ViewData["ActiveMenu"] = "employees";
@@ -30,6 +30,131 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
+
+    <div class="row g-3 mb-3">
+        <div class="col-12">
+            @*
+                Role 관리는 HrAdmin 전용 기능.
+                - Detail(HrUser) 에서는 읽기 전용 표시만 제공
+                - 이 섹션은 별도 <form> 으로 두어 상단의 민감정보 Save form 과 분리.
+                  (Role Add/Delete/SetPrimary 는 독립 핸들러로 동작)
+            *@
+            <div class="card shadow-sm border-primary">
+                <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-diagram-3 me-2 text-primary"></i>Role Assignment (Department / Position)</span>
+                    <button class="btn btn-sm btn-primary py-0 px-2"
+                            type="button" data-bs-toggle="collapse" data-bs-target="#addRoleForm">
+                        <i class="bi bi-plus me-1"></i>Add Role
+                    </button>
+                </div>
+
+                <!-- Add Role Form (collapse) -->
+                <div class="collapse" id="addRoleForm">
+                    <div class="card-body border-bottom bg-light">
+                        <form method="post" asp-page-handler="AddRole" asp-route-id="@Model.Emp.Id">
+                            <div class="row g-3">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Department / Team <span class="text-danger">*</span></label>
+                                    <select name="NewRoleOrgUnitId" class="form-select form-select-sm" required>
+                                        <option value="0">-- select --</option>
+                                        @foreach (var o in Model.OrgUnitOptions)
+                                        {
+                                            <option value="@o.Value">@o.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-semibold">Position</label>
+                                    <select name="NewRoleJobPositionId" class="form-select form-select-sm">
+                                        <option value="">-- select --</option>
+                                        @foreach (var p in Model.JobPositionOptions)
+                                        {
+                                            <option value="@p.Value">@p.Text</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">Start</label>
+                                    <input type="date" name="NewRoleStartDate" class="form-control form-control-sm" />
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small">End</label>
+                                    <input type="date" name="NewRoleEndDate" class="form-control form-control-sm" />
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end pb-1">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="NewRoleIsPrimary" value="true"
+                                               class="form-check-input" id="chkPrimary" />
+                                        <label class="form-check-label small" for="chkPrimary">Primary</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-plus-lg me-1"></i>Add
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        data-bs-toggle="collapse" data-bs-target="#addRoleForm">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Roles List (editable) -->
+                <div class="list-group list-group-flush">
+                    @if (!Model.Roles.Any())
+                    {
+                        <div class="list-group-item text-muted small text-center py-3">
+                            No roles assigned. Click "Add Role" above.
+                        </div>
+                    }
+                    @foreach (var role in Model.Roles)
+                    {
+                        <div class="list-group-item py-2 px-3 d-flex justify-content-between align-items-start">
+                            <div>
+                                @if (role.IsPrimary)
+                                {
+                                    <span class="badge bg-primary me-1" style="font-size:0.65rem">PRIMARY</span>
+                                }
+                                <span class="fw-semibold small">@role.OrgUnit?.Name</span>
+                                @if (role.JobPosition != null)
+                                {
+                                    <span class="text-muted small ms-2">· @role.JobPosition.Name</span>
+                                }
+                                @if (role.StartDate.HasValue || role.EndDate.HasValue)
+                                {
+                                    <br /><small class="text-muted">
+                                        @role.StartDate?.ToString("yyyy-MM-dd") – @(role.EndDate?.ToString("yyyy-MM-dd") ?? "present")
+                                    </small>
+                                }
+                            </div>
+                            <div class="d-flex gap-1">
+                                @if (!role.IsPrimary)
+                                {
+                                    <form method="post" asp-page-handler="SetPrimary"
+                                          asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id">
+                                        <button type="submit" class="btn btn-outline-primary btn-sm py-0 px-2"
+                                                title="Set as Primary">
+                                            <i class="bi bi-star" style="font-size:0.7rem"></i>
+                                        </button>
+                                    </form>
+                                }
+                                <form method="post" asp-page-handler="DeleteRole"
+                                      asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id"
+                                      onsubmit="return confirm('Remove this role?')">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                        <i class="bi bi-trash" style="font-size:0.7rem"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
 
     <form method="post" asp-page-handler="Save" asp-route-id="@Model.Emp.Id">
 

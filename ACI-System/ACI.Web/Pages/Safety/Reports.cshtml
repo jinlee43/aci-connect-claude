@@ -1,0 +1,281 @@
+@page
+@using ACI.Web.Data.Entities
+@using System.Globalization
+@model ACI.Web.Pages.Safety.ReportsModel
+@{
+    ViewData["Title"] = "Safety Reports";
+    ViewData["ActiveMenu"] = "safety-reports";
+}
+
+@functions {
+    /// <summary>해당 주가 프로젝트의 보고 기간 내인지 확인.</summary>
+    static bool InRange(SafetyWkRepGridRowDto row, DateOnly week)
+    {
+        if (row.Settings == null) return false;
+        return week >= row.Settings.StartDate
+            && (row.Settings.EndDate == null || week <= row.Settings.EndDate);
+    }
+
+    /// <summary>그리드 셀 아이콘 렌더링 정보. (iconClass, colorStyle, tooltip)</summary>
+    static (string IconHtml, string Tooltip) CellIcon(SafetyWkRep rep)
+    {
+        return rep.Status switch
+        {
+            // ── 원 계열 ──────────────────────────────────────────────────────
+            SafetyWkRepStatus.Draft     => ("<i class=\"bi bi-circle\" style=\"color:#1a56db;\"></i>", "Submitted"),
+            SafetyWkRepStatus.Reviewed  => ("<i class=\"bi bi-circle-half\" style=\"color:#1a56db;\"></i>", "Reviewed"),
+            SafetyWkRepStatus.Approved  => ("<i class=\"bi bi-circle-fill\" style=\"color:#1a56db;\"></i>", "Approved"),
+            SafetyWkRepStatus.Voided    => ("<i class=\"bi bi-circle\" style=\"color:#9ca3af;\"></i>", "Voided"),
+            // ── 세모 계열 ────────────────────────────────────────────────────
+            SafetyWkRepStatus.NoWork         => ("<i class=\"bi bi-triangle\" style=\"color:#1a56db;\"></i>", "No Work"),
+            SafetyWkRepStatus.NoWorkReviewed => ("<span class=\"rep-half-tri\"><i class=\"bi bi-triangle\" style=\"color:#1a56db;\"></i><i class=\"bi bi-triangle-fill rep-half-fill\" style=\"color:#1a56db;\"></i></span>", "No Work — Reviewed"),
+            SafetyWkRepStatus.NoWorkApproved => ("<i class=\"bi bi-triangle-fill\" style=\"color:#1a56db;\"></i>", "No Work — Approved"),
+            _ => ("<i class=\"bi bi-question-circle text-secondary\"></i>", "Unknown")
+        };
+    }
+}
+
+<style>
+/* 반채워진 세모: 두 아이콘 겹치기 */
+.rep-half-tri { position: relative; display: inline-flex; }
+.rep-half-fill {
+    position: absolute; left: 0; top: 0;
+    clip-path: polygon(0% 100%, 50% 0%, 50% 100%);
+}
+/* 그리드 셀 아이콘 링크 */
+.rep-cell-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    text-decoration: none;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 3px 5px;
+    transition: background .12s;
+}
+.rep-cell-link:hover { background: rgba(0,0,0,.07); }
+</style>
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-shield-exclamation me-2 text-warning"></i>Weekly Safety Reports</h1>
+        <p class="text-muted mb-0 small">All-projects weekly compliance grid.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-page="/Safety/MyReports" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-person-check me-1"></i>My Projects
+        </a>
+        @if (User.IsInRole("Admin") || User.IsInRole("SafetyAdmin"))
+        {
+            <a asp-page="/Safety/Settings" class="btn btn-outline-warning btn-sm">
+                <i class="bi bi-gear me-1"></i>Settings
+            </a>
+        }
+    </div>
+</div>
+
+<!-- ─── Date range filter ─────────────────────────────────────────── -->
+<div class="px-3 pb-2">
+    <form method="get" id="filterForm" class="d-flex align-items-center gap-2 flex-wrap">
+        <label class="fw-semibold small">From</label>
+        <input type="date" class="form-control form-control-sm" style="width:160px;"
+               name="from" id="filterFrom" value="@Model.From" />
+        <label class="fw-semibold small">To</label>
+        <input type="date" class="form-control form-control-sm" style="width:160px;"
+               name="to" id="filterTo" value="@Model.To" />
+        <button type="submit" class="btn btn-sm btn-primary">
+            <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <div class="vr mx-1"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(12)">12w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(16)">16w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(28)">28w</button>
+        <div class="vr mx-1"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setToday()">
+            <i class="bi bi-calendar-check me-1"></i>Today
+        </button>
+    </form>
+</div>
+<script>
+    function getMonday(date) {
+        var d = new Date(date);
+        var day = d.getDay();                         // 0=Sun … 6=Sat
+        var diff = (day === 0) ? -6 : (1 - day);     // shift to Monday
+        d.setDate(d.getDate() + diff);
+        return d;
+    }
+    function toDateInputValue(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var dd = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + dd;
+    }
+    function setWeeks(weeks) {
+        var toVal = document.getElementById('filterTo').value;
+        var toDate = toVal ? new Date(toVal + 'T00:00:00') : new Date();
+        var fromDate = new Date(toDate);
+        fromDate.setDate(fromDate.getDate() - (weeks * 7 - 1));
+        // snap From to its Monday
+        fromDate = getMonday(fromDate);
+        document.getElementById('filterFrom').value = toDateInputValue(fromDate);
+        document.getElementById('filterForm').submit();
+    }
+    function setToday() {
+        var today = new Date();
+        var day = today.getDay();                     // 0=Sun … 6=Sat
+        var toDate;
+        if (day === 1) {
+            toDate = today;                           // already Monday
+        } else {
+            // next Monday
+            var daysUntilMon = (day === 0) ? 1 : (8 - day);
+            toDate = new Date(today);
+            toDate.setDate(today.getDate() + daysUntilMon);
+        }
+        document.getElementById('filterTo').value = toDateInputValue(toDate);
+        document.getElementById('filterForm').submit();
+    }
+</script>
+
+<div class="p-3">
+
+    @* ── Summary stats ──────────────────────────────────────────────── *@
+    @{
+        var allReps = Model.Rows.SelectMany(r => r.WeekSlots.Values.Where(v => v != null)).ToList();
+        int missing = Model.Rows.Sum(row =>
+            row.WeekSlots.Count(kv => kv.Value == null && InRange(row, kv.Key)));
+    }
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-shield-check"></i></div>
+                <div>
+                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Approved or SafetyWkRepStatus.NoWorkApproved)</div>
+                    <div class="stat-label">Approved</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-eye"></i></div>
+                <div>
+                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Reviewed or SafetyWkRepStatus.NoWorkReviewed)</div>
+                    <div class="stat-label">Reviewed</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-file-earmark"></i></div>
+                <div>
+                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Draft or SafetyWkRepStatus.NoWork)</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="aci-stat-card">
+                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle"></i></div>
+                <div>
+                    <div class="stat-value">@missing</div>
+                    <div class="stat-label">Missing</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── Icon legend ─────────────────────────────────────────────────── *@
+    <div class="d-flex flex-wrap gap-3 mb-3 small text-muted align-items-center px-1">
+        <span><i class="bi bi-x-circle-fill text-danger me-1"></i>Missing</span>
+        <span><i class="bi bi-circle me-1" style="color:#1a56db;"></i>Submitted</span>
+        <span><i class="bi bi-circle-half me-1" style="color:#1a56db;"></i>Reviewed</span>
+        <span><i class="bi bi-circle-fill me-1" style="color:#1a56db;"></i>Approved</span>
+        <span class="mx-1">|</span>
+        <span><i class="bi bi-triangle me-1" style="color:#1a56db;"></i>No Work</span>
+        <span>
+            <span class="rep-half-tri me-1" style="font-size:.9rem;">
+                <i class="bi bi-triangle" style="color:#1a56db;"></i>
+                <i class="bi bi-triangle-fill rep-half-fill" style="color:#1a56db;"></i>
+            </span>No Work (Reviewed)
+        </span>
+        <span><i class="bi bi-triangle-fill me-1" style="color:#1a56db;"></i>No Work (Approved)</span>
+    </div>
+
+    @* ── Grid ───────────────────────────────────────────────────────── *@
+    @if (!Model.Rows.Any())
+    {
+        <div class="aci-card p-5 text-center text-muted">
+            <i class="bi bi-clipboard2-x display-4 d-block mb-3"></i>
+            <h5>No active projects found.</h5>
+        </div>
+    }
+    else
+    {
+        <div class="aci-card overflow-auto">
+            <table class="table table-bordered table-sm mb-0" style="font-size:.85rem;">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th class="text-nowrap" style="min-width:180px; position:sticky; left:0; background:#f8f9fa; z-index:2;">
+                            Project
+                        </th>
+                        @foreach (var w in Model.Weeks)
+                        {
+                            var isoWeek = ISOWeek.GetWeekOfYear(w.ToDateTime(TimeOnly.MinValue));
+                            <th class="text-center text-nowrap" style="min-width:72px;">
+                                <div class="fw-semibold">Wk @isoWeek</div>
+                                <div class="text-muted" style="font-size:.72rem;">@w.ToString("MMM d")</div>
+                            </th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.Rows)
+                    {
+                        <tr>
+                            <td class="align-middle fw-semibold"
+                                style="position:sticky; left:0; background:#fff; z-index:1;">
+                                <div>@row.ProjectCode</div>
+                                <div class="text-muted" style="font-size:.75rem; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    @row.ProjectName
+                                </div>
+                            </td>
+
+                            @foreach (var week in Model.Weeks)
+                            {
+                                var rep = row.WeekSlots.TryGetValue(week, out var r) ? r : null;
+                                bool inRange = InRange(row, week);
+
+                                <td class="text-center align-middle p-1">
+                                    @if (rep == null)
+                                    {
+                                        @if (inRange)
+                                        {
+                                            // Missing — 빨간 X, 클릭 시 상세 페이지 (신규 업로드)
+                                            <a class="rep-cell-link"
+                                               href="/Safety/Report?projectId=@row.ProjectId&weekStart=@week.ToString("yyyy-MM-dd")&from=@Model.From&to=@Model.To"
+                                               title="Missing — click to submit">
+                                                <i class="bi bi-x-circle-fill text-danger"></i>
+                                            </a>
+                                        }
+                                        @* 기간 외 — 아무것도 표시 안 함 *@
+                                    }
+                                    else
+                                    {
+                                        var (iconHtml, tooltip) = CellIcon(rep);
+                                        <a class="rep-cell-link"
+                                           href="/Safety/Report?reportId=@rep.Id&from=@Model.From&to=@Model.To"
+                                           title="@tooltip">
+                                            @Html.Raw(iconHtml)
+                                        </a>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+</div>

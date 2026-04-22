@@ -4,10 +4,14 @@ using ACI.Web.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 
-namespace ACI.Web.Pages.Admin.Employees;
+namespace ACI.Web.Pages.Hr.Employees;
 
+// 상위 폴더 규약(Program.cs 의 AuthorizeFolder("/Hr", "Hr"))은 HrUser 이상을 허용하지만,
+// AdminDetail 은 HrAdmin 전용이므로 페이지 레벨에서 강한 정책을 추가로 적용.
+// EmpRole 관리 핸들러(AddRole/SetPrimary/DeleteRole)도 이 정책에 의해 동일하게 보호됨.
 [Authorize(Policy = "HrAdmin")]
 public class AdminDetailModel : PageModel
 {
@@ -30,12 +34,28 @@ public class AdminDetailModel : PageModel
     [BindProperty] public string? AlienNumPlain    { get; set; }
     [BindProperty] public string? PassportNumPlain { get; set; }
 
+    // ── EmpRole 관리용 (HrAdmin 전용) ───────────────────────────────────────
+    [BindProperty] public int       NewRoleOrgUnitId     { get; set; }
+    [BindProperty] public int?      NewRoleJobPositionId { get; set; }
+    [BindProperty] public bool      NewRoleIsPrimary     { get; set; }
+    [BindProperty] public DateOnly? NewRoleStartDate     { get; set; }
+    [BindProperty] public DateOnly? NewRoleEndDate       { get; set; }
+
+    public List<EmpRole>       Roles              { get; set; } = [];
+    public List<SelectListItem> OrgUnitOptions     { get; set; } = [];
+    public List<SelectListItem> JobPositionOptions { get; set; } = [];
+
     // ── 화면 표시용 ────────────────────────────────────────────────────────
     public string EmpDisplayName { get; set; } = string.Empty;
 
     public async Task<IActionResult> OnGetAsync(int id)
     {
-        var emp = await _db.Employees.FindAsync(id);
+        var emp = await _db.Employees
+            .Include(e => e.EmpRoles)
+                .ThenInclude(r => r.OrgUnit)
+            .Include(e => e.EmpRoles)
+                .ThenInclude(r => r.JobPosition)
+            .FirstOrDefaultAsync(e => e.Id == id);
         if (emp == null) return NotFound();
 
         Emp             = emp;
@@ -47,6 +67,13 @@ public class AdminDetailModel : PageModel
         DriversLicPlain = _enc.Decrypt(emp.DriversLicNumEncrypted);
         AlienNumPlain   = _enc.Decrypt(emp.AlienNumberEncrypted);
         PassportNumPlain= _enc.Decrypt(emp.PassportNumberEncrypted);
+
+        Roles = emp.EmpRoles
+            .OrderByDescending(r => r.IsPrimary)
+            .ThenBy(r => r.OrgUnit?.Name)
+            .ToList();
+
+        await LoadDropdownsAsync();
 
         return Page();
     }
@@ -107,7 +134,7 @@ public class AdminDetailModel : PageModel
 
         switch (field)
         {
-            case "ssn":      emp.SsnEncrypted           = null; break;
+            case "ssn":      emp.SsnEncrypted            = null; break;
             case "tin":      emp.TinEncrypted            = null; break;
             case "drvlic":   emp.DriversLicNumEncrypted  = null; break;
             case "alien":    emp.AlienNumberEncrypted    = null; break;
@@ -116,7 +143,83 @@ public class AdminDetailModel : PageModel
         emp.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
-        TempData["Success"] = $"Field cleared.";
+        TempData["Success"] = "Field cleared.";
         return RedirectToPage("AdminDetail", new { id });
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
+    //  EmpRole 관리 (HrAdmin 전용)
+    // ────────────────────────────────────────────────────────────────────────
+
+    /// <summary>직원에게 새 Role(부서/직책) 을 부여합니다.</summary>
+    public async Task<IActionResult> OnPostAddRoleAsync(int id)
+    {
+        if (NewRoleOrgUnitId == 0)
+        {
+            TempData["Error"] = "Please select a department/team.";
+            return RedirectToPage("AdminDetail", new { id });
+        }
+
+        // Primary 로 지정하면 기존 Primary 해제
+        if (NewRoleIsPrimary)
+        {
+            var existing = await _db.EmpRoles
+                .Where(r => r.EmployeeId == id && r.IsPrimary)
+                .ToListAsync();
+            existing.ForEach(r => r.IsPrimary = false);
+        }
+
+        _db.EmpRoles.Add(new EmpRole
+        {
+            EmployeeId    = id,
+            OrgUnitId     = NewRoleOrgUnitId,
+            JobPositionId = NewRoleJobPositionId,
+            IsPrimary     = NewRoleIsPrimary,
+            StartDate     = NewRoleStartDate,
+            EndDate       = NewRoleEndDate,
+            CreatedAt     = DateTime.UtcNow,
+            UpdatedAt     = DateTime.UtcNow,
+        });
+
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Role added.";
+        return RedirectToPage("AdminDetail", new { id });
+    }
+
+    public async Task<IActionResult> OnPostDeleteRoleAsync(int id, int roleId)
+    {
+        var role = await _db.EmpRoles.FindAsync(roleId);
+        if (role != null)
+        {
+            _db.EmpRoles.Remove(role);
+            await _db.SaveChangesAsync();
+            TempData["Success"] = "Role removed.";
+        }
+        return RedirectToPage("AdminDetail", new { id });
+    }
+
+    public async Task<IActionResult> OnPostSetPrimaryAsync(int id, int roleId)
+    {
+        var roles = await _db.EmpRoles.Where(r => r.EmployeeId == id).ToListAsync();
+        foreach (var r in roles)
+            r.IsPrimary = (r.Id == roleId);
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Primary role updated.";
+        return RedirectToPage("AdminDetail", new { id });
+    }
+
+    private async Task LoadDropdownsAsync()
+    {
+        OrgUnitOptions = await _db.OrgUnits
+            .Where(o => o.IsActive)
+            .OrderBy(o => o.Name)
+            .Select(o => new SelectListItem { Value = o.Id.ToString(), Text = o.Name })
+            .ToListAsync();
+
+        JobPositionOptions = await _db.JobPositions
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.Name)
+            .Select(p => new SelectListItem { Value = p.Id.ToString(), Text = p.Name })
+            .ToListAsync();
     }
 }

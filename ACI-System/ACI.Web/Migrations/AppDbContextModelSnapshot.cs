@@ -56,9 +56,6 @@ namespace ACI.Web.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Role")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
@@ -67,7 +64,123 @@ namespace ACI.Web.Migrations
                     b.HasIndex("EmployeeId")
                         .IsUnique();
 
+                    b.HasIndex("Name")
+                        .IsUnique();
+
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.BaselineTaskSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateOnly?>("ActualEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ActualStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("AssignedToId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("AssignedToName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("BaselineId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateOnly?>("ConstraintDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("ConstraintType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CrewSize")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Duration")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsOpen")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int?>("ParentSnapshotId")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("Progress")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceScheduleTaskId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceWorkingTaskId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("TaskType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("TradeColor")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int?>("TradeId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TradeName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("WbsCode")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaselineId");
+
+                    b.HasIndex("ParentSnapshotId");
+
+                    b.HasIndex("SourceScheduleTaskId");
+
+                    b.HasIndex("SourceWorkingTaskId");
+
+                    b.ToTable("BaselineTaskSnapshots");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.EmpRole", b =>
@@ -732,6 +845,48 @@ namespace ACI.Web.Migrations
                     b.ToTable("OrgUnits");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.Privilege", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Privileges");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.Project", b =>
                 {
                     b.Property<int>("Id")
@@ -778,6 +933,14 @@ namespace ACI.Web.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("OwnerAddress")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("OwnerCity")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("OwnerContact")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -789,6 +952,14 @@ namespace ACI.Web.Migrations
                     b.Property<string>("OwnerName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("OwnerState")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("OwnerZipCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<string>("ProjectCode")
                         .IsRequired()
@@ -804,6 +975,10 @@ namespace ACI.Web.Migrations
                     b.Property<string>("SiteAddress")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
+
+                    b.Property<string>("State")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -956,6 +1131,304 @@ namespace ACI.Web.Migrations
                     b.ToTable("RevisionDocuments");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.SafetyWkRep", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApprovalNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ApprovedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Extension")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("FileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("ReportDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReviewedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReviewedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StoredFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UploadedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UploadedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("VoidedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("VoidedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("VoidedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateOnly>("WeekEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("WeekNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("WeekStartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedById");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ReviewedById");
+
+                    b.HasIndex("UploadedById");
+
+                    b.HasIndex("VoidedById");
+
+                    b.HasIndex("ProjectId", "WeekStartDate")
+                        .IsUnique();
+
+                    b.HasIndex("Year", "WeekNumber");
+
+                    b.ToTable("SafetyWkReps");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.SafetyWkRepSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ApprovedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("DefaultSubmitDay")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsApproved")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("RevisionNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedById");
+
+                    b.HasIndex("ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("SafetyWkRepSettings");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleBaseline", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ApprovalNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("DataDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateOnly?>("EarliestStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("FrozenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("FrozenById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FrozenByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsAutoSnapshot")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateOnly?>("LatestFinish")
+                        .HasColumnType("date");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceSimulationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TaskCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("TotalCalendarDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FrozenById");
+
+                    b.HasIndex("SourceSimulationId");
+
+                    b.HasIndex("ProjectId", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("ScheduleBaselines");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleChange", b =>
                 {
                     b.Property<int>("Id")
@@ -1053,6 +1526,9 @@ namespace ACI.Web.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<int?>("BaselineId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ChangeOrderRef")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -1104,12 +1580,85 @@ namespace ACI.Web.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BaselineId");
+
                     b.HasIndex("SubmittedById");
 
                     b.HasIndex("ProjectId", "RevisionNumber")
                         .IsUnique();
 
                     b.ToTable("ScheduleRevisions");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleSimulation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CreatedById")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CreatedByName")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ModifiedTaskCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("SimulatedEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("SourceBaselineId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TotalDaysImpact")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("SourceBaselineId");
+
+                    b.ToTable("ScheduleSimulations");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleTask", b =>
@@ -1188,7 +1737,6 @@ namespace ACI.Web.Migrations
                         .HasColumnType("integer");
 
                     b.Property<double>("Progress")
-                        .HasPrecision(5, 4)
                         .HasColumnType("double precision");
 
                     b.Property<int>("ProjectId")
@@ -1232,6 +1780,76 @@ namespace ACI.Web.Migrations
                     b.HasIndex("TradeId");
 
                     b.ToTable("ScheduleTasks");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.SimulationTask", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AssignedToId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("CrewSize")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DaysShifted")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Duration")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsNewTask")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRemoved")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<double?>("Progress")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("SimulationId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceSnapshotId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SourceWorkingTaskId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int?>("TradeId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SimulationId");
+
+                    b.HasIndex("SourceSnapshotId");
+
+                    b.HasIndex("SourceWorkingTaskId");
+
+                    b.ToTable("SimulationTasks");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.TaskDependency", b =>
@@ -1329,6 +1947,29 @@ namespace ACI.Web.Migrations
                     b.HasIndex("ProjectId");
 
                     b.ToTable("Trades");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.UserPrivilege", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PrivilegeId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("GrantedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "PrivilegeId");
+
+                    b.HasIndex("GrantedByUserId");
+
+                    b.HasIndex("PrivilegeId");
+
+                    b.ToTable("UserPrivileges");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.WeeklyTask", b =>
@@ -1538,7 +2179,6 @@ namespace ACI.Web.Migrations
                         .HasColumnType("integer");
 
                     b.Property<double>("Progress")
-                        .HasPrecision(5, 4)
                         .HasColumnType("double precision");
 
                     b.Property<int>("ProjectId")
@@ -1597,6 +2237,38 @@ namespace ACI.Web.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Employee");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.BaselineTaskSnapshot", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleBaseline", "Baseline")
+                        .WithMany("TaskSnapshots")
+                        .HasForeignKey("BaselineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.BaselineTaskSnapshot", "ParentSnapshot")
+                        .WithMany("ChildSnapshots")
+                        .HasForeignKey("ParentSnapshotId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleTask", "SourceScheduleTask")
+                        .WithMany()
+                        .HasForeignKey("SourceScheduleTaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.WorkingTask", "SourceWorkingTask")
+                        .WithMany()
+                        .HasForeignKey("SourceWorkingTaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Baseline");
+
+                    b.Navigation("ParentSnapshot");
+
+                    b.Navigation("SourceScheduleTask");
+
+                    b.Navigation("SourceWorkingTask");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.EmpRole", b =>
@@ -1733,6 +2405,88 @@ namespace ACI.Web.Migrations
                     b.Navigation("UploadedBy");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.SafetyWkRep", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "ReviewedBy")
+                        .WithMany()
+                        .HasForeignKey("ReviewedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "VoidedBy")
+                        .WithMany()
+                        .HasForeignKey("VoidedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("ApprovedBy");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("ReviewedBy");
+
+                    b.Navigation("UploadedBy");
+
+                    b.Navigation("VoidedBy");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.SafetyWkRepSettings", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedBy");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleBaseline", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "FrozenBy")
+                        .WithMany()
+                        .HasForeignKey("FrozenById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.Project", "Project")
+                        .WithMany("Baselines")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleSimulation", "SourceSimulation")
+                        .WithMany()
+                        .HasForeignKey("SourceSimulationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FrozenBy");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("SourceSimulation");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleChange", b =>
                 {
                     b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "ChangedBy")
@@ -1761,6 +2515,11 @@ namespace ACI.Web.Migrations
 
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleRevision", b =>
                 {
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleBaseline", "Baseline")
+                        .WithMany()
+                        .HasForeignKey("BaselineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("ACI.Web.Data.Entities.Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
@@ -1772,9 +2531,36 @@ namespace ACI.Web.Migrations
                         .HasForeignKey("SubmittedById")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.Navigation("Baseline");
+
                     b.Navigation("Project");
 
                     b.Navigation("SubmittedBy");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleSimulation", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.Project", "Project")
+                        .WithMany("Simulations")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleBaseline", "SourceBaseline")
+                        .WithMany()
+                        .HasForeignKey("SourceBaselineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("SourceBaseline");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleTask", b =>
@@ -1809,6 +2595,31 @@ namespace ACI.Web.Migrations
                     b.Navigation("Trade");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.SimulationTask", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ScheduleSimulation", "Simulation")
+                        .WithMany("Tasks")
+                        .HasForeignKey("SimulationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.BaselineTaskSnapshot", "SourceSnapshot")
+                        .WithMany()
+                        .HasForeignKey("SourceSnapshotId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.WorkingTask", "SourceWorkingTask")
+                        .WithMany()
+                        .HasForeignKey("SourceWorkingTaskId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Simulation");
+
+                    b.Navigation("SourceSnapshot");
+
+                    b.Navigation("SourceWorkingTask");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.TaskDependency", b =>
                 {
                     b.HasOne("ACI.Web.Data.Entities.ScheduleTask", "Source")
@@ -1837,6 +2648,32 @@ namespace ACI.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.UserPrivilege", b =>
+                {
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "GrantedBy")
+                        .WithMany()
+                        .HasForeignKey("GrantedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("ACI.Web.Data.Entities.Privilege", "Privilege")
+                        .WithMany("UserPrivileges")
+                        .HasForeignKey("PrivilegeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ACI.Web.Data.Entities.ApplicationUser", "User")
+                        .WithMany("UserPrivileges")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GrantedBy");
+
+                    b.Navigation("Privilege");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.WeeklyTask", b =>
@@ -1921,6 +2758,16 @@ namespace ACI.Web.Migrations
                     b.Navigation("Trade");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.ApplicationUser", b =>
+                {
+                    b.Navigation("UserPrivileges");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.BaselineTaskSnapshot", b =>
+                {
+                    b.Navigation("ChildSnapshots");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.Employee", b =>
                 {
                     b.Navigation("Documents");
@@ -1957,13 +2804,22 @@ namespace ACI.Web.Migrations
                     b.Navigation("EmpRoles");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.Privilege", b =>
+                {
+                    b.Navigation("UserPrivileges");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.Project", b =>
                 {
+                    b.Navigation("Baselines");
+
                     b.Navigation("ExternalParties");
 
                     b.Navigation("Lookaheads");
 
                     b.Navigation("OrgUnits");
+
+                    b.Navigation("Simulations");
 
                     b.Navigation("Tasks");
 
@@ -1972,11 +2828,21 @@ namespace ACI.Web.Migrations
                     b.Navigation("WeeklyPlans");
                 });
 
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleBaseline", b =>
+                {
+                    b.Navigation("TaskSnapshots");
+                });
+
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleRevision", b =>
                 {
                     b.Navigation("Changes");
 
                     b.Navigation("Documents");
+                });
+
+            modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleSimulation", b =>
+                {
+                    b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("ACI.Web.Data.Entities.ScheduleTask", b =>

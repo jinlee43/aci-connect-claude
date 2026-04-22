@@ -174,7 +174,20 @@ public class WeeklyPlanService : IWeeklyPlanService
             CreatedAt     = DateTime.UtcNow
         };
         _db.WeeklyWorkPlans.Add(plan);
-        await _db.SaveChangesAsync();
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            // 동시 요청으로 unique 제약 충돌 시 — 이미 생성된 레코드를 재조회해서 반환
+            _db.WeeklyWorkPlans.Remove(plan);
+            return await _db.WeeklyWorkPlans
+                .Include(w => w.Tasks)
+                .FirstAsync(w => w.ProjectId == projectId && w.WeekStartDate == monday);
+        }
+
         return plan;
     }
 

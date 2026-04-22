@@ -1,5 +1,5 @@
 @page "{id:int}"
-@model ACI.Web.Pages.Admin.Employees.DetailModel
+@model ACI.Web.Pages.Hr.Employees.DetailModel
 @{
     ViewData["Title"] = Model.IsNew ? "New Employee" : Model.Emp.DisplayName;
     ViewData["ActiveMenu"] = "employees";
@@ -34,7 +34,7 @@
                                 <input asp-for="Emp.EmpNum" class="form-control form-control-sm" />
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-semibold">Known Name <span class="text-primary">(표시명)</span></label>
+                                <label class="form-label small fw-semibold">Known Name <span class="text-primary small">(Display Name)</span></label>
                                 <input asp-for="Emp.KnownName" class="form-control form-control-sm" placeholder="e.g. John Park" />
                             </div>
                             <div class="col-md-2">
@@ -268,112 +268,50 @@
                 </div>
             </div>
 
-            <!-- ── Right Column: EmpRoles ──────── -->
+            <!-- ── Right Column: Roles (Read-only) ──────── -->
+            @*
+                Role(부서·직책) 편집은 HrAdmin 전용 기능이므로 AdminDetail 페이지에서만 가능.
+                Detail 에서는 현재 부여된 Role 을 조회 전용으로만 표시.
+            *@
             @if (!Model.IsNew)
             {
             <div class="col-lg-4">
                 <div class="card shadow-sm">
                     <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-diagram-3 me-2 text-primary"></i>Roles</span>
-                        <button class="btn btn-sm btn-outline-primary py-0 px-2"
-                                type="button" data-bs-toggle="collapse" data-bs-target="#addRoleForm">
-                            <i class="bi bi-plus"></i>
-                        </button>
+                        <span class="badge bg-secondary" style="font-size:0.65rem"
+                              title="Role assignment is managed by HR Admin">
+                            <i class="bi bi-eye me-1"></i>Read-only
+                        </span>
                     </div>
 
-                    <!-- Add Role Form -->
-                    <div class="collapse" id="addRoleForm">
-                        <div class="card-body border-bottom bg-light">
-                            <form method="post" asp-page-handler="AddRole" asp-route-id="@Model.Emp.Id">
-                                <div class="mb-2">
-                                    <label class="form-label small fw-semibold">Department / Team</label>
-                                    <select name="NewRoleOrgUnitId" class="form-select form-select-sm">
-                                        <option value="0">-- select --</option>
-                                        @foreach (var o in Model.OrgUnitOptions)
-                                        {
-                                            <option value="@o.Value">@o.Text</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="mb-2">
-                                    <label class="form-label small fw-semibold">Position</label>
-                                    <select name="NewRoleJobPositionId" class="form-select form-select-sm">
-                                        <option value="">-- select --</option>
-                                        @foreach (var p in Model.JobPositionOptions)
-                                        {
-                                            <option value="@p.Value">@p.Text</option>
-                                        }
-                                    </select>
-                                </div>
-                                <div class="row g-2 mb-2">
-                                    <div class="col">
-                                        <label class="form-label small">Start</label>
-                                        <input type="date" name="NewRoleStartDate" class="form-control form-control-sm" />
-                                    </div>
-                                    <div class="col">
-                                        <label class="form-label small">End</label>
-                                        <input type="date" name="NewRoleEndDate" class="form-control form-control-sm" />
-                                    </div>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input type="checkbox" name="NewRoleIsPrimary" value="true"
-                                           class="form-check-input" id="chkPrimary" />
-                                    <label class="form-check-label small" for="chkPrimary">Primary (home dept)</label>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-sm w-100">Add Role</button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <!-- Roles List -->
+                    <!-- Roles List (read-only) -->
                     <div class="list-group list-group-flush">
                         @if (!Model.Roles.Any())
                         {
                             <div class="list-group-item text-muted small text-center py-3">
-                                No roles assigned.
+                                No roles assigned. <br />
+                                <small>Contact HR Admin to assign roles.</small>
                             </div>
                         }
                         @foreach (var role in Model.Roles)
                         {
                             <div class="list-group-item py-2 px-3">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        @if (role.IsPrimary)
-                                        {
-                                            <span class="badge bg-primary me-1" style="font-size:0.65rem">PRIMARY</span>
-                                        }
-                                        <span class="fw-semibold small">@role.OrgUnit?.Name</span>
-                                        @if (role.JobPosition != null)
-                                        {
-                                            <br /><small class="text-muted">@role.JobPosition.Name</small>
-                                        }
-                                        @if (role.StartDate.HasValue || role.EndDate.HasValue)
-                                        {
-                                            <br /><small class="text-muted">
-                                                @role.StartDate?.ToString("yyyy-MM-dd") – @(role.EndDate?.ToString("yyyy-MM-dd") ?? "present")
-                                            </small>
-                                        }
-                                    </div>
-                                    <div class="d-flex gap-1">
-                                        @if (!role.IsPrimary)
-                                        {
-                                            <form method="post" asp-page-handler="SetPrimary"
-                                                  asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id">
-                                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-1"
-                                                        title="Set as Primary">
-                                                    <i class="bi bi-star" style="font-size:0.7rem"></i>
-                                                </button>
-                                            </form>
-                                        }
-                                        <form method="post" asp-page-handler="DeleteRole"
-                                              asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id"
-                                              onsubmit="return confirm('Remove this role?')">
-                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1">
-                                                <i class="bi bi-trash" style="font-size:0.7rem"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
+                                @if (role.IsPrimary)
+                                {
+                                    <span class="badge bg-primary me-1" style="font-size:0.65rem">PRIMARY</span>
+                                }
+                                <span class="fw-semibold small">@role.OrgUnit?.Name</span>
+                                @if (role.JobPosition != null)
+                                {
+                                    <br /><small class="text-muted">@role.JobPosition.Name</small>
+                                }
+                                @if (role.StartDate.HasValue || role.EndDate.HasValue)
+                                {
+                                    <br /><small class="text-muted">
+                                        @role.StartDate?.ToString("yyyy-MM-dd") – @(role.EndDate?.ToString("yyyy-MM-dd") ?? "present")
+                                    </small>
+                                }
                             </div>
                         }
                     </div>

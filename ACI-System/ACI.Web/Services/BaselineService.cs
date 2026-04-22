@@ -211,12 +211,21 @@ public class BaselineService : IBaselineService
             .Where(s => s.BaselineId == baseline.Id)
             .ToListAsync();
 
-        baseline.TaskCount        = snapshots.Count;
-        baseline.EarliestStart    = snapshots.Min(s => s.StartDate);
-        baseline.LatestFinish     = snapshots.Max(s => s.EndDate);
-        baseline.TotalCalendarDays = baseline.LatestFinish.HasValue && baseline.EarliestStart.HasValue
-            ? baseline.LatestFinish.Value.DayNumber - baseline.EarliestStart.Value.DayNumber
-            : null;
+        baseline.TaskCount = snapshots.Count;
+
+        if (snapshots.Count > 0)
+        {
+            baseline.EarliestStart     = snapshots.Min(s => s.StartDate);
+            baseline.LatestFinish      = snapshots.Max(s => s.EndDate);
+            baseline.TotalCalendarDays = baseline.LatestFinish!.Value.DayNumber
+                                       - baseline.EarliestStart!.Value.DayNumber;
+        }
+        else
+        {
+            baseline.EarliestStart     = null;
+            baseline.LatestFinish      = null;
+            baseline.TotalCalendarDays = null;
+        }
 
         await _db.SaveChangesAsync();
         return baseline;
@@ -278,7 +287,7 @@ public class BaselineService : IBaselineService
         // Second pass: resolve parent links
         for (int i = 0; i < tasks.Count; i++)
         {
-            if (tasks[i].ParentId.HasValue && idMap.TryGetValue(tasks[i].ParentId.Value, out var parentSnapId))
+            if (tasks[i].ParentId is int parentId && idMap.TryGetValue(parentId, out var parentSnapId))
                 snapshots[i].ParentSnapshotId = parentSnapId;
         }
 
@@ -339,7 +348,7 @@ public class BaselineService : IBaselineService
 
         for (int i = 0; i < tasks.Count; i++)
         {
-            if (tasks[i].ParentId.HasValue && idMap.TryGetValue(tasks[i].ParentId.Value, out var parentSnapId))
+            if (tasks[i].ParentId is int parentId && idMap.TryGetValue(parentId, out var parentSnapId))
                 snapshots[i].ParentSnapshotId = parentSnapId;
         }
 
@@ -366,35 +375,46 @@ public class BaselineService : IBaselineService
     public async Task<ScheduleBaseline> ApproveBaselineAsync(
         int baselineId, string approvedByName, string? notes, DateOnly? approvedDate)
     {
-        var baseline = await _db.ScheduleBaselines.FindAsync(baselineId)
-            ?? throw new KeyNotFoundException($"Baseline {baselineId} not found");
+        var now        = DateTime.UtcNow;
+        var approvedAt = approvedDate.HasValue
+            ? approvedDate.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
+            : now;
 
-        if (baseline.Status != BaselineStatus.Submitted && baseline.Status != BaselineStatus.Frozen)
-            throw new InvalidOperationException($"Baseline must be Submitted or Frozen to approve. Current: {baseline.Status}");
+        // 원자적 상태 전환 — WHERE Status IN (Submitted, Frozen) 조건을 UPDATE 쿼리에 포함시켜
+        // 동시에 두 요청이 들어와도 한 번만 성공하도록 보장 (낙관적 잠금 대용)
+        var affected = await _db.ScheduleBaselines
+            .Where(b => b.Id == baselineId
+                     && (b.Status == BaselineStatus.Submitted || b.Status == BaselineStatus.Frozen))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status,         BaselineStatus.Approved)
+                .SetProperty(b => b.ApprovedAt,     approvedAt)
+                .SetProperty(b => b.ApprovedByName, approvedByName)
+                .SetProperty(b => b.ApprovalNotes,  notes)
+                .SetProperty(b => b.UpdatedAt,      now));
 
-        // Supersede the previous approved baseline
-        var previousApproved = await _db.ScheduleBaselines
+        if (affected == 0)
+        {
+            // 이미 다른 요청이 처리했거나 승인 불가 상태
+            var current = await _db.ScheduleBaselines.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == baselineId)
+                ?? throw new KeyNotFoundException($"Baseline {baselineId} not found");
+            throw new InvalidOperationException(
+                $"Baseline cannot be approved. Current status: {current.Status}");
+        }
+
+        // 동일 프로젝트의 기존 승인 Baseline을 Superseded로 전환
+        var baseline = await _db.ScheduleBaselines.AsNoTracking()
+            .FirstAsync(b => b.Id == baselineId);
+
+        await _db.ScheduleBaselines
             .Where(b => b.ProjectId == baseline.ProjectId
                      && b.Status == BaselineStatus.Approved
                      && b.Id != baselineId
                      && b.IsActive)
-            .ToListAsync();
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(b => b.Status,    BaselineStatus.Superseded)
+                .SetProperty(b => b.UpdatedAt, now));
 
-        foreach (var prev in previousApproved)
-        {
-            prev.Status    = BaselineStatus.Superseded;
-            prev.UpdatedAt = DateTime.UtcNow;
-        }
-
-        baseline.Status         = BaselineStatus.Approved;
-        baseline.ApprovedAt     = approvedDate.HasValue
-            ? approvedDate.Value.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc)
-            : DateTime.UtcNow;
-        baseline.ApprovedByName = approvedByName;
-        baseline.ApprovalNotes  = notes;
-        baseline.UpdatedAt      = DateTime.UtcNow;
-
-        await _db.SaveChangesAsync();
         return baseline;
     }
 

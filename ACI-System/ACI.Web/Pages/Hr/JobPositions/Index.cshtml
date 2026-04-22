@@ -1,5 +1,5 @@
 @page
-@model ACI.Web.Pages.Admin.JobPositions.IndexModel
+@model ACI.Web.Pages.Hr.JobPositions.IndexModel
 @{
     ViewData["Title"] = "Job Positions";
     ViewData["ActiveMenu"] = "jobpositions";
@@ -9,15 +9,26 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h5 class="mb-0 fw-bold"><i class="bi bi-person-badge me-2 text-primary"></i>Job Positions</h5>
         <button class="btn btn-primary btn-sm" type="button"
-                data-bs-toggle="collapse" data-bs-target="#addForm">
+                data-bs-toggle="collapse" data-bs-target="#addForm"
+                aria-expanded="@(Model.IsEditing ? "true" : "false")">
             <i class="bi bi-plus me-1"></i>Add New
         </button>
     </div>
 
-    <!-- Add Form -->
-    <div class="collapse mb-3" id="addForm">
+    <!-- Add / Edit Form -->
+    <div class="collapse mb-3 @(Model.IsEditing ? "show" : "")" id="addForm">
         <div class="card shadow-sm">
             <div class="card-body">
+                @if (Model.IsEditing)
+                {
+                    <div class="mb-2 small text-primary fw-semibold">
+                        <i class="bi bi-pencil-square me-1"></i>
+                        Editing: <code>@Model.Input.Code</code> — @Model.Input.Name
+                        <a asp-page="Index" class="ms-2 text-muted small">
+                            <i class="bi bi-x-circle me-1"></i>Cancel
+                        </a>
+                    </div>
+                }
                 <form method="post" asp-page-handler="Save">
                     <input type="hidden" asp-for="Input.Id" />
                     <div class="row g-3 align-items-end">
@@ -58,7 +69,7 @@
                         <th style="width:100px">Code</th>
                         <th>Name</th>
                         <th class="text-center" style="width:80px">Status</th>
-                        <th style="width:60px"></th>
+                        <th style="width:100px"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,9 +89,15 @@
                                     <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
                                 }
                             </td>
-                            <td>
-                                <form method="post" asp-page-handler="Toggle" asp-route-id="@pos.Id">
-                                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2">
+                            <td class="text-nowrap">
+                                <a asp-page="Index" asp-route-editId="@pos.Id"
+                                   class="btn btn-outline-primary btn-sm py-0 px-2 me-1"
+                                   title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="post" asp-page-handler="Toggle" asp-route-id="@pos.Id" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2"
+                                            title="@(pos.IsActive ? "Deactivate" : "Activate")">
                                         <i class="bi bi-@(pos.IsActive ? "toggle-on text-success" : "toggle-off text-muted")"></i>
                                     </button>
                                 </form>
