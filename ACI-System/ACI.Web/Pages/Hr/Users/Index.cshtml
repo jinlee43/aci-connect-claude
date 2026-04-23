@@ -302,9 +302,10 @@
                                         </a>
                                         <form method="post" asp-page-handler="ResetPassword"
                                               asp-route-id="@u.Id" class="d-inline"
-                                              onsubmit="return confirm('Reset password for @u.Email?');">
-                                            <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-2"
-                                                    title="Reset Password">
+                                              id="frm-reset-@u.Id">
+                                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2"
+                                                    title="Reset Password"
+                                                    onclick="confirmAction('frm-reset-@u.Id', 'Reset Password', 'Reset password for @u.Email?')">
                                                 <i class="bi bi-key" style="font-size:0.75rem"></i>
                                             </button>
                                         </form>
@@ -312,9 +313,10 @@
                                         {
                                             <form method="post" asp-page-handler="Deactivate"
                                                   asp-route-id="@u.Id" class="d-inline"
-                                                  onsubmit="return confirm('Deactivate @u.Email? They will no longer be able to sign in.');">
-                                                <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                        title="Deactivate">
+                                                  id="frm-deactivate-@u.Id">
+                                                <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                        title="Deactivate"
+                                                        onclick="confirmAction('frm-deactivate-@u.Id', 'Deactivate User', 'Deactivate @u.Email? They will no longer be able to sign in.')">
                                                     <i class="bi bi-slash-circle" style="font-size:0.75rem"></i>
                                                 </button>
                                             </form>

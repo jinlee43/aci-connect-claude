@@ -4,21 +4,22 @@ namespace ACI.Web.Data.Entities;
 
 public enum SafetyWkRepStatus
 {
-    Draft           = 0,   // Uploaded, pending review
+    Draft           = 0,   // Submitted, pending review
     Reviewed        = 1,   // Reviewed by PM
     Approved        = 2,   // Approved by SafetyManager — locked
     NoWork          = 3,   // No work this week (pending review)
     Voided          = 4,   // Approval revoked by SafetyManager/SafetyAdmin
     NoWorkReviewed  = 5,   // No work — reviewed by PM
     NoWorkApproved  = 6,   // No work — approved by SafetyManager — locked
+    Staged          = 7,   // Files uploaded but not yet submitted for review
 }
 
 /// <summary>
 /// Weekly Safety Report submitted per project per week.
 /// One record per (ProjectId, WeekStartDate) — enforced by unique index.
 ///
-/// <para>Workflow: Draft → Reviewed (PM) → Approved (SafetyManager) → [Voided]</para>
-/// <para>NoWork is a terminal state indicating no activity that week.</para>
+/// <para>Workflow: Staged → Draft (Submit) → Reviewed (PM) → Approved (SafetyManager) → [Voided]</para>
+/// <para>NoWork: no staging needed — created directly and enters the review workflow.</para>
 /// <para>Once Approved, the record is immutable until Voided.</para>
 /// </summary>
 public class SafetyWkRep : BaseEntity
@@ -36,19 +37,8 @@ public class SafetyWkRep : BaseEntity
     public int WeekNumber { get; set; }
     public int Year       { get; set; }
 
-    public SafetyWkRepStatus Status { get; set; } = SafetyWkRepStatus.Draft;
-
-    // ── File info (null when Status == NoWork) ───────────────────────────────
-    [MaxLength(260)]
-    public string? FileName       { get; set; }   // Original file name shown to users
-
-    [MaxLength(100)]
-    public string? StoredFileName { get; set; }   // GUID-based name on disk
-
-    [MaxLength(20)]
-    public string? Extension      { get; set; }
-
-    public long FileSize { get; set; } = 0;
+    [System.ComponentModel.DataAnnotations.ConcurrencyCheck]
+    public SafetyWkRepStatus Status { get; set; } = SafetyWkRepStatus.Staged;
 
     // ── Report date ──────────────────────────────────────────────────────────
     /// <summary>
@@ -57,7 +47,10 @@ public class SafetyWkRep : BaseEntity
     /// </summary>
     public DateOnly? ReportDate { get; set; }
 
-    // ── Upload ───────────────────────────────────────────────────────────────
+    // ── Files (1:N) ──────────────────────────────────────────────────────────
+    public ICollection<SafetyWkRepFile> Files { get; set; } = new List<SafetyWkRepFile>();
+
+    // ── Created by (first uploader / NoWork marker) ──────────────────────────
     public int?  UploadedById   { get; set; }
     public ApplicationUser? UploadedBy { get; set; }
 
@@ -103,11 +96,14 @@ public class SafetyWkRep : BaseEntity
 
     // ── Computed helpers ─────────────────────────────────────────────────────
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
-    public bool IsLocked => Status is SafetyWkRepStatus.Approved or SafetyWkRepStatus.NoWorkApproved;
+    public bool IsLocked => Status is SafetyWkRepStatus.Approved
+                                     or SafetyWkRepStatus.NoWorkApproved;
+
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
     public bool IsNoWork => Status is SafetyWkRepStatus.NoWork
                                    or SafetyWkRepStatus.NoWorkReviewed
                                    or SafetyWkRepStatus.NoWorkApproved;
 
     [System.ComponentModel.DataAnnotations.Schema.NotMapped]
-    public bool HasFile => !string.IsNullOrEmpty(StoredFileName);
+    public bool HasFile => Files?.Any() == true;
 }

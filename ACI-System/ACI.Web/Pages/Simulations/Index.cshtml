@@ -103,10 +103,11 @@
                             @if (sim.Status != ACI.Web.Data.Entities.SimulationStatus.Archived)
                             {
                                 <form method="post" asp-page-handler="Promote" class="d-inline"
-                                      onsubmit="return confirm('Apply this simulation to Current Plan?')">
+                                      id="frm-promote-sim-@sim.Id">
                                     <input type="hidden" name="simulationId" value="@sim.Id" />
                                     <input type="hidden" name="projectId" value="@Model.ProjectId" />
-                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <button type="button" class="btn btn-sm btn-outline-success"
+                                            onclick="confirmAction('frm-promote-sim-@sim.Id', 'Apply Simulation', 'Apply this simulation to Current Plan?')">
                                         <i class="bi bi-arrow-up-circle me-1"></i>Promote
                                     </button>
                                 </form>
@@ -119,10 +120,11 @@
                                 </form>
                             }
                             <form method="post" asp-page-handler="Delete" class="d-inline"
-                                  onsubmit="return confirm('Delete this simulation?')">
+                                  id="frm-delete-sim-@sim.Id">
                                 <input type="hidden" name="simulationId" value="@sim.Id" />
                                 <input type="hidden" name="projectId" value="@Model.ProjectId" />
-                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="confirmAction('frm-delete-sim-@sim.Id', 'Delete Simulation', 'Delete this simulation?')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

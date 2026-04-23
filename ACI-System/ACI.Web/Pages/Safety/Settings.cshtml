@@ -69,9 +69,10 @@
                                     <form method="post" asp-page-handler="Void"
                                           asp-route-projectId="@Model.ProjectId"
                                           asp-route-settingsId="@Model.Settings.Id"
-                                          onsubmit="return confirm('Void the approval and unlock settings for editing?')">
+                                          id="frm-void-approval">
                                         @Html.AntiForgeryToken()
-                                        <button class="btn btn-sm btn-outline-danger">
+                                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                                onclick="confirmAction('frm-void-approval', 'Void Approval', 'Void the approval and unlock settings for editing?')">
                                             <i class="bi bi-x-circle me-1"></i>Void Approval
                                         </button>
                                     </form>
@@ -82,9 +83,10 @@
                                 <form method="post" asp-page-handler="Approve"
                                       asp-route-projectId="@Model.ProjectId"
                                       asp-route-settingsId="@Model.Settings.Id"
-                                      onsubmit="return confirm('Approve and lock these settings?')">
+                                      id="frm-approve-settings">
                                     @Html.AntiForgeryToken()
-                                    <button class="btn btn-sm btn-success">
+                                    <button type="button" class="btn btn-sm btn-success"
+                                            onclick="confirmAction('frm-approve-settings', 'Approve Settings', 'Approve and lock these settings?')">
                                         <i class="bi bi-shield-check me-1"></i>Approve Settings
                                     </button>
                                 </form>

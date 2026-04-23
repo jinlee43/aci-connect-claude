@@ -25,15 +25,9 @@ public class EmployeeDocumentController : ControllerBase
     private readonly FileStorageOptions  _storage;
     private readonly ILogger<EmployeeDocumentController> _logger;
 
-    private const long MaxFileSizeBytes = 50 * 1024 * 1024;   // 50 MB
+    private const long MaxFileSizeBytes = 2000L * 1024 * 1024;   // 2000 MB
 
-    private static readonly HashSet<string> AllowedExtensions =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
-            ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-            ".txt", ".csv", ".zip", ".rar", ".7z", ".xml", ".dwg", ".dxf"
-        };
+    // 파일 확장자 제한 없음 — 필요 시 별도 지정
 
     public EmployeeDocumentController(
         AppDbContext db,
@@ -48,7 +42,7 @@ public class EmployeeDocumentController : ControllerBase
     // ── Upload (one or more files) ────────────────────────────────────────────
     // POST /api/employees/{empId}/documents
     [HttpPost]
-    [RequestSizeLimit(100 * 1024 * 1024)]
+    [RequestSizeLimit(2002L * 1024 * 1024)]
     public async Task<IActionResult> Upload(int empId, [FromForm] IFormFileCollection files)
     {
         if (!await _db.Employees.AnyAsync(e => e.Id == empId))
@@ -67,11 +61,9 @@ public class EmployeeDocumentController : ControllerBase
         {
             if (file.Length == 0) continue;
             if (file.Length > MaxFileSizeBytes)
-                return BadRequest($"File '{file.FileName}' exceeds the 50 MB size limit");
+                return BadRequest($"File '{file.FileName}' exceeds the 2000 MB size limit");
 
             var ext = Path.GetExtension(file.FileName);
-            if (!AllowedExtensions.Contains(ext))
-                return BadRequest($"File type '{ext}' is not allowed");
 
             var storedName = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
             var storedPath = Path.Combine(uploadDir, storedName);

@@ -246,10 +246,11 @@
                                             <i class="bi bi-download"></i>
                                         </a>
                                         <form method="post" asp-page-handler="DeleteDoc" class="d-inline"
-                                              onsubmit="return confirm('Remove this document?')">
+                                              id="frm-delete-doc-@doc.Id">
                                             <input type="hidden" name="documentId" value="@doc.Id" />
                                             <input type="hidden" name="revisionId" value="@sel.Id" />
-                                            <button class="btn btn-sm btn-outline-danger" title="Delete">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                                                    onclick="confirmAction('frm-delete-doc-@doc.Id', 'Remove Document', 'Remove this document?')">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>

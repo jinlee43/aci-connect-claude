@@ -4,6 +4,10 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ─── Kestrel 요청 크기 제한 (기본 30 MB → 200 MB) ─────────────────────────
+builder.WebHost.ConfigureKestrel(options =>
+    options.Limits.MaxRequestBodySize = 2002L * 1024 * 1024);  // 2000 MB + 오버헤드
+
 // ─── Database ──────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
@@ -24,6 +28,10 @@ builder.Services.AddAuthentication("AciCookies")
     });
 
 // AddAuthorization은 아래 정책 설정에서 처리함
+
+// ─── Multipart form body 제한 (기본 128 MB → 2000 MB) ────────────────────
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+    options.MultipartBodyLengthLimit = 2002L * 1024 * 1024);
 
 // ─── Razor Pages + MVC ────────────────────────────────────────────────────
 builder.Services.AddRazorPages(options =>

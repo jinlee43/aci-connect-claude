@@ -152,8 +152,9 @@
                                     {
                                         <form method="post" asp-page-handler="Delete"
                                               asp-route-id="@p.Id" class="d-inline"
-                                              onsubmit="return confirm('Delete privilege @p.Code? This cannot be undone.')">
-                                            <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete">
+                                              id="frm-delete-privilege-@p.Id">
+                                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete"
+                                                    onclick="confirmAction('frm-delete-privilege-@p.Id', 'Delete Privilege', 'Delete privilege @p.Code? This cannot be undone.')">
                                                 <i class="bi bi-trash" style="font-size:0.75rem"></i>
                                             </button>
                                         </form>

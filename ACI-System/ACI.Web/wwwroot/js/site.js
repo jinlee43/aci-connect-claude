@@ -61,6 +61,60 @@ window.showToast = function (msg, type = "success") {
     setTimeout(() => el.remove(), 3000);
 };
 
+// ─── 전역 확인 모달 ─────────────────────────────────────────────────────────
+//
+//  confirmAction(formId, title, message)
+//    폼 제출 확인. "Confirm" 클릭 시 해당 formId 폼을 submit.
+//
+//  confirmAsync(title, message) → Promise<boolean>
+//    JS 코드에서 await 로 사용. true = Confirm, false = Cancel.
+//
+(function () {
+    let _modal = null;
+    let _resolveAsync = null;
+
+    function getModal() {
+        if (!_modal) _modal = new bootstrap.Modal(document.getElementById('aci-confirm-modal'));
+        return _modal;
+    }
+
+    function setup(title, message) {
+        document.getElementById('aci-confirm-title').textContent = title;
+        document.getElementById('aci-confirm-body').textContent  = message;
+    }
+
+    window.confirmAction = function (formId, title, message) {
+        setup(title, message);
+        const okBtn = document.getElementById('aci-confirm-ok');
+        const newOk = okBtn.cloneNode(true);          // 이전 이벤트 제거
+        okBtn.parentNode.replaceChild(newOk, okBtn);
+        newOk.addEventListener('click', () => {
+            getModal().hide();
+            document.getElementById(formId)?.submit();
+        });
+        getModal().show();
+    };
+
+    window.confirmAsync = function (title, message) {
+        return new Promise(resolve => {
+            setup(title, message);
+            _resolveAsync = resolve;
+            const okBtn = document.getElementById('aci-confirm-ok');
+            const newOk = okBtn.cloneNode(true);
+            okBtn.parentNode.replaceChild(newOk, okBtn);
+            newOk.addEventListener('click', () => {
+                getModal().hide();
+                if (_resolveAsync) { _resolveAsync(true); _resolveAsync = null; }
+            });
+            document.getElementById('aci-confirm-modal')
+                .addEventListener('hidden.bs.modal', () => {
+                    if (_resolveAsync) { _resolveAsync(false); _resolveAsync = null; }
+                }, { once: true });
+            getModal().show();
+        });
+    };
+})();
+
 // ─── PPC 도넛 차트 ───────────────────────────────────────────
 window.ACICharts = {
     renderPPC(containerId, ppc) {

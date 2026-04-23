@@ -33,18 +33,47 @@
 
 <!-- ─── Date range filter ─────────────────────────────────────────── -->
 <div class="px-3 pb-2">
-    <form method="get" class="d-flex align-items-center gap-2 flex-wrap">
+    <form method="get" id="filterForm" class="d-flex align-items-center gap-2 flex-wrap">
         <label class="fw-semibold small">From</label>
         <input type="date" class="form-control form-control-sm" style="width:160px;"
-               name="from" value="@Model.From" />
+               name="from" id="filterFrom" value="@Model.From" />
         <label class="fw-semibold small">To</label>
         <input type="date" class="form-control form-control-sm" style="width:160px;"
-               name="to" value="@Model.To" />
+               name="to" id="filterTo" value="@Model.To" />
         <button type="submit" class="btn btn-sm btn-primary">
-            <i class="bi bi-funnel me-1"></i>Filter
+            <i class="bi bi-calendar-range me-1"></i>View
         </button>
+        <div class="vr mx-1"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(12)">12w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(16)">16w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(28)">28w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(52)">1yr</button>
     </form>
 </div>
+<script>
+    function getMonday(date) {
+        var d = new Date(date);
+        var day = d.getDay();
+        var diff = (day === 0) ? -6 : (1 - day);
+        d.setDate(d.getDate() + diff);
+        return d;
+    }
+    function toDateInputValue(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var dd = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + dd;
+    }
+    function setWeeks(weeks) {
+        var toVal = document.getElementById('filterTo').value;
+        var toDate = toVal ? new Date(toVal + 'T00:00:00') : new Date();
+        var toMonday = getMonday(toDate);
+        var fromDate = new Date(toMonday);
+        fromDate.setDate(fromDate.getDate() - (weeks - 1) * 7);
+        document.getElementById('filterFrom').value = toDateInputValue(fromDate);
+        document.getElementById('filterForm').submit();
+    }
+</script>
 
 <div class="p-3">
 
@@ -166,22 +195,25 @@
 
                                     @if (rep == null)
                                     {
+                                        var wStr   = week.ToString("yyyy-MM-dd");
+                                        var wLabel = week.ToString("MMM d, yyyy");
                                         <!-- 빈 셀 — 업로드 또는 No Work -->
                                         <div class="d-flex flex-column gap-1 align-items-center">
                                             <button class="btn btn-outline-primary btn-sm"
-                                                    onclick="openUpload(@row.ProjectId, '@row.ProjectCode — @row.ProjectName', '@week.ToString("yyyy-MM-dd")', '@week.ToString("MMM d, yyyy")')"
+                                                    onclick="openUpload(@row.ProjectId, '@row.ProjectCode — @row.ProjectName', '@wStr', '@wLabel')"
                                                     title="Upload Report">
                                                 <i class="bi bi-upload"></i>
                                             </button>
-                                            <form method="post" asp-page-handler="MarkNoWork">
+                                            <form method="post" asp-page-handler="MarkNoWork"
+                                                  id="frm-no-work-@row.ProjectId-@wStr">
                                                 @Html.AntiForgeryToken()
                                                 <input type="hidden" name="projectId" value="@row.ProjectId" />
-                                                <input type="hidden" name="weekStart" value="@week.ToString("yyyy-MM-dd")" />
+                                                <input type="hidden" name="weekStart" value="@wStr" />
                                                 <input type="hidden" name="from"      value="@Model.From" />
                                                 <input type="hidden" name="to"        value="@Model.To" />
-                                                <button type="submit" class="btn btn-outline-warning btn-sm"
+                                                <button type="button" class="btn btn-outline-warning btn-sm"
                                                         title="Mark as No Work"
-                                                        onclick="return confirm('Mark this week as No Work?')">
+                                                        onclick="confirmAction('frm-no-work-@row.ProjectId-@wStr', 'Mark as No Work', 'Mark this week as No Work?')">
                                                     <i class="bi bi-dash-circle"></i>
                                                 </button>
                                             </form>
@@ -234,14 +266,15 @@
                                                 @* Unreview (SafetyManager+ 전용) *@
                                                 @if (Model.CanUnreview && rep.Status == SafetyWkRepStatus.Reviewed)
                                                 {
-                                                    <form method="post" asp-page-handler="Unreview" class="d-inline">
+                                                    <form method="post" asp-page-handler="Unreview" class="d-inline"
+                                                          id="frm-unreview-@rep.Id">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="reportId" value="@rep.Id" />
                                                         <input type="hidden" name="from" value="@Model.From" />
                                                         <input type="hidden" name="to"   value="@Model.To" />
-                                                        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm"
                                                                 title="Clear Review"
-                                                                onclick="return confirm('Clear the review status?')">
+                                                                onclick="confirmAction('frm-unreview-@rep.Id', 'Clear Review', 'Clear the review status?')">
                                                             <i class="bi bi-arrow-counterclockwise"></i>
                                                         </button>
                                                     </form>
@@ -250,14 +283,15 @@
                                                 @* Delete — Reviewed/Approved 상태에선 비표시 (field user 기준) *@
                                                 @if (canEditCell && rep.Status != SafetyWkRepStatus.Approved)
                                                 {
-                                                    <form method="post" asp-page-handler="Delete" class="d-inline">
+                                                    <form method="post" asp-page-handler="Delete" class="d-inline"
+                                                          id="frm-delete-report-@rep.Id">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="reportId" value="@rep.Id" />
                                                         <input type="hidden" name="from" value="@Model.From" />
                                                         <input type="hidden" name="to"   value="@Model.To" />
-                                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                        <button type="button" class="btn btn-outline-danger btn-sm"
                                                                 title="Delete"
-                                                                onclick="return confirm('Delete this report?')">
+                                                                onclick="confirmAction('frm-delete-report-@rep.Id', 'Delete Report', 'Delete this report?')">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
                                                     </form>

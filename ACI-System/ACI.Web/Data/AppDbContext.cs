@@ -60,6 +60,7 @@ public class AppDbContext : DbContext
     // ─── Safety Weekly Report ─────────────────────────────────────────────
     public DbSet<SafetyWkRepSettings>  SafetyWkRepSettings  => Set<SafetyWkRepSettings>();
     public DbSet<SafetyWkRep>          SafetyWkReps         => Set<SafetyWkRep>();
+    public DbSet<SafetyWkRepFile>      SafetyWkRepFiles     => Set<SafetyWkRepFile>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -591,8 +592,26 @@ public class AppDbContext : DbContext
              .HasForeignKey(r => r.VoidedById)
              .OnDelete(DeleteBehavior.SetNull);
 
+            e.HasMany(r => r.Files)
+             .WithOne(f => f.Report)
+             .HasForeignKey(f => f.ReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
             e.HasIndex(r => r.ProjectId);
             e.HasIndex(r => new { r.Year, r.WeekNumber });
+        });
+
+        // ── SafetyWkRepFile ───────────────────────────────────────────────────
+        builder.Entity<SafetyWkRepFile>(e =>
+        {
+            e.HasKey(f => f.Id);
+
+            e.HasOne(f => f.UploadedBy)
+             .WithMany()
+             .HasForeignKey(f => f.UploadedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(f => f.ReportId);
         });
     }
 }

@@ -334,18 +334,11 @@
                     </span>
                     <label class="btn btn-sm btn-outline-primary mb-0" style="cursor:pointer;">
                         <i class="bi bi-upload me-1"></i>Upload
-                        <input type="file" id="docFileInput" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.xml,.dwg"
+                        <input type="file" id="docFileInput" multiple
                                style="display:none;" onchange="empDocs.upload(this)" />
                     </label>
                 </div>
 
-                <!-- Upload progress -->
-                <div id="doc-upload-progress" class="d-none px-3 pt-2 pb-0">
-                    <div class="d-flex align-items-center gap-2 mb-1" style="font-size:12px;color:#6b7280;">
-                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
-                        <span id="doc-upload-msg">Uploading…</span>
-                    </div>
-                </div>
 
                 <!-- File list -->
                 <div class="list-group list-group-flush" id="doc-list">
@@ -402,11 +395,34 @@
     }
 </div>
 
+<!-- ── 업로드 진행 모달 ──────────────────────────────────────────────── -->
+<div class="modal fade" id="doc-uploading-modal" tabindex="-1" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body py-4 text-center">
+                <div class="mb-3">
+                    <div class="spinner-border text-primary" style="width:3rem;height:3rem;" role="status">
+                        <span class="visually-hidden">Uploading…</span>
+                    </div>
+                </div>
+                <h5 class="fw-semibold mb-1">Uploading Document(s)</h5>
+                <p class="text-muted mb-3 small">Please wait while the file(s) are being uploaded.<br>Do not close or refresh this page.</p>
+                <div class="progress" style="height:8px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+                </div>
+                <div id="doc-upload-modal-info" class="text-muted small mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 const empDocs = (() => {
     const empId   = @Model.Emp.Id;
     const baseUrl = `/api/employees/${empId}/documents`;
+    const _uploadingModal = new bootstrap.Modal(document.getElementById('doc-uploading-modal'));
 
     function showError(msg) {
         const el = document.createElement('div');
@@ -468,10 +484,15 @@ const empDocs = (() => {
     return {
         async upload(input) {
             if (!input.files.length) return;
-            const progress = document.getElementById('doc-upload-progress');
-            const msg      = document.getElementById('doc-upload-msg');
-            progress.classList.remove('d-none');
-            msg.textContent = `Uploading ${input.files.length} file(s)…`;
+
+            // 파일 정보 계산 (모달 표시용)
+            const fileCount = input.files.length;
+            const totalBytes = Array.from(input.files).reduce((s, f) => s + f.size, 0);
+            const sizeMB = (totalBytes / (1024 * 1024)).toFixed(1);
+            document.getElementById('doc-upload-modal-info').textContent =
+                `${fileCount} file(s) · ${sizeMB} MB`;
+
+            _uploadingModal.show();
 
             const form = new FormData();
             for (const f of input.files) form.append('files', f);
@@ -488,13 +509,13 @@ const empDocs = (() => {
             } catch(e) {
                 showError('Upload error: ' + e.message);
             } finally {
-                progress.classList.add('d-none');
+                _uploadingModal.hide();
                 input.value = '';
             }
         },
 
         async delete(docId, fileName) {
-            if (!confirm(`Delete "${fileName}"?`)) return;
+            if (!await confirmAsync('Delete Document', `Delete "${fileName}"?`)) return;
             try {
                 const res = await fetch(`${baseUrl}/${docId}`, { method: 'DELETE' });
                 if (!res.ok) { showError('Delete failed'); return; }

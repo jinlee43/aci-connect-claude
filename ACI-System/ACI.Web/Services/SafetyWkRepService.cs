@@ -39,24 +39,37 @@ public interface ISafetyWkRepService
     Task<List<SafetyWkRep>>     GetMyReportsAsync(int userId, DateOnly from, DateOnly to);
     Task<List<SafetyWkRepGridRowDto>> GetWeeklyGridAsync(DateOnly from, DateOnly to, int userId, bool isAdmin);
 
+    // ── File queries ──────────────────────────────────────────────────────────
+    Task<SafetyWkRepFile?> GetFileAsync(int fileId);
+
     // ── Assigned project access (PM / Superintendent) ─────────────────────────
     Task<List<int>> GetAssignedProjectIdsAsync(int userId);
 
     // ── Report actions ────────────────────────────────────────────────────────
-    Task<SafetyWkRep> UploadReportAsync(
+
+    /// <summary>
+    /// 파일을 업로드하고 Staged 보고서에 추가합니다.
+    /// 레코드가 없으면 Staged 상태로 신규 생성합니다.
+    /// Voided 보고서에 추가하면 Staged 로 초기화됩니다.
+    /// </summary>
+    Task<SafetyWkRep> AddFileAsync(
         int projectId, DateOnly weekStartDate,
         string fileName, string storedFileName, string extension, long fileSize,
         int userId, string userName, DateOnly? reportDate = null);
-    Task<SafetyWkRep> ReplaceFileAsync(
-        int reportId,
-        string fileName, string storedFileName, string extension, long fileSize,
-        int userId, string userName);
+
+    /// <summary>개별 파일을 삭제합니다. 반환된 StoredFileName 으로 디스크 파일을 삭제하세요.</summary>
+    Task<(SafetyWkRepFile File, string StoredFileName)> RemoveFileAsync(int fileId);
+
+    /// <summary>Staged → Draft (제출). 파일이 1개 이상 있어야 합니다.</summary>
+    Task<SafetyWkRep> SubmitReportAsync(int reportId, DateOnly? reportDate, int userId, string userName);
+
     Task<SafetyWkRep> MarkNoWorkAsync(int projectId, DateOnly weekStartDate, int userId, string userName, DateOnly? reportDate = null);
-    Task<(SafetyWkRep Report, string? OldStoredFileName)> DeleteReportAsync(int reportId);
+    Task<(SafetyWkRep Report, IReadOnlyList<string> StoredFileNames)> DeleteReportAsync(int reportId);
     Task<SafetyWkRep> ReviewReportAsync(int reportId, string? notes, int userId, string userName);
     Task<SafetyWkRep> UnreviewReportAsync(int reportId, int userId, string userName);
     Task<SafetyWkRep> ApproveReportAsync(int reportId, string? notes, int userId, string userName);
     Task<SafetyWkRep> VoidApprovalAsync(int reportId, string? reason, int userId, string userName);
+    Task<SafetyWkRep> UnvoidAsync(int reportId, int userId, string userName);
 }
 
 // ── Implementation ────────────────────────────────────────────────────────────
@@ -68,6 +81,50 @@ public class SafetyWkRepService : ISafetyWkRepService
     public SafetyWkRepService(AppDbContext db) => _db = db;
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static string StatusLabel(SafetyWkRepStatus s) => s switch
+    {
+        SafetyWkRepStatus.Staged         => "Staged",
+        SafetyWkRepStatus.Draft          => "Draft",
+        SafetyWkRepStatus.Reviewed       => "Reviewed",
+        SafetyWkRepStatus.Approved       => "Approved",
+        SafetyWkRepStatus.NoWork         => "No Work",
+        SafetyWkRepStatus.NoWorkReviewed => "No Work — Reviewed",
+        SafetyWkRepStatus.NoWorkApproved => "No Work — Approved",
+        SafetyWkRepStatus.Voided         => "Voided",
+        _                                => s.ToString()
+    };
+
+    /// <summary>현재 상태를 동사구("because ___")로 설명.</summary>
+    private static string StatusReason(SafetyWkRepStatus s) => s switch
+    {
+        SafetyWkRepStatus.Staged         => "it has not been submitted yet",
+        SafetyWkRepStatus.Draft          => "it has not been reviewed yet",
+        SafetyWkRepStatus.Reviewed       => "it has already been reviewed",
+        SafetyWkRepStatus.NoWork         => "it is marked as No Work and has not been reviewed yet",
+        SafetyWkRepStatus.NoWorkReviewed => "it has already been reviewed (No Work)",
+        SafetyWkRepStatus.Approved       => "it has already been approved",
+        SafetyWkRepStatus.NoWorkApproved => "it has already been approved (No Work)",
+        SafetyWkRepStatus.Voided         => "its approval has been voided",
+        _                                => $"its current status is '{StatusLabel(s)}'"
+    };
+
+    private async Task SaveWithConcurrencyCheckAsync(SafetyWkRep report)
+    {
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            var entry = ex.Entries.Single();
+            await entry.ReloadAsync();
+            var current = (SafetyWkRep)entry.Entity;
+            throw new InvalidOperationException(
+                $"The report status was already changed to '{StatusLabel(current.Status)}' " +
+                $"by another user. Please refresh the page and try again.");
+        }
+    }
 
     /// <summary>주어진 날짜가 속한 주의 월요일을 반환.</summary>
     public static DateOnly GetWeekMonday(DateOnly date)
@@ -96,6 +153,7 @@ public class SafetyWkRepService : ISafetyWkRepService
             WeekEndDate   = monday.AddDays(6),
             WeekNumber    = week,
             Year          = year,
+            Status        = SafetyWkRepStatus.Staged,
             CreatedAt     = DateTime.UtcNow,
             UpdatedAt     = DateTime.UtcNow,
         };
@@ -188,6 +246,7 @@ public class SafetyWkRepService : ISafetyWkRepService
     public async Task<SafetyWkRep?> GetReportAsync(int reportId) =>
         await _db.SafetyWkReps
             .Include(r => r.Project)
+            .Include(r => r.Files).ThenInclude(f => f.UploadedBy)
             .Include(r => r.UploadedBy)
             .Include(r => r.ReviewedBy)
             .Include(r => r.ApprovedBy)
@@ -197,6 +256,7 @@ public class SafetyWkRepService : ISafetyWkRepService
     public async Task<SafetyWkRep?> GetReportByWeekAsync(int projectId, DateOnly weekStartDate) =>
         await _db.SafetyWkReps
             .Include(r => r.Project)
+            .Include(r => r.Files)
             .FirstOrDefaultAsync(r => r.ProjectId == projectId
                                    && r.WeekStartDate == GetWeekMonday(weekStartDate)
                                    && r.IsActive);
@@ -204,6 +264,7 @@ public class SafetyWkRepService : ISafetyWkRepService
     public async Task<List<SafetyWkRep>> GetProjectReportsAsync(
         int projectId, DateOnly from, DateOnly to) =>
         await _db.SafetyWkReps
+            .Include(r => r.Files)
             .Where(r => r.ProjectId == projectId
                      && r.IsActive
                      && r.WeekStartDate >= from
@@ -230,6 +291,7 @@ public class SafetyWkRepService : ISafetyWkRepService
         var projectIds = await GetAssignedProjectIdsAsync(userId);
         return await _db.SafetyWkReps
             .Include(r => r.Project)
+            .Include(r => r.Files)
             .Where(r => projectIds.Contains(r.ProjectId)
                      && r.IsActive
                      && r.WeekStartDate >= from
@@ -251,13 +313,13 @@ public class SafetyWkRepService : ISafetyWkRepService
             cursor = cursor.AddDays(7);
         }
 
-        // 활성 프로젝트 + 해당 기간 보고서 + 설정을 한 번에 로드
         var projects = await _db.Projects
             .Where(p => p.IsActive)
             .OrderBy(p => p.ProjectCode)
             .ToListAsync();
 
         var reports = await _db.SafetyWkReps
+            .Include(r => r.Files)
             .Where(r => r.IsActive
                      && r.WeekStartDate >= GetWeekMonday(from)
                      && r.WeekStartDate <= to)
@@ -275,7 +337,6 @@ public class SafetyWkRepService : ISafetyWkRepService
         var settingsLookup = settingsList
             .ToDictionary(s => s.ProjectId);
 
-        // PM/SPM 담당 프로젝트 조회 (Admin이 아닌 경우)
         var pmProjectIds = new HashSet<int>();
         if (!isAdmin && userId > 0)
         {
@@ -310,92 +371,136 @@ public class SafetyWkRepService : ISafetyWkRepService
         }).ToList();
     }
 
+    // ── File queries ──────────────────────────────────────────────────────────
+
+    public async Task<SafetyWkRepFile?> GetFileAsync(int fileId) =>
+        await _db.SafetyWkRepFiles
+            .Include(f => f.Report).ThenInclude(r => r.Project)
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.IsActive);
+
     // ── Report actions ─────────────────────────────────────────────────────────
 
-    public async Task<SafetyWkRep> UploadReportAsync(
+    public async Task<SafetyWkRep> AddFileAsync(
         int projectId, DateOnly weekStartDate,
         string fileName, string storedFileName, string extension, long fileSize,
         int userId, string userName, DateOnly? reportDate = null)
     {
         var monday = GetWeekMonday(weekStartDate);
         var existing = await _db.SafetyWkReps
+            .Include(r => r.Files)
             .FirstOrDefaultAsync(r => r.ProjectId == projectId
                                    && r.WeekStartDate == monday
                                    && r.IsActive);
 
         if (existing != null && existing.IsLocked)
             throw new InvalidOperationException(
-                "Report is approved and locked. Void the approval before replacing.");
+                $"The report cannot be modified because {StatusReason(existing.Status)}.");
 
-        if (existing != null)
+        if (existing != null && existing.IsNoWork)
+            throw new InvalidOperationException(
+                "Cannot add files to a No Work report. Cancel the No Work entry first.");
+
+        SafetyWkRep report;
+
+        if (existing == null)
         {
-            // 기존 Draft/Reviewed/NoWork 레코드에 파일 교체
-            existing.FileName       = fileName;
-            existing.StoredFileName = storedFileName;
-            existing.Extension      = extension;
-            existing.FileSize       = fileSize;
-            existing.Status         = SafetyWkRepStatus.Draft;
-            existing.ReportDate     = reportDate;
+            // 신규 Staged 보고서 생성
+            report = BuildNewReport(projectId, monday);
+            report.ReportDate     = reportDate;
+            report.UploadedById   = userId;
+            report.UploadedByName = userName;
+            report.UploadedAt     = DateTime.UtcNow;
+            report.CreatedById    = userId;
+            _db.SafetyWkReps.Add(report);
+            await _db.SaveChangesAsync(); // ID 확보 후 파일 추가
+        }
+        else if (existing.Status == SafetyWkRepStatus.Voided)
+        {
+            // Voided → 재제출: Staged 로 초기화
+            existing.Status         = SafetyWkRepStatus.Staged;
             existing.UploadedById   = userId;
             existing.UploadedByName = userName;
             existing.UploadedAt     = DateTime.UtcNow;
-            // 기존 Review 정보 초기화 (파일이 바뀌었으므로)
-            existing.ReviewedById   = null;
-            existing.ReviewedByName = null;
-            existing.ReviewedAt     = null;
-            existing.ReviewNotes    = null;
             existing.UpdatedAt      = DateTime.UtcNow;
             existing.UpdatedById    = userId;
-            await _db.SaveChangesAsync();
-            return existing;
+            if (reportDate.HasValue)
+                existing.ReportDate = reportDate;
+            report = existing;
+        }
+        else
+        {
+            // 기존 Staged / Draft 에 파일 추가
+            report = existing;
+            if (reportDate.HasValue)
+            {
+                report.ReportDate  = reportDate;
+                report.UpdatedAt   = DateTime.UtcNow;
+                report.UpdatedById = userId;
+            }
         }
 
-        var report = BuildNewReport(projectId, monday);
-        report.FileName       = fileName;
-        report.StoredFileName = storedFileName;
-        report.Extension      = extension;
-        report.FileSize       = fileSize;
-        report.Status         = SafetyWkRepStatus.Draft;
-        report.ReportDate     = reportDate;
-        report.UploadedById   = userId;
-        report.UploadedByName = userName;
-        report.UploadedAt     = DateTime.UtcNow;
-        report.CreatedById    = userId;
-
-        _db.SafetyWkReps.Add(report);
+        var fileRecord = new SafetyWkRepFile
+        {
+            ReportId       = report.Id,
+            FileName       = fileName,
+            StoredFileName = storedFileName,
+            Extension      = extension,
+            FileSize       = fileSize,
+            UploadedById   = userId,
+            UploadedByName = userName,
+            UploadedAt     = DateTime.UtcNow,
+            CreatedAt      = DateTime.UtcNow,
+            UpdatedAt      = DateTime.UtcNow,
+            CreatedById    = userId,
+        };
+        _db.SafetyWkRepFiles.Add(fileRecord);
         await _db.SaveChangesAsync();
+
+        report.Files.Add(fileRecord);
         return report;
     }
 
-    public async Task<SafetyWkRep> ReplaceFileAsync(
-        int reportId,
-        string fileName, string storedFileName, string extension, long fileSize,
-        int userId, string userName)
+    public async Task<(SafetyWkRepFile File, string StoredFileName)> RemoveFileAsync(int fileId)
     {
-        var report = await _db.SafetyWkReps.FindAsync(reportId)
+        var file = await _db.SafetyWkRepFiles
+            .Include(f => f.Report)
+            .FirstOrDefaultAsync(f => f.Id == fileId && f.IsActive)
+            ?? throw new KeyNotFoundException($"File {fileId} not found.");
+
+        if (file.Report.IsLocked)
+            throw new InvalidOperationException(
+                $"Cannot remove files because {StatusReason(file.Report.Status)}.");
+
+        var storedName = file.StoredFileName;
+        _db.SafetyWkRepFiles.Remove(file);
+        await _db.SaveChangesAsync();
+        return (file, storedName);
+    }
+
+    public async Task<SafetyWkRep> SubmitReportAsync(
+        int reportId, DateOnly? reportDate, int userId, string userName)
+    {
+        var report = await _db.SafetyWkReps
+            .Include(r => r.Files)
+            .FirstOrDefaultAsync(r => r.Id == reportId && r.IsActive)
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
-        if (report.IsLocked)
+        if (report.Status != SafetyWkRepStatus.Staged)
             throw new InvalidOperationException(
-                "Report is approved and locked.");
+                $"The report cannot be submitted because {StatusReason(report.Status)}.");
 
-        report.FileName       = fileName;
-        report.StoredFileName = storedFileName;
-        report.Extension      = extension;
-        report.FileSize       = fileSize;
-        report.Status         = SafetyWkRepStatus.Draft;
-        report.UploadedById   = userId;
-        report.UploadedByName = userName;
-        report.UploadedAt     = DateTime.UtcNow;
-        // Review 초기화
-        report.ReviewedById   = null;
-        report.ReviewedByName = null;
-        report.ReviewedAt     = null;
-        report.ReviewNotes    = null;
-        report.UpdatedAt      = DateTime.UtcNow;
-        report.UpdatedById    = userId;
+        if (!report.Files.Any())
+            throw new InvalidOperationException(
+                "Cannot submit a report with no files. Please upload at least one file first.");
 
-        await _db.SaveChangesAsync();
+        report.Status      = SafetyWkRepStatus.Draft;
+        report.UpdatedAt   = DateTime.UtcNow;
+        report.UpdatedById = userId;
+
+        if (reportDate.HasValue)
+            report.ReportDate = reportDate;
+
+        await SaveWithConcurrencyCheckAsync(report);
         return report;
     }
 
@@ -405,6 +510,7 @@ public class SafetyWkRepService : ISafetyWkRepService
     {
         var monday = GetWeekMonday(weekStartDate);
         var existing = await _db.SafetyWkReps
+            .Include(r => r.Files)
             .FirstOrDefaultAsync(r => r.ProjectId == projectId
                                    && r.WeekStartDate == monday
                                    && r.IsActive);
@@ -414,11 +520,11 @@ public class SafetyWkRepService : ISafetyWkRepService
 
         if (existing != null)
         {
+            // Staged 파일이 있으면 DB에서 제거 (디스크 파일은 호출자가 처리)
+            if (existing.Files.Any())
+                _db.SafetyWkRepFiles.RemoveRange(existing.Files);
+
             existing.Status         = SafetyWkRepStatus.NoWork;
-            existing.FileName       = null;
-            existing.StoredFileName = null;
-            existing.Extension      = null;
-            existing.FileSize       = 0;
             existing.ReportDate     = reportDate;
             existing.UploadedById   = userId;
             existing.UploadedByName = userName;
@@ -447,23 +553,25 @@ public class SafetyWkRepService : ISafetyWkRepService
     }
 
     /// <summary>
-    /// 보고서를 삭제합니다 (Draft / Reviewed / NoWork 상태만 가능).
-    /// 반환값의 OldStoredFileName 이 non-null 이면 호출측에서 디스크 파일도 삭제해야 합니다.
+    /// 보고서를 삭제합니다 (Staged / Draft / NoWork / Voided 상태만 가능).
+    /// 반환된 StoredFileNames 으로 디스크 파일을 삭제하세요.
     /// </summary>
-    public async Task<(SafetyWkRep Report, string? OldStoredFileName)> DeleteReportAsync(
+    public async Task<(SafetyWkRep Report, IReadOnlyList<string> StoredFileNames)> DeleteReportAsync(
         int reportId)
     {
-        var report = await _db.SafetyWkReps.FindAsync(reportId)
+        var report = await _db.SafetyWkReps
+            .Include(r => r.Files)
+            .FirstOrDefaultAsync(r => r.Id == reportId && r.IsActive)
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
-        if (report.Status == SafetyWkRepStatus.Approved)
+        if (report.IsLocked)
             throw new InvalidOperationException(
-                "Approved reports cannot be deleted. Void the approval first.");
+                $"The report cannot be deleted because {StatusReason(report.Status)}. Void the approval first.");
 
-        var oldFile = report.StoredFileName;
+        var storedNames = report.Files.Select(f => f.StoredFileName).ToList();
         _db.SafetyWkReps.Remove(report);
         await _db.SaveChangesAsync();
-        return (report, oldFile);
+        return (report, storedNames);
     }
 
     public async Task<SafetyWkRep> ReviewReportAsync(
@@ -472,13 +580,11 @@ public class SafetyWkRepService : ISafetyWkRepService
         var report = await _db.SafetyWkReps.FindAsync(reportId)
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
-        if (report.Status is SafetyWkRepStatus.Approved or SafetyWkRepStatus.NoWorkApproved)
-            throw new InvalidOperationException("Cannot review an already approved report.");
+        // Review 는 Draft / NoWork 상태에서만 허용
+        if (report.Status is not (SafetyWkRepStatus.Draft or SafetyWkRepStatus.NoWork))
+            throw new InvalidOperationException(
+                $"The report cannot be reviewed because {StatusReason(report.Status)}.");
 
-        if (report.Status == SafetyWkRepStatus.Voided)
-            throw new InvalidOperationException("Cannot review a voided report.");
-
-        // NoWork → NoWorkReviewed, 나머지 → Reviewed
         report.Status = report.Status == SafetyWkRepStatus.NoWork
             ? SafetyWkRepStatus.NoWorkReviewed
             : SafetyWkRepStatus.Reviewed;
@@ -489,7 +595,7 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.UpdatedAt      = DateTime.UtcNow;
         report.UpdatedById    = userId;
 
-        await _db.SaveChangesAsync();
+        await SaveWithConcurrencyCheckAsync(report);
         return report;
     }
 
@@ -499,7 +605,8 @@ public class SafetyWkRepService : ISafetyWkRepService
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
         if (report.Status is not (SafetyWkRepStatus.Reviewed or SafetyWkRepStatus.NoWorkReviewed))
-            throw new InvalidOperationException("Report is not in Reviewed status.");
+            throw new InvalidOperationException(
+                $"The review cannot be cleared because {StatusReason(report.Status)}.");
 
         report.Status = report.Status == SafetyWkRepStatus.NoWorkReviewed
             ? SafetyWkRepStatus.NoWork
@@ -511,7 +618,7 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.UpdatedAt      = DateTime.UtcNow;
         report.UpdatedById    = userId;
 
-        await _db.SaveChangesAsync();
+        await SaveWithConcurrencyCheckAsync(report);
         return report;
     }
 
@@ -526,9 +633,8 @@ public class SafetyWkRepService : ISafetyWkRepService
                                or SafetyWkRepStatus.NoWork
                                or SafetyWkRepStatus.NoWorkReviewed))
             throw new InvalidOperationException(
-                $"Report cannot be approved. Current status: {report.Status}");
+                $"The report cannot be approved because {StatusReason(report.Status)}.");
 
-        // NoWork 계열 → NoWorkApproved, 나머지 → Approved
         report.Status = report.Status is SafetyWkRepStatus.NoWork or SafetyWkRepStatus.NoWorkReviewed
             ? SafetyWkRepStatus.NoWorkApproved
             : SafetyWkRepStatus.Approved;
@@ -540,7 +646,7 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.UpdatedAt      = DateTime.UtcNow;
         report.UpdatedById    = userId;
 
-        await _db.SaveChangesAsync();
+        await SaveWithConcurrencyCheckAsync(report);
         return report;
     }
 
@@ -551,7 +657,8 @@ public class SafetyWkRepService : ISafetyWkRepService
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
         if (report.Status is not (SafetyWkRepStatus.Approved or SafetyWkRepStatus.NoWorkApproved))
-            throw new InvalidOperationException("Report is not currently approved.");
+            throw new InvalidOperationException(
+                $"The report cannot be voided because {StatusReason(report.Status)}.");
 
         report.Status       = SafetyWkRepStatus.Voided;
         report.VoidedById   = userId;
@@ -561,7 +668,44 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.UpdatedAt    = DateTime.UtcNow;
         report.UpdatedById  = userId;
 
-        await _db.SaveChangesAsync();
+        await SaveWithConcurrencyCheckAsync(report);
+        return report;
+    }
+
+    public async Task<SafetyWkRep> UnvoidAsync(int reportId, int userId, string userName)
+    {
+        var report = await _db.SafetyWkReps
+            .Include(r => r.Files)
+            .FirstOrDefaultAsync(r => r.Id == reportId && r.IsActive)
+            ?? throw new KeyNotFoundException($"Report {reportId} not found.");
+
+        if (report.Status != SafetyWkRepStatus.Voided)
+            throw new InvalidOperationException(
+                $"The approval cannot be restored because {StatusReason(report.Status)}.");
+
+        // 파일 있으면 Draft 로 복원 (리뷰 플로우 재진입), 없으면 Staged
+        report.Status = report.Files.Any()
+            ? SafetyWkRepStatus.Draft
+            : SafetyWkRepStatus.Staged;
+
+        // Staged 복원 시 리뷰/승인 감사 필드 초기화 (이전 사이클 데이터 노출 방지)
+        if (report.Status == SafetyWkRepStatus.Staged)
+        {
+            report.ReviewedById   = null;
+            report.ReviewedByName = null;
+            report.ReviewedAt     = null;
+            report.ReviewNotes    = null;
+            report.ApprovedById   = null;
+            report.ApprovedByName = null;
+            report.ApprovedAt     = null;
+            report.ApprovalNotes  = null;
+        }
+
+        // Void 이력은 감사 목적으로 보존
+        report.UpdatedAt   = DateTime.UtcNow;
+        report.UpdatedById = userId;
+
+        await SaveWithConcurrencyCheckAsync(report);
         return report;
     }
 }

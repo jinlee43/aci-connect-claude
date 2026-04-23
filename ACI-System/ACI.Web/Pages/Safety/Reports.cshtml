@@ -5,6 +5,11 @@
 @{
     ViewData["Title"] = "Safety Reports";
     ViewData["ActiveMenu"] = "safety-reports";
+
+    // 이번 주 월요일 — 모델 프로퍼티 대신 뷰에서 직접 계산
+    var today    = DateOnly.FromDateTime(DateTime.Today);
+    int todayDiff = (7 + ((int)today.DayOfWeek - (int)DayOfWeek.Monday)) % 7;
+    var thisWeek = today.AddDays(-todayDiff);
 }
 
 @functions {
@@ -85,12 +90,13 @@
         <input type="date" class="form-control form-control-sm" style="width:160px;"
                name="to" id="filterTo" value="@Model.To" />
         <button type="submit" class="btn btn-sm btn-primary">
-            <i class="bi bi-funnel me-1"></i>Filter
+            <i class="bi bi-calendar-range me-1"></i>View
         </button>
         <div class="vr mx-1"></div>
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(12)">12w</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(16)">16w</button>
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(28)">28w</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setWeeks(52)">1yr</button>
         <div class="vr mx-1"></div>
         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setToday()">
             <i class="bi bi-calendar-check me-1"></i>Today
@@ -114,10 +120,10 @@
     function setWeeks(weeks) {
         var toVal = document.getElementById('filterTo').value;
         var toDate = toVal ? new Date(toVal + 'T00:00:00') : new Date();
-        var fromDate = new Date(toDate);
-        fromDate.setDate(fromDate.getDate() - (weeks * 7 - 1));
-        // snap From to its Monday
-        fromDate = getMonday(fromDate);
+        // To의 월요일을 기준점으로 삼아야 서버 계산과 일치
+        var toMonday = getMonday(toDate);
+        var fromDate = new Date(toMonday);
+        fromDate.setDate(fromDate.getDate() - (weeks - 1) * 7);
         document.getElementById('filterFrom').value = toDateInputValue(fromDate);
         document.getElementById('filterForm').submit();
     }
@@ -140,47 +146,28 @@
 
 <div class="p-3">
 
-    @* ── Summary stats ──────────────────────────────────────────────── *@
-    @{
-        var allReps = Model.Rows.SelectMany(r => r.WeekSlots.Values.Where(v => v != null)).ToList();
-        int missing = Model.Rows.Sum(row =>
-            row.WeekSlots.Count(kv => kv.Value == null && InRange(row, kv.Key)));
-    }
-    <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-            <div class="aci-stat-card">
-                <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-shield-check"></i></div>
-                <div>
-                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Approved or SafetyWkRepStatus.NoWorkApproved)</div>
-                    <div class="stat-label">Approved</div>
-                </div>
+    @* ── Summary stats (전체 누적 기준) ─────────────────────────────── *@
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#fff7ed,#ffedd5); border:1px solid #fed7aa; min-width:120px;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#f97316,#ea580c);">
+                <i class="bi bi-clock-history text-white" style="font-size:.85rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#9a3412;">@(ViewData["TotalPending"] ?? 0)</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#c2410c;letter-spacing:.05em;">Pending</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
-            <div class="aci-stat-card">
-                <div class="stat-icon bg-info bg-opacity-10 text-info"><i class="bi bi-eye"></i></div>
-                <div>
-                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Reviewed or SafetyWkRepStatus.NoWorkReviewed)</div>
-                    <div class="stat-label">Reviewed</div>
-                </div>
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#fff1f2,#ffe4e6); border:1px solid #fecdd3; min-width:120px;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#f43f5e,#e11d48);">
+                <i class="bi bi-file-earmark-x text-white" style="font-size:.85rem;"></i>
             </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="aci-stat-card">
-                <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><i class="bi bi-file-earmark"></i></div>
-                <div>
-                    <div class="stat-value">@allReps.Count(r => r!.Status is SafetyWkRepStatus.Draft or SafetyWkRepStatus.NoWork)</div>
-                    <div class="stat-label">Pending</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="aci-stat-card">
-                <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-circle"></i></div>
-                <div>
-                    <div class="stat-value">@missing</div>
-                    <div class="stat-label">Missing</div>
-                </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#9f1239;">@(ViewData["TotalMissing"] ?? 0)</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#be123c;letter-spacing:.05em;">Missing</div>
             </div>
         </div>
     </div>
@@ -251,12 +238,25 @@
                                     {
                                         @if (inRange)
                                         {
-                                            // Missing — 빨간 X, 클릭 시 상세 페이지 (신규 업로드)
-                                            <a class="rep-cell-link"
-                                               href="/Safety/Report?projectId=@row.ProjectId&weekStart=@week.ToString("yyyy-MM-dd")&from=@Model.From&to=@Model.To"
-                                               title="Missing — click to submit">
-                                                <i class="bi bi-x-circle-fill text-danger"></i>
-                                            </a>
+                                            var isThisWeek = week == thisWeek;
+                                            if (isThisWeek)
+                                            {
+                                                // 이번 주 — 아직 제출 기한 아님, 업로드 아이콘
+                                                <a class="rep-cell-link"
+                                                   href="/Safety/Report?projectId=@row.ProjectId&weekStart=@week.ToString("yyyy-MM-dd")&from=@Model.From&to=@Model.To"
+                                                   title="This week — click to submit">
+                                                    <i class="bi bi-upload text-secondary"></i>
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                // 과거 주 Missing — 빨간 X
+                                                <a class="rep-cell-link"
+                                                   href="/Safety/Report?projectId=@row.ProjectId&weekStart=@week.ToString("yyyy-MM-dd")&from=@Model.From&to=@Model.To"
+                                                   title="Missing — click to submit">
+                                                    <i class="bi bi-x-circle-fill text-danger"></i>
+                                                </a>
+                                            }
                                         }
                                         @* 기간 외 — 아무것도 표시 안 함 *@
                                     }

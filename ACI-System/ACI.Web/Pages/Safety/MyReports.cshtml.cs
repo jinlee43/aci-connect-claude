@@ -169,13 +169,14 @@ public class MyReportsModel : PageModel
 
         try
         {
-            var (deleted, oldFile) = await _svc.DeleteReportAsync(reportId);
-            if (!string.IsNullOrEmpty(oldFile))
+            var (deleted, storedNames) = await _svc.DeleteReportAsync(reportId);
+            var halfYear = deleted.WeekStartDate.Month <= 6 ? "A" : "B";
+            var uploadDir = Path.Combine(
+                _storage.FileItemRoot, "SafetyMgmt", "SafetyWkRepFiles",
+                $"{deleted.WeekStartDate.Year}{halfYear}");
+            foreach (var storedName in storedNames)
             {
-                var halfYear = deleted.WeekStartDate.Month <= 6 ? "A" : "B";
-                var filePath = Path.Combine(
-                    _storage.FileItemRoot, "SafetyMgmt", "SafetyWkRepFiles",
-                    $"{deleted.WeekStartDate.Year}{halfYear}", oldFile);
+                var filePath = Path.Combine(uploadDir, storedName);
                 if (System.IO.File.Exists(filePath))
                     try { System.IO.File.Delete(filePath); }
                     catch (Exception ex) { _logger.LogWarning(ex, "Could not delete safety file {Path}", filePath); }

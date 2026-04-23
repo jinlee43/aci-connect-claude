@@ -17,7 +17,20 @@
                     && Model.Report != null
                     && Model.Report.Status is SafetyWkRepStatus.Reviewed
                                           or SafetyWkRepStatus.NoWorkReviewed;
-    bool showVoid    = Model.CanApprove && isReadOnly && Model.Report != null;
+    bool showVoid    = Model.CanVoid && isReadOnly && Model.Report != null;
+    bool showUnvoid  = Model.CanVoid && Model.Report?.Status == SafetyWkRepStatus.Voided;
+
+    // 파일 업로드/추가 가능 상태: Missing, Staged, Draft, Voided
+    bool showUploadSection = Model.CanUpload && !isReadOnly
+        && (Model.Report == null
+            || Model.Report.Status is SafetyWkRepStatus.Staged
+                                   or SafetyWkRepStatus.Draft
+                                   or SafetyWkRepStatus.Voided);
+
+    // Submit 버튼: Staged + 파일 1개 이상
+    bool showSubmit = Model.CanUpload
+                   && Model.Report?.Status == SafetyWkRepStatus.Staged
+                   && Model.Report?.HasFile == true;
 
     string backUrl = $"/Safety/Reports?from={Model.From}&to={Model.To}";
 }
@@ -57,8 +70,8 @@
         <div class="col-lg-7">
 
             @* ── 프로젝트 / 주간 정보 ─────────────────────────────────── *@
-            <div class="aci-card mb-3">
-                <div class="card-body p-4">
+            <div class="aci-card mb-2">
+                <div class="card-body p-4 pb-1">
                     <div class="d-flex justify-content-between align-items-start">
                         <div>
                             <div class="fw-bold fs-5">@Model.Project?.ProjectCode</div>
@@ -70,7 +83,8 @@
                             {
                                 var (css, label) = Model.Report.Status switch
                                 {
-                                    SafetyWkRepStatus.Draft          => ("bg-secondary",          "Submitted"),
+                                    SafetyWkRepStatus.Staged         => ("bg-secondary",          "Staged"),
+                                    SafetyWkRepStatus.Draft          => ("bg-primary",             "Submitted"),
                                     SafetyWkRepStatus.Reviewed       => ("bg-info text-dark",      "Reviewed"),
                                     SafetyWkRepStatus.Approved       => ("bg-success",             "Approved"),
                                     SafetyWkRepStatus.NoWork         => ("bg-warning text-dark",   "No Work"),
@@ -91,45 +105,51 @@
             </div>
 
             @* ── 보고서 내용 ───────────────────────────────────────────── *@
-            <div class="aci-card mb-3">
-                <div class="card-body p-4">
-                    <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Report</h6>
+            <div class="aci-card mb-2">
+                <div class="card-body p-4 pb-1">
+                    <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Weekly Safety Report</h6>
 
                     @{
                         var defaultDateStr = Model.DefaultReportDate != default
                             ? Model.DefaultReportDate.ToString("yyyy-MM-dd")
                             : "";
+                        var defaultDayName = Model.Settings?.DefaultSubmitDay.ToString() ?? "Friday";
                     }
+
                     @if (Model.Report == null)
                     {
-                        @* ── 신규: 파일 업로드 또는 No Work ─────────────────── *@
+                        @* ── Missing: 신규 파일 업로드 또는 No Work ─────── *@
                         @if (Model.CanUpload)
                         {
                             <div class="mb-4">
                                 <div class="mb-3">
                                     <label class="form-label fw-semibold">Report Date</label>
-                                    <input type="date" id="u-report-date" class="form-control"
-                                           style="max-width:200px;" value="@defaultDateStr" />
-                                    <div class="form-text">Default: @(Model.Settings?.DefaultSubmitDay.ToString() ?? "Friday") of the report week</div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <input type="date" id="u-report-date" class="form-control"
+                                               style="max-width:200px;" value="@defaultDateStr" />
+                                        <span class="text-muted small">
+                                            <i class="bi bi-calendar3 me-1"></i>Default: @defaultDayName of the report week
+                                        </span>
+                                    </div>
                                 </div>
-                                <label class="form-label fw-semibold">Upload Report File</label>
-                                <input type="file" id="u-file" class="form-control"
-                                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
-                                <div class="form-text">PDF, JPG, PNG, Word, Excel (max 30 MB)</div>
+                                <label class="form-label fw-semibold">Upload Report Files</label>
+                                <input type="file" id="u-file" class="form-control" multiple />
+                                <div class="form-text">Max 2,000 MB per file. Multiple files allowed.</div>
                                 <div id="u-error" class="alert alert-danger mt-2 d-none"></div>
-                                <div id="u-progress" class="progress mt-2 d-none" style="height:6px;">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
-                                </div>
                                 <button id="u-btn" type="button" class="btn btn-primary mt-2">
-                                    <i class="bi bi-upload me-1"></i>Upload &amp; Submit
+                                    <i class="bi bi-upload me-1"></i>Upload Files
                                 </button>
+                                <p class="text-muted small mt-2 mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    After uploading, click <strong>Submit for Review</strong> to start the review process.
+                                </p>
                             </div>
                         }
 
                         @if (Model.CanMarkNoWork)
                         {
                             <hr class="my-3" />
-                            <form method="post" asp-page-handler="MarkNoWork">
+                            <form id="frm-mark-nowork" method="post" asp-page-handler="MarkNoWork">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="projectId"  value="@Model.ProjectId" />
                                 <input type="hidden" name="weekStart"  value="@Model.WeekStart" />
@@ -143,8 +163,8 @@
                                                style="width:170px;" value="@defaultDateStr" />
                                     </div>
                                     <div class="mt-3">
-                                        <button type="submit" class="btn btn-outline-warning btn-sm"
-                                                onclick="return confirm('Mark this week as No Work?')">
+                                        <button type="button" class="btn btn-warning"
+                                                onclick="confirmAction('frm-mark-nowork', 'Mark as No Work', 'Mark this week as No Work? No report file will be required.')">
                                             <i class="bi bi-dash-circle me-1"></i>Mark as No Work
                                         </button>
                                     </div>
@@ -184,128 +204,276 @@
                                 on @Model.Report.UploadedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
                             </div>
                         }
+                        @if (!Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork) && !showReview)
+                        {
+                            <div class="mt-3">
+                                <form id="frm-cancel-nowork-solo" method="post" asp-page-handler="Delete">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId" value="@Model.Report.Id" />
+                                    <input type="hidden" name="from"     value="@Model.From" />
+                                    <input type="hidden" name="to"       value="@Model.To" />
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            onclick="confirmAction('frm-cancel-nowork-solo', 'Cancel No Work', 'Cancel this No Work entry? The week will return to missing status.')">
+                                        <i class="bi bi-x-circle me-1"></i>Cancel No Work
+                                    </button>
+                                </form>
+                            </div>
+                        }
                     }
                     else
                     {
-                        @* ── 파일 업로드된 보고서 ──────────────────────────── *@
-                        @if (Model.Report.HasFile)
+                        @* ── Staged / Draft / Reviewed / Approved / Voided ── *@
+
+                        @* 파일 목록 *@
+                        @if (Model.Report.Files.Any())
                         {
-                            <div class="d-flex align-items-center gap-3 mb-3 p-3 rounded"
-                                 style="background:#f8fafc; border:1px solid #e5e9f0;">
-                                <i class="bi bi-file-earmark-text fs-3 text-primary"></i>
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <div class="fw-semibold text-truncate">@Model.Report.FileName</div>
-                                    <div class="text-muted small">
-                                        @(Model.Report.FileSize > 0
-                                            ? $"{Model.Report.FileSize / 1024.0:F1} KB"
-                                            : "")
-                                        @if (Model.Report.ReportDate.HasValue)
-                                        {
-                                            <span> · <i class="bi bi-calendar3 me-1"></i>@Model.Report.ReportDate.Value.ToString("MMM d, yyyy")</span>
-                                        }
-                                        @if (Model.Report.UploadedAt.HasValue)
-                                        {
-                                            <span> · Uploaded by @Model.Report.UploadedByName
-                                                on @Model.Report.UploadedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span>
-                                        }
+                            <div class="mb-3">
+                                <div class="fw-semibold small text-muted mb-2">
+                                    @Model.Report.Files.Count file(s) attached
+                                </div>
+                                @foreach (var f in Model.Report.Files.OrderBy(f => f.UploadedAt))
+                                {
+                                    <div class="d-flex align-items-center gap-2 mb-2 p-2 rounded"
+                                         style="background:#f8fafc; border:1px solid #e5e9f0;"
+                                         id="file-row-@f.Id">
+                                        <i class="bi bi-file-earmark-text text-primary flex-shrink-0"></i>
+                                        <div class="flex-grow-1 overflow-hidden small">
+                                            <div class="fw-semibold text-truncate">@f.FileName</div>
+                                            <div class="text-muted" style="font-size:0.75rem;">
+                                                @(f.FileSize > 0 ? $"{f.FileSize / 1024.0 / 1024.0:F1} MB" : "")
+                                                @if (f.UploadedAt.HasValue)
+                                                {
+                                                    <span> · @f.UploadedByName · @f.UploadedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="d-flex gap-1 flex-shrink-0">
+                                            <a href="/api/safety-reports/files/@f.Id?inline=true"
+                                               target="_blank" class="btn btn-outline-secondary btn-sm" title="Preview">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="/api/safety-reports/files/@f.Id"
+                                               class="btn btn-outline-secondary btn-sm" title="Download">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                            @if (!isReadOnly && Model.CanUpload
+                                                 && Model.Report.Status is not SafetyWkRepStatus.Reviewed
+                                                                        and not SafetyWkRepStatus.NoWorkReviewed)
+                                            {
+                                                <button type="button"
+                                                        class="btn btn-outline-danger btn-sm"
+                                                        title="Remove file"
+                                                        onclick="deleteFile(@f.Id, 'file-row-@f.Id')">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="d-flex gap-1">
-                                    <a href="/api/safety-reports/@Model.Report.Id/file?inline=true"
-                                       target="_blank" class="btn btn-outline-secondary btn-sm" title="Preview">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="/api/safety-reports/@Model.Report.Id/file"
-                                       class="btn btn-outline-secondary btn-sm" title="Download">
-                                        <i class="bi bi-download"></i>
-                                    </a>
-                                </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-3">No files attached yet.</p>
+                        }
+
+                        @if (Model.Report.ReportDate.HasValue)
+                        {
+                            <div class="text-muted small mb-3">
+                                <i class="bi bi-calendar3 me-1"></i>Report Date:
+                                <strong>@Model.Report.ReportDate.Value.ToString("MMM d, yyyy")</strong>
                             </div>
                         }
 
-                        @* 파일 교체 (잠금 전 + 업로드 권한 있음) *@
-                        @if (!isReadOnly && Model.CanUpload && Model.Report.Status == SafetyWkRepStatus.Draft)
+                        @* ── 파일 추가 업로드 섹션 ──────────────────────────── *@
+                        @if (showUploadSection)
                         {
-                            <div class="mb-2 mt-3 pt-3 border-top">
-                                <label class="form-label fw-semibold small">Replace File</label>
+                            var sectionLabel = Model.Report.Status == SafetyWkRepStatus.Staged
+                                ? "Add Files" : "Add More Files";
+                            var uploadNote = Model.Report.Status == SafetyWkRepStatus.Voided
+                                ? "Adding a file will reset this report to Staged status and restart the review process."
+                                : "";
+                            <div class="mb-3 pt-3 border-top">
+                                <label class="form-label fw-semibold small">@sectionLabel</label>
+                                @if (!string.IsNullOrEmpty(uploadNote))
+                                {
+                                    <p class="text-muted small mb-2">@uploadNote</p>
+                                }
                                 <div class="mb-2">
                                     <label class="form-label small mb-1">Report Date</label>
                                     <input type="date" id="u-report-date" class="form-control form-control-sm"
                                            style="max-width:180px;"
                                            value="@(Model.Report.ReportDate?.ToString("yyyy-MM-dd") ?? defaultDateStr)" />
                                 </div>
-                                <input type="file" id="u-file" class="form-control form-control-sm"
-                                       accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />
+                                <input type="file" id="u-file" class="form-control form-control-sm" multiple />
+                                <div class="form-text">Max 2,000 MB per file.</div>
                                 <div id="u-error" class="alert alert-danger mt-2 d-none"></div>
-                                <div id="u-progress" class="progress mt-2 d-none" style="height:4px;">
-                                    <div class="progress-bar progress-bar-striped progress-bar-animated w-100"></div>
-                                </div>
                                 <button id="u-btn" type="button" class="btn btn-sm btn-outline-primary mt-2">
-                                    <i class="bi bi-arrow-repeat me-1"></i>Replace
+                                    <i class="bi bi-upload me-1"></i>Upload
                                 </button>
+                            </div>
+                        }
+
+                        @* ── Submit / Cancel 버튼 행 ────────────────────────── *@
+                        @if (showSubmit)
+                        {
+                            <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <form id="frm-delete-staged" method="post" asp-page-handler="Delete" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId" value="@Model.Report.Id" />
+                                    <input type="hidden" name="from"     value="@Model.From" />
+                                    <input type="hidden" name="to"       value="@Model.To" />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="confirmAction('frm-delete-staged', 'Discard Report', 'Discard all uploaded files and cancel this report?')">
+                                        <i class="bi bi-x-circle me-1"></i>Discard
+                                    </button>
+                                </form>
+
+                                <form id="frm-submit" method="post" asp-page-handler="Submit">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId"   value="@Model.Report.Id" />
+                                    <input type="hidden" name="reportDate" id="submit-report-date"
+                                           value="@(Model.Report.ReportDate?.ToString("yyyy-MM-dd") ?? defaultDateStr)" />
+                                    <input type="hidden" name="from" value="@Model.From" />
+                                    <input type="hidden" name="to"   value="@Model.To" />
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-send me-1"></i>Submit for Review
+                                    </button>
+                                </form>
+                            </div>
+                        }
+                        else if (!isReadOnly && (Model.CanUpload || Model.CanMarkNoWork)
+                                 && Model.Report.Status is SafetyWkRepStatus.Draft)
+                        {
+                            @* Draft 상태: 파일만 있고 submit 불필요 → delete 버튼 *@
+                            <div class="mt-3 pt-3 border-top">
+                                <form id="frm-delete-draft" method="post" asp-page-handler="Delete" class="d-inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId" value="@Model.Report.Id" />
+                                    <input type="hidden" name="from"     value="@Model.From" />
+                                    <input type="hidden" name="to"       value="@Model.To" />
+                                    <button type="button" class="btn btn-outline-danger btn-sm"
+                                            onclick="confirmAction('frm-delete-draft', 'Delete Report', 'Delete this report? The week will return to missing status.')">
+                                        <i class="bi bi-trash me-1"></i>Delete Report
+                                    </button>
+                                </form>
                             </div>
                         }
                     }
                 </div>
             </div>
 
-            @* ── 검토 정보 ─────────────────────────────────────────────── *@
-            @if (Model.Report?.ReviewedAt.HasValue == true)
+            @* ── 검토 정보 — Reviewed 이상 상태일 때만 표시 ──────────────── *@
+            @if (Model.Report?.ReviewedAt.HasValue == true
+              && Model.Report.Status is SafetyWkRepStatus.Reviewed
+                                     or SafetyWkRepStatus.NoWorkReviewed
+                                     or SafetyWkRepStatus.Approved
+                                     or SafetyWkRepStatus.NoWorkApproved
+                                     or SafetyWkRepStatus.Voided)
             {
-                <div class="aci-card mb-3">
-                    <div class="card-body p-4">
-                        <h6 class="fw-semibold mb-2 text-muted text-uppercase small">Review</h6>
+                <div class="aci-card mb-2">
+                    <div class="card-body px-4 py-2">
+                        <h6 class="fw-semibold mb-1 text-muted text-uppercase small">Review</h6>
                         <div class="text-muted small">
                             Reviewed by <strong>@Model.Report.ReviewedByName</strong>
                             on @Model.Report.ReviewedAt!.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
                         </div>
                         @if (!string.IsNullOrWhiteSpace(Model.Report.ReviewNotes))
                         {
-                            <div class="mt-2 p-2 rounded" style="background:#f8fafc;">@Model.Report.ReviewNotes</div>
+                            <div class="mt-1 p-2 rounded" style="background:#f8fafc;">@Model.Report.ReviewNotes</div>
                         }
                     </div>
                 </div>
             }
 
-            @* ── 승인 정보 ─────────────────────────────────────────────── *@
-            @if (Model.Report?.ApprovedAt.HasValue == true)
+            @* ── 승인 정보 — Approved 이상 상태일 때만 표시 ──────────────── *@
+            @if (Model.Report?.ApprovedAt.HasValue == true
+              && Model.Report.Status is SafetyWkRepStatus.Approved
+                                     or SafetyWkRepStatus.NoWorkApproved
+                                     or SafetyWkRepStatus.Voided)
             {
-                <div class="aci-card mb-3">
-                    <div class="card-body p-4">
-                        <h6 class="fw-semibold mb-2 text-muted text-uppercase small">Approval</h6>
+                <div class="aci-card mb-2">
+                    <div class="card-body px-4 py-2">
+                        <h6 class="fw-semibold mb-1 text-muted text-uppercase small">Approval</h6>
                         <div class="text-muted small">
                             Approved by <strong>@Model.Report.ApprovedByName</strong>
                             on @Model.Report.ApprovedAt!.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
                         </div>
                         @if (!string.IsNullOrWhiteSpace(Model.Report.ApprovalNotes))
                         {
-                            <div class="mt-2 p-2 rounded" style="background:#f8fafc;">@Model.Report.ApprovalNotes</div>
+                            <div class="mt-1 p-2 rounded" style="background:#f8fafc;">@Model.Report.ApprovalNotes</div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @* ── Void 이력 ─────────────────────────────────────────────── *@
+            @if (Model.Report?.VoidedAt.HasValue == true && Model.Report.Status == SafetyWkRepStatus.Voided)
+            {
+                <div class="aci-card mb-2 border-danger">
+                    <div class="card-body p-4">
+                        <h6 class="fw-semibold mb-2 text-danger text-uppercase small">
+                            <i class="bi bi-x-circle me-1"></i>Void Record
+                        </h6>
+                        <div class="text-muted small">
+                            Voided by <strong>@Model.Report.VoidedByName</strong>
+                            on @Model.Report.VoidedAt!.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(Model.Report.VoidReason))
+                        {
+                            <div class="mt-2 p-2 rounded border-start border-danger border-3 ps-3"
+                                 style="background:#fff5f5;">@Model.Report.VoidReason</div>
                         }
                     </div>
                 </div>
             }
 
             @* ── 액션 버튼 ─────────────────────────────────────────────── *@
-            @if (showReview || showApprove || showVoid)
+            @if (showReview || showApprove || showVoid || showUnvoid)
             {
-                <div class="aci-card mb-3">
+                <div class="aci-card mb-2">
                     <div class="card-body p-4">
                         <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Actions</h6>
 
                         @if (showReview)
                         {
-                            <form method="post" asp-page-handler="Review" class="mb-3">
+                            <form id="frm-review" method="post" asp-page-handler="Review">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                 <input type="hidden" name="from" value="@Model.From" />
                                 <input type="hidden" name="to"   value="@Model.To" />
                                 <label class="form-label fw-semibold">Review Notes <span class="text-muted fw-normal">(optional)</span></label>
-                                <textarea class="form-control mb-2" name="notes" rows="2"
+                                <textarea class="form-control mb-3" name="notes" rows="2"
                                           placeholder="Add review notes…"></textarea>
-                                <button type="submit" class="btn btn-info text-white">
+                            </form>
+
+                            @if (Model.Report!.IsNoWork && !Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork))
+                            {
+                                <form id="frm-cancel-nowork" method="post" asp-page-handler="Delete">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId" value="@Model.Report!.Id" />
+                                    <input type="hidden" name="from"     value="@Model.From" />
+                                    <input type="hidden" name="to"       value="@Model.To" />
+                                </form>
+                            }
+
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                @if (Model.Report!.IsNoWork && !Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork))
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-danger"
+                                            onclick="confirmAction('frm-cancel-nowork', 'Cancel No Work', 'Cancel this No Work entry? The week will return to missing status.')">
+                                        <i class="bi bi-x-circle me-1"></i>Cancel No Work
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div></div>
+                                }
+                                <button type="submit" form="frm-review" class="btn btn-info text-white">
                                     <i class="bi bi-check2 me-1"></i>Mark as Reviewed
                                 </button>
-                            </form>
+                            </div>
                         }
 
                         @if (showApprove)
@@ -343,6 +511,24 @@
                                 </button>
                             </form>
                         }
+
+                        @if (showUnvoid)
+                        {
+                            <form id="frm-unvoid" method="post" asp-page-handler="Unvoid">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="reportId" value="@Model.Report!.Id" />
+                                <input type="hidden" name="from" value="@Model.From" />
+                                <input type="hidden" name="to"   value="@Model.To" />
+                            </form>
+                            <div class="alert alert-warning d-flex gap-2 py-2 mb-2">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>Restoring the approval will revert this report back to <strong>Approved</strong> status.</span>
+                            </div>
+                            <button type="button" class="btn btn-warning btn-sm"
+                                    onclick="confirmAction('frm-unvoid', 'Restore Approval', 'Cancel the void and restore this report to Approved status?')">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Restore Approval
+                            </button>
+                        }
                     </div>
                 </div>
             }
@@ -351,52 +537,126 @@
     </div>
 </div>
 
+@* ── 업로드 진행 모달 ──────────────────────────────────────────────── *@
+<div class="modal fade" id="uploadingModal" tabindex="-1" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body py-4 text-center">
+                <div class="mb-3">
+                    <div class="spinner-border text-primary" style="width:3rem;height:3rem;" role="status">
+                        <span class="visually-hidden">Uploading…</span>
+                    </div>
+                </div>
+                <h5 class="fw-semibold mb-1">Uploading Files</h5>
+                <p class="text-muted mb-3 small">Please wait while the files are being uploaded.<br>Do not close or refresh this page.</p>
+                <div class="progress" style="height:8px;">
+                    <div id="upload-modal-bar" class="progress-bar progress-bar-striped progress-bar-animated"
+                         style="width:100%"></div>
+                </div>
+                <div id="upload-modal-info" class="text-muted small mt-2"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 @{
-    var pid     = Model.ProjectId ?? Model.Report?.ProjectId ?? 0;
-    var wkStr   = Model.WeekStart ?? Model.Report?.WeekStartDate.ToString("yyyy-MM-dd") ?? "";
-    var repId   = Model.Report?.Id ?? 0;
-    var isReplace = Model.Report != null;
+    var pid   = Model.ProjectId ?? Model.Report?.ProjectId ?? 0;
+    var wkStr = Model.WeekStart ?? Model.Report?.WeekStartDate.ToString("yyyy-MM-dd") ?? "";
+    var repId = Model.Report?.Id ?? 0;
 }
-const _pid = @pid, _wk = '@wkStr', _repId = @repId, _isReplace = @(isReplace ? "true" : "false");
+const _pid = @pid, _wk = '@wkStr', _repId = @repId;
 
-const uBtn  = document.getElementById('u-btn');
+const uBtn = document.getElementById('u-btn');
+const _uploadingModal = new bootstrap.Modal(document.getElementById('uploadingModal'));
+
 if (uBtn) {
     uBtn.addEventListener('click', async () => {
         const fi = document.getElementById('u-file');
-        if (!fi || !fi.files.length) { showErr('Please select a file.'); return; }
+        if (!fi || !fi.files.length) { showErr('Please select at least one file.'); return; }
 
-        const fd = new FormData();
-        fd.append('file', fi.files[0]);
-        fd.append('projectId',     _pid);
-        fd.append('weekStartDate', _wk);
-
-        const rdEl = document.getElementById('u-report-date');
-        if (rdEl?.value) fd.append('reportDate', rdEl.value);
+        const files = Array.from(fi.files);
+        const rdEl  = document.getElementById('u-report-date');
+        const reportDate = rdEl?.value ?? '';
 
         document.getElementById('u-error')?.classList.add('d-none');
-        document.getElementById('u-progress')?.classList.remove('d-none');
         uBtn.disabled = true;
 
-        try {
-            const res = await fetch('/api/safety-reports/upload', {
-                method: 'POST',
-                headers: { 'RequestVerificationToken': getToken() },
-                body: fd
-            });
-            if (res.ok) {
-                const data = await res.json();
-                window.location.href = `/Safety/Report?reportId=${data.reportId}&from=@Model.From&to=@Model.To`;
-            } else {
-                showErr(await res.text() || 'Upload failed.');
+        let currentReportId = _repId;
+        let uploadedCount   = 0;
+
+        for (let i = 0; i < files.length; i++) {
+            const file   = files[i];
+            const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+            const infoEl = document.getElementById('upload-modal-info');
+            if (infoEl) infoEl.textContent = `Uploading file ${i + 1} of ${files.length}: ${file.name} (${sizeMb} MB)`;
+
+            if (i === 0) _uploadingModal.show();
+
+            const fd = new FormData();
+            fd.append('file',          file);
+            fd.append('projectId',     _pid);
+            fd.append('weekStartDate', _wk);
+            if (reportDate) fd.append('reportDate', reportDate);
+
+            try {
+                const res = await fetch('/api/safety-reports/upload', {
+                    method: 'POST',
+                    headers: { 'RequestVerificationToken': getToken() },
+                    body: fd
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    currentReportId = data.reportId;
+                    uploadedCount++;
+
+                    // report-date hidden field 업데이트 (submit 폼용)
+                    const submitRdEl = document.getElementById('submit-report-date');
+                    if (submitRdEl && reportDate) submitRdEl.value = reportDate;
+                } else {
+                    _uploadingModal.hide();
+                    showErr(`Failed to upload "${file.name}": ${await res.text()}`);
+                    uBtn.disabled = false;
+                    if (uploadedCount > 0) {
+                        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
+                    }
+                    return;
+                }
+            } catch (e) {
+                _uploadingModal.hide();
+                showErr('Network error: ' + e.message);
+                uBtn.disabled = false;
+                if (uploadedCount > 0) {
+                    window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
+                }
+                return;
             }
-        } catch (e) { showErr('Network error: ' + e.message); }
-        finally {
-            document.getElementById('u-progress')?.classList.add('d-none');
-            uBtn.disabled = false;
         }
+
+        // 전체 업로드 완료 → 페이지 새로고침
+        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
     });
+}
+
+async function deleteFile(fileId, rowId) {
+    if (!confirm('Remove this file?')) return;
+
+    try {
+        const res = await fetch(`/api/safety-reports/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'RequestVerificationToken': getToken() }
+        });
+        if (res.ok) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+        } else {
+            alert('Failed to remove file: ' + await res.text());
+        }
+    } catch (e) {
+        alert('Network error: ' + e.message);
+    }
 }
 
 function showErr(msg) {

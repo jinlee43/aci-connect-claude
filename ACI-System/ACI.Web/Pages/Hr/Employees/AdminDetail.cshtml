@@ -143,8 +143,9 @@
                                 }
                                 <form method="post" asp-page-handler="DeleteRole"
                                       asp-route-id="@Model.Emp.Id" asp-route-roleId="@role.Id"
-                                      onsubmit="return confirm('Remove this role?')">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                      id="frm-delete-role-@role.Id">
+                                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                            onclick="confirmAction('frm-delete-role-@role.Id', 'Remove Role', 'Remove this role?')">
                                         <i class="bi bi-trash" style="font-size:0.7rem"></i>
                                     </button>
                                 </form>
@@ -321,9 +322,10 @@
                             {
                                 <div class="col-auto">
                                     <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
-                                          onsubmit="return confirm('Clear SSN?')" class="d-inline">
+                                          class="d-inline" id="frm-clear-ssn">
                                         <input type="hidden" name="field" value="ssn" />
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                onclick="confirmAction('frm-clear-ssn', 'Clear SSN', 'Clear SSN?')">
                                             <i class="bi bi-trash" style="font-size:0.75rem"></i>
                                         </button>
                                     </form>
@@ -347,9 +349,10 @@
                             {
                                 <div class="col-auto">
                                     <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
-                                          onsubmit="return confirm('Clear TIN?')" class="d-inline">
+                                          class="d-inline" id="frm-clear-tin">
                                         <input type="hidden" name="field" value="tin" />
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
+                                                onclick="confirmAction('frm-clear-tin', 'Clear TIN', 'Clear TIN?')">
                                             <i class="bi bi-trash" style="font-size:0.75rem"></i>
                                         </button>
                                     </form>

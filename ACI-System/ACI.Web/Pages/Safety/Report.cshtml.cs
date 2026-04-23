@@ -16,12 +16,13 @@ namespace ACI.Web.Pages.Safety;
 ///   기존: /Safety/Report?reportId=X
 ///
 /// 상태별 동작:
-///   없음(Missing)     → 파일 업로드 + No Work 버튼
-///   Draft(파일 있음)  → 파일 정보 표시 + [검토완료] (PM/SPM)
-///   NoWork            → No Work 표시 + [검토완료] (PM/SPM)
-///   Reviewed          → 파일/NoWork 정보 + [승인] (SafetyManager/Admin)
-///   NoWorkReviewed    → No Work + [승인] (SafetyManager/Admin)
+///   없음(Missing)     → 파일 업로드 or No Work
+///   Staged(파일 있음) → 파일 목록 + 추가 업로드 + Submit 버튼
+///   Draft             → 파일 목록 + 추가 업로드 + [Mark as Reviewed] (PM/SPM)
+///   NoWork            → No Work 표시 + [Mark as Reviewed] (PM/SPM)
+///   Reviewed / NoWorkReviewed → 읽기전용(업로드 잠금) + [Approve] (SafetyManager/SafetyAdmin)
 ///   Approved / NoWorkApproved → 읽기 전용
+///   Voided            → 파일 목록 + 추가 업로드 → Staged 로 전환 후 재제출
 /// </summary>
 [Authorize]
 public class ReportModel : PageModel
@@ -40,7 +41,6 @@ public class ReportModel : PageModel
     [BindProperty(SupportsGet = true)] public int?    ProjectId { get; set; }
     [BindProperty(SupportsGet = true)] public string? WeekStart { get; set; }
 
-    // 돌아갈 그리드 필터 파라미터
     [BindProperty(SupportsGet = true)] public string? From { get; set; }
     [BindProperty(SupportsGet = true)] public string? To   { get; set; }
 
@@ -50,14 +50,14 @@ public class ReportModel : PageModel
     public DateOnly             Week     { get; set; }
     public SafetyWkRepSettings? Settings { get; set; }
 
-    /// <summary>해당 주의 기본 보고 날짜 (DefaultSubmitDay 기준)</summary>
     public DateOnly DefaultReportDate { get; set; }
 
-    public bool IsNew        => ReportId is null or 0;
-    public bool CanUpload    { get; set; }   // 파일 업로드 가능
-    public bool CanMarkNoWork{ get; set; }   // No Work 마킹 가능
-    public bool CanReview    { get; set; }   // 검토 완료 가능 (PM/SPM)
-    public bool CanApprove   { get; set; }   // 승인 가능 (SafetyManager/Admin)
+    public bool IsNew         => ReportId is null or 0;
+    public bool CanUpload     { get; set; }
+    public bool CanMarkNoWork { get; set; }
+    public bool CanReview     { get; set; }
+    public bool CanApprove    { get; set; }
+    public bool CanVoid       { get; set; }
 
     // ── GET ───────────────────────────────────────────────────────────────────
     public async Task<IActionResult> OnGetAsync()
@@ -72,7 +72,6 @@ public class ReportModel : PageModel
             Project = project;
             Week = SafetyWkRepService.GetWeekMonday(weekDate);
 
-            // 이미 레코드가 있으면 상세로 redirect
             var existing = await _svc.GetReportByWeekAsync(ProjectId.Value, Week);
             if (existing != null)
                 return RedirectToPage(new { reportId = existing.Id, from = From, to = To });
@@ -86,7 +85,6 @@ public class ReportModel : PageModel
             Week    = report.WeekStartDate;
         }
 
-        // 프로젝트 설정 로드 → 기본 보고 날짜 계산
         if (Project != null)
         {
             Settings = await _svc.GetSettingsAsync(Project.Id);
@@ -124,10 +122,66 @@ public class ReportModel : PageModel
         }
     }
 
+    // ── POST: Submit (Staged → Draft) ─────────────────────────────────────────
+    public async Task<IActionResult> OnPostSubmitAsync(int reportId, string? reportDate)
+    {
+        var report = await _svc.GetReportAsync(reportId);
+        if (report == null) return NotFound();
+
+        Project = report.Project;
+        Week    = report.WeekStartDate;
+        await ComputePermissionsAsync();
+
+        if (!CanUpload) return Forbid();
+
+        var (userId, userName) = GetUser();
+        if (userId <= 0) return Forbid();
+
+        DateOnly? parsedDate = DateOnly.TryParse(reportDate, out var rd) ? rd : null;
+
+        try
+        {
+            await _svc.SubmitReportAsync(reportId, parsedDate, userId, userName);
+            TempData["Success"] = "Report submitted for review.";
+        }
+        catch (Exception ex) { TempData["Error"] = ex.Message; }
+
+        return RedirectToPage(new { reportId, from = From, to = To });
+    }
+
+    // ── POST: Delete ──────────────────────────────────────────────────────────
+    public async Task<IActionResult> OnPostDeleteAsync(int reportId)
+    {
+        var report = await _svc.GetReportAsync(reportId);
+        if (report == null) return NotFound();
+
+        if (report.IsLocked) return Forbid();
+
+        Project = report.Project;
+        Week    = report.WeekStartDate;
+        await ComputePermissionsAsync();
+        if (!CanUpload && !CanMarkNoWork) return Forbid();
+
+        var projectId = report.ProjectId;
+        var weekStart = report.WeekStartDate.ToString("yyyy-MM-dd");
+
+        try
+        {
+            await _svc.DeleteReportAsync(reportId);
+            TempData["Success"] = "Report cancelled successfully.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToPage(new { reportId, from = From, to = To });
+        }
+
+        return RedirectToPage(new { projectId, weekStart, from = From, to = To });
+    }
+
     // ── POST: Review ──────────────────────────────────────────────────────────
     public async Task<IActionResult> OnPostReviewAsync(int reportId, string? notes)
     {
-        // 검토 권한은 페이지 로드 후 체크 필요 — 여기서 재계산
         var report = await _svc.GetReportAsync(reportId);
         if (report == null) return NotFound();
 
@@ -171,7 +225,7 @@ public class ReportModel : PageModel
     // ── POST: Void ────────────────────────────────────────────────────────────
     public async Task<IActionResult> OnPostVoidAsync(int reportId, string? reason)
     {
-        if (!CanApproveAllowed()) return Forbid();
+        if (!CanVoidAllowed()) return Forbid();
 
         var (userId, userName) = GetUser();
         if (userId <= 0) return Forbid();
@@ -186,18 +240,36 @@ public class ReportModel : PageModel
         return RedirectToPage(new { reportId, from = From, to = To });
     }
 
+    // ── POST: Unvoid ──────────────────────────────────────────────────────────
+    public async Task<IActionResult> OnPostUnvoidAsync(int reportId)
+    {
+        if (!CanVoidAllowed()) return Forbid();
+
+        var (userId, userName) = GetUser();
+        if (userId <= 0) return Forbid();
+
+        try
+        {
+            await _svc.UnvoidAsync(reportId, userId, userName);
+            TempData["Success"] = "Void cancelled. Report restored to Approved status.";
+        }
+        catch (Exception ex) { TempData["Error"] = ex.Message; }
+
+        return RedirectToPage(new { reportId, from = From, to = To });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private async Task ComputePermissionsAsync()
     {
         bool isAdmin = User.IsInRole(PrivilegeCodes.Admin);
 
-        // 승인 권한: Admin / SafetyAdmin / SafetyManager
         CanApprove = isAdmin
                   || User.IsInRole(PrivilegeCodes.SafetyAdmin)
                   || User.IsInRole(PrivilegeCodes.SafetyManager);
 
-        // 검토 권한: Admin 또는 해당 프로젝트의 PM/SPM
+        CanVoid = isAdmin || User.IsInRole(PrivilegeCodes.SafetyAdmin);
+
         if (isAdmin)
         {
             CanReview = true;
@@ -217,17 +289,21 @@ public class ReportModel : PageModel
             }
         }
 
-        // 업로드 권한: Safety staff, ProjectManager/Superintendent (담당 프로젝트)
         bool isSafetyStaff = isAdmin
             || User.IsInRole(PrivilegeCodes.SafetyAdmin)
             || User.IsInRole(PrivilegeCodes.SafetyManager)
             || User.IsInRole(PrivilegeCodes.SafetyUser);
 
-        bool locked = Report?.IsLocked == true;
+        bool locked       = Report?.IsLocked == true;
+        // 업로드는 Reviewed 이상(리뷰됨/승인됨) 모두 잠금
+        bool uploadLocked = Report?.Status is SafetyWkRepStatus.Reviewed
+                                           or SafetyWkRepStatus.NoWorkReviewed
+                                           or SafetyWkRepStatus.Approved
+                                           or SafetyWkRepStatus.NoWorkApproved;
 
         if (isSafetyStaff)
         {
-            CanUpload     = !locked;
+            CanUpload     = !uploadLocked;
             CanMarkNoWork = !locked;
         }
         else if (User.IsInRole(PrivilegeCodes.ProjectManager)
@@ -238,19 +314,17 @@ public class ReportModel : PageModel
             {
                 var assigned = await _svc.GetAssignedProjectIdsAsync(userId);
                 bool isAssigned = assigned.Contains(Project.Id);
-                // 검토 이상은 현장 사용자가 수정 불가
-                bool notReviewed = Report == null
-                    || Report.Status is SafetyWkRepStatus.Draft or SafetyWkRepStatus.NoWork;
-                CanUpload     = isAssigned && notReviewed;
-                CanMarkNoWork = isAssigned && notReviewed;
+                bool editable = Report == null
+                    || Report.Status is SafetyWkRepStatus.Staged
+                                     or SafetyWkRepStatus.Draft
+                                     or SafetyWkRepStatus.NoWork
+                                     or SafetyWkRepStatus.Voided;
+                CanUpload     = isAssigned && editable;
+                CanMarkNoWork = isAssigned && editable;
             }
         }
     }
 
-    /// <summary>
-    /// 주의 월요일 + 요일 → 해당 주 내 날짜 계산.
-    /// 예) Monday=Apr14, Friday → Apr18
-    /// </summary>
     private static DateOnly ComputeDefaultReportDate(DateOnly weekMonday, DayOfWeek day)
     {
         int offset = ((int)day - (int)DayOfWeek.Monday + 7) % 7;
@@ -269,6 +343,10 @@ public class ReportModel : PageModel
         User.IsInRole(PrivilegeCodes.Admin)
         || User.IsInRole(PrivilegeCodes.SafetyAdmin)
         || User.IsInRole(PrivilegeCodes.SafetyManager);
+
+    private bool CanVoidAllowed() =>
+        User.IsInRole(PrivilegeCodes.Admin)
+        || User.IsInRole(PrivilegeCodes.SafetyAdmin);
 
     private (int userId, string userName) GetUser()
     {

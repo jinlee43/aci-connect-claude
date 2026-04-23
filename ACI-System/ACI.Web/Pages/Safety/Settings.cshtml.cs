@@ -126,11 +126,17 @@ public class SettingsModel : PageModel
             }
         }
 
-        if (!DateOnly.TryParse(InputStartDate, out var startDate))
+        if (!DateOnly.TryParse(InputStartDate, out var rawStartDate))
         {
             TempData["Error"] = "Invalid start date.";
             return RedirectToPage(new { projectId = ProjectId });
         }
+
+        // 입력일 이후 첫 번째 제출 요일 날짜로 정규화
+        // 예) 입력 3/1(일), 제출요일 금요일 → 3/6(금)으로 저장
+        var submitDay    = (DayOfWeek)InputSubmitDay;
+        int daysUntil    = ((int)submitDay - (int)rawStartDate.DayOfWeek + 7) % 7;
+        var startDate    = rawStartDate.AddDays(daysUntil);
 
         DateOnly? endDate = null;
         if (!string.IsNullOrWhiteSpace(InputEndDate))
@@ -210,4 +216,10 @@ public class SettingsModel : PageModel
         User.IsInRole(PrivilegeCodes.Admin)
         || User.IsInRole(PrivilegeCodes.SafetyAdmin)
         || User.IsInRole(PrivilegeCodes.SafetyManager);
+
+    private static DateOnly GetWeekMonday(DateOnly date)
+    {
+        int diff = (7 + ((int)date.DayOfWeek - (int)DayOfWeek.Monday)) % 7;
+        return date.AddDays(-diff);
+    }
 }
