@@ -71,8 +71,8 @@ public class AppDbContext : DbContext
         {
             e.HasKey(u => u.Id);
             e.Property(u => u.Name).IsRequired().HasMaxLength(100);
-            e.Property(u => u.Email).IsRequired().HasMaxLength(200);
-            e.HasIndex(u => u.Name).IsUnique();   // 로그인 키 — 중복 Name 방지
+            e.Property(u => u.Email).IsRequired().HasMaxLength(100);
+            e.HasIndex(u => u.Name).IsUnique();
             e.HasIndex(u => u.Email).IsUnique();
 
             e.HasOne(u => u.Employee)

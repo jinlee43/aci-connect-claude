@@ -3,64 +3,339 @@
 @{
     ViewData["Title"] = "Employees";
     ViewData["ActiveMenu"] = "employees";
+
+    // "name:asc,dept:desc" 파싱 → 헤더 뱃지 렌더링에 사용
+    var sortEntries = (Model.Sort ?? "")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+        .Select(s => s.Split(':'))
+        .Where(p => p.Length == 2)
+        .Select(p => (col: p[0].Trim().ToLower(), dir: p[1].Trim().ToLower()))
+        .DistinctBy(e => e.col)
+        .ToList();
+
+    // 정렬 순서 번호(복수 정렬 시) + 방향 아이콘을 반환
+    string SortBadge(string col) {
+        var idx = sortEntries.FindIndex(e => e.col == col);
+        if (idx == -1) return "<i class=\"bi bi-arrow-down-up opacity-25 small\"></i>";
+        var icon  = sortEntries[idx].dir == "desc" ? "bi-sort-down" : "bi-sort-up";
+        var badge = sortEntries.Count > 1 ? $"<sup class=\"sort-num\">{idx + 1}</sup>" : "";
+        return $"{badge}<i class=\"bi {icon} text-primary small\"></i>";
+    }
 }
 
+@section Styles {
+<style>
+#empTable thead th {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+#empTable tbody td {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.col-resize-handle {
+    position: absolute;
+    right: 0; top: 0;
+    width: 5px; height: 100%;
+    cursor: col-resize;
+    user-select: none;
+}
+.col-resize-handle:hover,
+.col-resize-handle.dragging {
+    background: rgba(0,0,0,.18);
+}
+#empTable thead th[data-sort-col] { cursor: pointer; }
+#empTable thead th[data-sort-col]:hover { background-color: rgba(0,0,0,.04); }
+#empTable thead th .sort-lnk {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    user-select: none;
+}
+.sort-num {
+    font-size: .65em;
+    font-weight: 700;
+    color: var(--bs-primary);
+    vertical-align: super;
+    line-height: 1;
+}
+</style>
+}
+
+@section Scripts {
+<script>
+(function () {
+    const table = document.getElementById('empTable');
+    if (!table) return;
+    const cols = table.querySelectorAll('colgroup col');
+    const ths  = table.querySelectorAll('thead th');
+    const colCount = cols.length;
+    const STORAGE_KEY = 'aci_emp_col_widths_' + colCount;
+
+    function saveWidths() {
+        const widths = Array.from(cols).map(c => parseInt(c.style.width) || 0);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch (e) {}
+    }
+
+    const EDIT_COL_W = 40; // 편집 아이콘 컬럼 고정 폭(px)
+
+    if (table.style.tableLayout === 'fixed') {
+        // 인라인 스크립트에서 이미 저장된 폭 적용됨.
+        // 편집 컬럼은 저장값과 무관하게 항상 고정폭으로 강제 적용 후 저장.
+        cols[colCount - 1].style.width = EDIT_COL_W + 'px';
+        const totalW = Array.from(cols).reduce((s, c) => s + (parseInt(c.style.width) || 0), 0);
+        table.style.width = totalW + 'px';
+        saveWidths();
+    } else {
+        // 저장된 폭 없음 → 콘텐츠 기준 자동 계산
+        // 마지막 편집 컬럼은 고정 폭, 나머지만 측정
+        table.style.tableLayout = '';
+        table.style.width = 'auto';
+
+        const widths = Array(colCount).fill(0);
+        widths[colCount - 1] = EDIT_COL_W;
+        table.querySelectorAll('tr').forEach(row => {
+            Array.from(row.cells).forEach((cell, i) => {
+                if (i < colCount - 1) widths[i] = Math.max(widths[i], cell.scrollWidth);
+            });
+        });
+
+        const totalW = widths.reduce((s, w) => s + w, 0);
+        widths.forEach((w, i) => cols[i].style.width = w + 'px');
+        table.style.tableLayout = 'fixed';
+        table.style.width = totalW + 'px';
+        saveWidths();
+    }
+
+    // ── 멀티 컬럼 정렬 클릭 핸들러 ───────────────────────────────────────────
+    // 단독 클릭: asc → desc → 제거 (단일 정렬)
+    // Shift+클릭: 정렬 목록에 추가/토글/제거 (복수 정렬)
+    (function () {
+        const params   = new URLSearchParams(window.location.search);
+        const sortStr  = params.get('sort') || '';
+        const sortCols = sortStr
+            ? sortStr.split(',')
+                .map(s => { const [c, d] = s.split(':'); return { col: c, dir: d || 'asc' }; })
+                .filter(s => s.col)
+            : [];
+
+        document.querySelectorAll('th[data-sort-col]').forEach(th => {
+            th.addEventListener('click', e => {
+                if (e.target.closest('.col-resize-handle')) return;
+                const col = th.dataset.sortCol;
+                const idx = sortCols.findIndex(s => s.col === col);
+                let newSort;
+
+                if (idx === -1)
+                    // 정렬 목록에 없음 → 추가 (asc)
+                    newSort = [...sortCols, { col, dir: 'asc' }];
+                else if (sortCols[idx].dir === 'asc')
+                    // asc → desc
+                    newSort = sortCols.map((s, i) => i === idx ? { col, dir: 'desc' } : s);
+                else
+                    // desc → 제거
+                    newSort = sortCols.filter((_, i) => i !== idx);
+
+                const p = new URLSearchParams(window.location.search);
+                if (newSort.length)
+                    p.set('sort', newSort.map(s => `${s.col}:${s.dir}`).join(','));
+                else
+                    p.delete('sort');
+                p.set('pageNum', '1');
+                window.location.href = '?' + p.toString();
+            });
+        });
+    })();
+
+    // 드래그 리사이즈 핸들 부착 — 마지막 편집 컬럼 제외, 드래그 완료 시 localStorage에 저장
+    ths.forEach((th, i) => {
+        if (i === colCount - 1) return; // 편집 컬럼은 고정 폭, 핸들 없음
+        const handle = document.createElement('div');
+        handle.className = 'col-resize-handle';
+        th.appendChild(handle);
+        handle.addEventListener('mousedown', e => {
+            e.preventDefault();
+            handle.classList.add('dragging');
+            const startX = e.pageX;
+            const startW = th.offsetWidth;
+            const startTableW = table.offsetWidth;
+            const onMove = e => {
+                const delta = e.pageX - startX;
+                const w = Math.max(30, startW + delta);
+                cols[i].style.width = w + 'px';
+                table.style.width = (startTableW + (w - startW)) + 'px';
+            };
+            const onUp = () => {
+                handle.classList.remove('dragging');
+                saveWidths();
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    });
+})();
+</script>
+}
+
+<script>
+// 쿼리스트링 없이 진입 시 저장된 상태(검색·정렬·페이지 등)로 즉시 복원
+(function () {
+    const KEY = 'aci_emp_qs';
+    if (!window.location.search) {
+        try {
+            const qs = localStorage.getItem(KEY);
+            if (qs) { window.location.replace(window.location.pathname + '?' + qs); }
+        } catch (e) {}
+    } else {
+        try { localStorage.setItem(KEY, window.location.search.slice(1)); } catch (e) {}
+    }
+})();
+</script>
 <div class="p-3">
-    <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-            <h5 class="mb-0 fw-bold"><i class="bi bi-people me-2 text-primary"></i>Employees</h5>
-            <small class="text-muted">@Model.Employees.Count @(Model.IncludeInactive ? "total" : "active") employees</small>
+    <!-- Header + Search in one row -->
+    <form method="get" class="d-flex align-items-center gap-2 mb-3">
+        <h5 class="mb-0 fw-bold flex-shrink-0"><i class="bi bi-people me-2 text-primary"></i>Employees</h5>
+        <small class="text-muted flex-shrink-0">@Model.TotalCount @(Model.IncludeInactive ? "total" : "active")</small>
+        <div class="vr flex-shrink-0 mx-4"></div>
+        <div class="input-group input-group-sm flex-shrink-0" style="width:200px;">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="text" name="Search" value="@Model.Search"
+                   class="form-control" placeholder="Search name or email..." />
         </div>
-        <a asp-page="Detail" asp-route-id="0" class="btn btn-primary btn-sm">
+        <button type="submit" class="btn btn-outline-secondary btn-sm flex-shrink-0">
+            <i class="bi bi-search me-1"></i>Search
+        </button>
+        <input type="hidden" name="Sort" value="@Model.Sort" />
+        <a asp-page="Index" class="btn btn-link btn-sm text-muted p-0 flex-shrink-0"
+           onclick="try{localStorage.removeItem('aci_emp_qs')}catch(e){}">Reset</a>
+        <div class="form-check mb-0 flex-shrink-0">
+            <input class="form-check-input" type="checkbox" name="IncludeInactive"
+                   value="true" id="chkInactive"
+                   @(Model.IncludeInactive ? "checked" : "")
+                   onchange="this.form.submit()" />
+            <label class="form-check-label small" for="chkInactive">Include Inactive</label>
+        </div>
+        <div class="vr flex-shrink-0 mx-3"></div>
+        <select name="PageSize" class="form-select form-select-sm flex-shrink-0" style="width:auto;"
+                onchange="this.form.submit()">
+            @foreach (var size in Model.PageSizeOptions)
+            {
+                if (Model.PageSize == size)
+                {
+                    <option value="@size" selected>@size</option>
+                }
+                else
+                {
+                    <option value="@size">@size</option>
+                }
+            }
+        </select>
+        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+            @{
+                var qs = $"search={Uri.EscapeDataString(Model.Search ?? "")}&includeInactive={Model.IncludeInactive}&pageSize={Model.PageSize}&sort={Uri.EscapeDataString(Model.Sort ?? "")}&pageNum=";
+            }
+            <a href="?@(qs)1"
+               class="btn btn-outline-secondary btn-sm py-0 px-1 @(Model.PageNum <= 1 ? "disabled" : "")"
+               title="First page"><i class="bi bi-chevron-double-left"></i></a>
+            <a href="?@(qs)@(Model.PageNum - 1)"
+               class="btn btn-outline-secondary btn-sm py-0 px-1 @(Model.PageNum <= 1 ? "disabled" : "")"
+               title="Previous page"><i class="bi bi-chevron-left"></i></a>
+            @{
+                // 현재 페이지 기준 ±2 윈도우, 양 끝 고정, 갭은 null(…)
+                var pageList = new List<int?>();
+                if (Model.TotalPages <= 7)
+                {
+                    for (var i = 1; i <= Model.TotalPages; i++) pageList.Add(i);
+                }
+                else
+                {
+                    pageList.Add(1);
+                    if (Model.PageNum - 2 > 2)  pageList.Add(null);
+                    for (var i = Math.Max(2, Model.PageNum - 2);
+                             i <= Math.Min(Model.TotalPages - 1, Model.PageNum + 2); i++)
+                        pageList.Add(i);
+                    if (Model.PageNum + 2 < Model.TotalPages - 1) pageList.Add(null);
+                    pageList.Add(Model.TotalPages);
+                }
+            }
+            @foreach (var p in pageList)
+            {
+                if (p == null)
+                {
+                    <span class="small text-muted px-1">…</span>
+                }
+                else if (p == Model.PageNum)
+                {
+                    <button type="button" class="btn btn-primary btn-sm py-0 px-2" disabled>@p</button>
+                }
+                else
+                {
+                    <a href="?@(qs)@p" class="btn btn-outline-secondary btn-sm py-0 px-2">@p</a>
+                }
+            }
+            <a href="?@(qs)@(Model.PageNum + 1)"
+               class="btn btn-outline-secondary btn-sm py-0 px-1 @(Model.PageNum >= Model.TotalPages ? "disabled" : "")"
+               title="Next page"><i class="bi bi-chevron-right"></i></a>
+            <a href="?@(qs)@Model.TotalPages"
+               class="btn btn-outline-secondary btn-sm py-0 px-1 @(Model.PageNum >= Model.TotalPages ? "disabled" : "")"
+               title="Last page"><i class="bi bi-chevron-double-right"></i></a>
+        </div>
+        <a asp-page="Detail" asp-route-id="0" class="btn btn-primary btn-sm ms-auto flex-shrink-0">
             <i class="bi bi-person-plus me-1"></i>Add Employee
         </a>
-    </div>
-
-    <!-- Search & Filter Bar -->
-    <form method="get" class="row g-2 mb-3 align-items-center">
-        <div class="col-md-4">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="text" name="Search" value="@Model.Search"
-                       class="form-control" placeholder="Search name or email..." />
-            </div>
-        </div>
-        <div class="col-auto">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" name="IncludeInactive"
-                       value="true" id="chkInactive"
-                       @(Model.IncludeInactive ? "checked" : "") />
-                <label class="form-check-label small" for="chkInactive">Include Inactive</label>
-            </div>
-        </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-funnel me-1"></i>Filter
-            </button>
-            <a asp-page="Index" class="btn btn-link btn-sm text-muted">Reset</a>
-        </div>
     </form>
 
     <!-- Employee Table -->
     <div class="card shadow-sm">
         <div class="table-responsive">
-            <table class="table table-sm table-hover mb-0 align-middle">
+            <table id="empTable" class="table table-sm table-hover mb-0 align-middle"
+                   style="font-size:.85rem; --bs-table-cell-padding-y: 3px; --bs-table-cell-padding-x: 10px; line-height:1.3;">
+                <colgroup>
+                    @{
+                        int colCount = 9 + (User.IsInRole("Admin") || User.IsInRole("HrAdmin") ? 1 : 0);
+                    }
+                    @for (int c = 0; c < colCount; c++) { <col> }
+                </colgroup>
+                <script>
+                // colgroup이 DOM에 추가된 직후 실행 → thead/tbody 렌더링 전에 폭 고정
+                (function () {
+                    try {
+                        const cc = @colCount;
+                        const saved = localStorage.getItem('aci_emp_col_widths_' + cc);
+                        if (!saved) return;
+                        const widths = JSON.parse(saved);
+                        if (!Array.isArray(widths) || widths.length !== cc || !widths.every(w => w > 0)) return;
+                        const tbl = document.getElementById('empTable');
+                        const cls = tbl.querySelectorAll('colgroup col');
+                        widths.forEach((w, i) => cls[i].style.width = w + 'px');
+                        tbl.style.tableLayout = 'fixed';
+                        tbl.style.width = widths.reduce((s, w) => s + w, 0) + 'px';
+                    } catch (e) {}
+                })();
+                </script>
                 <thead class="table-light">
                     <tr>
-                        <th style="width:40px" class="text-center">#</th>
-                        <th>Name</th>
-                        <th style="width:80px" class="text-center">Status</th>
-                        <th>Department</th>
-                        <th>Position</th>
-                        <th>Phone</th>
-                        <th>Email</th>
-                        <th style="width:100px" class="text-center">Since</th>
-                        <th style="width:70px"></th>
+                        <th class="text-center">#</th>
+                        <th class="text-center" data-sort-col="name"><span class="sort-lnk">Name @Html.Raw(SortBadge("name"))</span></th>
+                        <th class="text-center" data-sort-col="status"><span class="sort-lnk">Status @Html.Raw(SortBadge("status"))</span></th>
+                        @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+                        {
+                            <th class="text-center" data-sort-col="since"><span class="sort-lnk">Since @Html.Raw(SortBadge("since"))</span></th>
+                        }
+                        <th class="text-center" data-sort-col="dept"><span class="sort-lnk">Department @Html.Raw(SortBadge("dept"))</span></th>
+                        <th class="text-center" data-sort-col="pos"><span class="sort-lnk">Position @Html.Raw(SortBadge("pos"))</span></th>
+                        <th class="text-center" data-sort-col="phone"><span class="sort-lnk">Phone @Html.Raw(SortBadge("phone"))</span></th>
+                        <th class="text-center" data-sort-col="email"><span class="sort-lnk">Email @Html.Raw(SortBadge("email"))</span></th>
+                        <th class="text-center" data-sort-col="city"><span class="sort-lnk">City @Html.Raw(SortBadge("city"))</span></th>
+                        <th class="text-center">Edit</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @{ int seq = 0; }
+                    @{ int seq = (Model.PageNum - 1) * Model.PageSize; }
                     @foreach (var emp in Model.Employees)
                     {
                         seq++;
@@ -72,12 +347,8 @@
                                    class="text-decoration-none fw-semibold">
                                     @emp.DisplayName
                                 </a>
-                                @if (!string.IsNullOrEmpty(emp.KnownName))
-                                {
-                                    <br /><small class="text-muted">@emp.FullName</small>
-                                }
                             </td>
-                            <td class="text-center">
+                            <td class="text-center" style="overflow:visible;">
                                 @if (emp.IsActive)
                                 {
                                     <span class="badge bg-success-subtle text-success">Active</span>
@@ -87,16 +358,18 @@
                                     <span class="badge bg-secondary-subtle text-secondary">Inactive</span>
                                 }
                             </td>
+                            @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+                            {
+                                <td class="text-center small">@emp.HireDate?.ToString("yyyy-MM-dd")</td>
+                            }
                             <td class="small">@(primary?.OrgUnit?.Name ?? "-")</td>
                             <td class="small">@(primary?.JobPosition?.Name ?? "-")</td>
-                            <td class="small text-nowrap">@emp.Phone</td>
+                            <td class="small text-nowrap text-center">@emp.Phone</td>
                             <td class="small">@emp.WorkEmail</td>
-                            <td class="text-center small">
-                                @emp.HireDate?.ToString("yyyy-MM-dd")
-                            </td>
+                            <td class="small">@emp.HomeAddressCity</td>
                             <td class="text-center">
                                 <a asp-page="Detail" asp-route-id="@emp.Id"
-                                   class="btn btn-outline-primary btn-sm py-0 px-2">
+                                   class="text-primary" style="font-size:1rem;">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                             </td>

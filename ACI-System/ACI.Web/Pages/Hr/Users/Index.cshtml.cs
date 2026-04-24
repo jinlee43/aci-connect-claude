@@ -32,13 +32,13 @@ public class IndexModel : PageModel
 {
     private readonly AppDbContext _db;
     private readonly IUserIdGenerator _idGen;
-    private readonly IConfiguration _config;
 
-    public IndexModel(AppDbContext db, IUserIdGenerator idGen, IConfiguration config)
+    private const string EmailDomain = "angelescontractor.com";
+
+    public IndexModel(AppDbContext db, IUserIdGenerator idGen)
     {
         _db    = db;
         _idGen = idGen;
-        _config = config;
     }
 
     // ── List / Filter ─────────────────────────────────────────────────
@@ -55,6 +55,7 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)] public int? EditId { get; set; }
     public bool IsEditing => EditId.HasValue;
 
+    /// <summary>Login ID = Name 필드 (편집 폼).</summary>
     [BindProperty] public string  EditName     { get; set; } = string.Empty;
     [BindProperty] public bool    EditIsActive { get; set; }
     /// <summary>체크된 privilege Code 들 (폼 post 시).</summary>
@@ -73,11 +74,11 @@ public class IndexModel : PageModel
         public string? Name { get; set; }
 
         /// <summary>
-        /// 비워두면 Employee 의 First/Last Name 으로 <see cref="IUserIdGenerator"/> 가 자동 생성.
-        /// 수동 입력 시에는 그대로 사용 (소문자, 공백 제거).
+        /// Login ID (= Name). 비워두면 Employee 의 First/Last Name 으로 <see cref="IUserIdGenerator"/> 가 자동 생성.
+        /// 수동 입력 시에는 그대로 사용 (소문자·영숫자).
         /// </summary>
         [MaxLength(100)]
-        public string? LoginId { get; set; }
+        public string? LoginId { get; set; }  // Name 필드에 저장됨
 
         [MaxLength(500)]
         public string? InitialPassword { get; set; }
@@ -133,20 +134,18 @@ public class IndexModel : PageModel
                 return RedirectToPage();
             }
 
-            displayName = emp.DisplayName;
             localId = string.IsNullOrWhiteSpace(Create.LoginId)
                 ? await _idGen.GenerateDefaultUserIdAsync(emp.FirstName, emp.LastName)
                 : Sanitize(Create.LoginId);
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(Create.Name) || string.IsNullOrWhiteSpace(Create.LoginId))
+            if (string.IsNullOrWhiteSpace(Create.LoginId))
             {
-                TempData["Error"] = "Name and Login ID are required when no employee is linked.";
+                TempData["Error"] = "Login ID is required when no employee is linked.";
                 return RedirectToPage();
             }
-            displayName = Create.Name.Trim();
-            localId     = Sanitize(Create.LoginId);
+            localId = Sanitize(Create.LoginId);
         }
 
         if (string.IsNullOrWhiteSpace(localId))
@@ -155,12 +154,9 @@ public class IndexModel : PageModel
             return RedirectToPage();
         }
 
-        var domain = _config["Aci:EmailDomain"] ?? "aci-la.com";
-        var email  = $"{localId}@{domain}";
-
-        if (await _db.Users.AnyAsync(u => u.Email == email))
+        if (await _db.Users.AnyAsync(u => u.Name == localId))
         {
-            TempData["Error"] = $"Login '{localId}' is already in use.";
+            TempData["Error"] = $"Login ID '{localId}' is already in use.";
             return RedirectToPage();
         }
 
@@ -171,8 +167,8 @@ public class IndexModel : PageModel
 
         var user = new ApplicationUser
         {
-            Name         = displayName,
-            Email        = email,
+            Name         = localId,
+            Email        = $"{localId}@{EmailDomain}",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPw),
             IsActive     = true,
             EmployeeId   = emp?.Id,
@@ -210,8 +206,8 @@ public class IndexModel : PageModel
         }
 
         // ── 4) 평문 비번은 TempData 로 1회 노출 ──────────────────────
-        TempData["Success"]       = $"User '{email}' created.";
-        TempData["NewUserLogin"]  = email;
+        TempData["Success"]       = $"User '{localId}' created.";
+        TempData["NewUserLogin"]  = localId;
         TempData["NewUserPwd"]    = plainPw;
 
         return RedirectToPage();
@@ -233,11 +229,27 @@ public class IndexModel : PageModel
 
         if (string.IsNullOrWhiteSpace(EditName))
         {
-            TempData["Error"] = "Name cannot be empty.";
+            TempData["Error"] = "Login ID cannot be empty.";
             return RedirectToPage(new { editId = EditId });
         }
 
-        user.Name     = EditName.Trim();
+        // Name = Login ID: sanitize, 중복 체크
+        var newName = Sanitize(EditName);
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            TempData["Error"] = "Login ID is invalid.";
+            return RedirectToPage(new { editId = EditId });
+        }
+        if (!string.Equals(newName, user.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            if (await _db.Users.AnyAsync(u => u.Name == newName && u.Id != user.Id))
+            {
+                TempData["Error"] = $"Login ID '{newName}' is already in use.";
+                return RedirectToPage(new { editId = EditId });
+            }
+        }
+        user.Name     = newName;
+        user.Email    = $"{newName}@{EmailDomain}";
         user.IsActive = EditIsActive;
 
         // ── Privilege diff ───────────────────────────────────────────
@@ -296,7 +308,7 @@ public class IndexModel : PageModel
         }
 
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"User '{user.Name}' updated.";
+        TempData["Success"] = $"User '{newName}' updated.";
         return RedirectToPage();
     }
 
@@ -314,8 +326,8 @@ public class IndexModel : PageModel
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPw);
         await _db.SaveChangesAsync();
 
-        TempData["Success"]      = $"Password reset for '{user.Email}'. Share the temporary password below.";
-        TempData["NewUserLogin"] = user.Email;
+        TempData["Success"]      = $"Password reset for '{user.Name}'. Share the temporary password below.";
+        TempData["NewUserLogin"] = user.Name;
         TempData["NewUserPwd"]   = plainPw;
         return RedirectToPage();
     }
@@ -339,7 +351,7 @@ public class IndexModel : PageModel
 
         user.IsActive = false;
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"User '{user.Email}' deactivated.";
+        TempData["Success"] = $"User '{user.Name}' deactivated.";
         return RedirectToPage();
     }
 
@@ -352,7 +364,7 @@ public class IndexModel : PageModel
 
         user.IsActive = true;
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"User '{user.Email}' reactivated.";
+        TempData["Success"] = $"User '{user.Name}' reactivated.";
         return RedirectToPage();
     }
 
@@ -385,7 +397,7 @@ public class IndexModel : PageModel
         if (!string.IsNullOrWhiteSpace(Search))
         {
             var s = Search.Trim().ToLower();
-            q = q.Where(u => u.Name.ToLower().Contains(s) || u.Email.ToLower().Contains(s));
+            q = q.Where(u => u.Name.ToLower().Contains(s));
         }
 
         Users = await q.OrderBy(u => u.Name).ToListAsync();
@@ -405,6 +417,10 @@ public class IndexModel : PageModel
 
     private static string Sanitize(string s)
     {
+        // @domain 부분이 포함된 경우 로컬 파트만 사용
+        var atIdx = s.IndexOf('@');
+        if (atIdx >= 0) s = s[..atIdx];
+
         var buf = new System.Text.StringBuilder(s.Length);
         foreach (var ch in s.Trim())
         {

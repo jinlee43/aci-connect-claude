@@ -11,8 +11,8 @@ namespace ACI.Web.Services;
 /// 같은 아이디가 이미 쓰이고 있으면 뒤에 소문자 a,b,c,...를 덧붙임
 ///   - "leej" 사용 중 → "leeja" → "leejb" → ... → "leejz"
 ///   - 그 다음 → "leejaa", "leejab", ...  (2글자 확장)
-/// 중복 체크는 <see cref="Data.Entities.ApplicationUser.Email"/> 의 '@' 앞부분(local-part)을 기준으로 수행.
-/// 호출부는 반환된 아이디에 회사 메일 도메인을 덧붙여 Email을 조립.
+/// 중복 체크는 <see cref="Data.Entities.ApplicationUser.Name"/> 필드를 기준으로 수행.
+/// 반환값은 곧 <c>ApplicationUser.Name</c> 에 저장되고, Email 은 <c>Name@angelescontractor.com</c> 으로 자동 조립.
 /// </summary>
 public interface IUserIdGenerator
 {
@@ -39,17 +39,13 @@ public class UserIdGenerator : IUserIdGenerator
         //   ex) baseId="leej" → "leej", "leeja", "leejb", ..., "leejzz" 등 매치
         var used = await _db.Users
             .AsNoTracking()
-            .Where(u => u.Email.StartsWith(baseId))
-            .Select(u => u.Email)
+            .Where(u => u.Name.StartsWith(baseId))
+            .Select(u => u.Name)
             .ToListAsync(ct);
 
         var usedIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var email in used)
-        {
-            var at = email.IndexOf('@');
-            var local = (at >= 0 ? email[..at] : email).ToLowerInvariant();
-            usedIds.Add(local);
-        }
+        foreach (var id in used)
+            usedIds.Add(id.ToLowerInvariant());
 
         // 1) 베이스 자체가 비어 있으면 그대로 반환
         if (!usedIds.Contains(baseId))

@@ -1,5 +1,6 @@
 using ACI.Web.Data;
 using ACI.Web.Data.Entities;
+using ACI.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -25,8 +26,13 @@ public class DetailModel : PageModel
     public List<EmpRole> Roles { get; set; } = [];
     public List<EmployeeDocument> Documents { get; set; } = [];
 
+    /// <summary>Admin 또는 HrAdmin 권한 보유 여부 (Admin ⊇ HrAdmin 이므로 HrAdmin 체크로 충분)</summary>
+    public bool IsHrAdmin { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(int id)
     {
+        IsHrAdmin = User.IsInRole(PrivilegeCodes.HrAdmin);
+
         if (id == 0)
         {
             Emp = new Employee { IsActive = true };
@@ -114,11 +120,14 @@ public class DetailModel : PageModel
             existing.EmgContact3Email    = Emp.EmgContact3Email;
             existing.EmgContact3Tel      = Emp.EmgContact3Tel;
             existing.EmgContact3Cell     = Emp.EmgContact3Cell;
-            // Employment
-            existing.HireDate        = Emp.HireDate;
-            existing.TerminationDate = Emp.TerminationDate;
-            existing.IsActive        = Emp.IsActive;
-            existing.Notes           = Emp.Notes;
+            // Employment — HrAdmin 이상만 수정 가능
+            if (User.IsInRole(PrivilegeCodes.HrAdmin))
+            {
+                existing.HireDate        = Emp.HireDate;
+                existing.TerminationDate = Emp.TerminationDate;
+                existing.IsActive        = Emp.IsActive;
+                existing.Notes           = Emp.Notes;
+            }
             existing.UpdatedAt       = DateTime.UtcNow;
         }
 

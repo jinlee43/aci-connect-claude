@@ -1,0 +1,205 @@
+@page
+@using ACI.Web.Data.Entities
+@model ACI.Web.Pages.MyDashboard.IndexModel
+@{
+    ViewData["Title"]      = "My Dashboard";
+    ViewData["ActiveMenu"] = "my-dashboard";
+}
+
+<div class="aci-page-header">
+    <div>
+        <h1><i class="bi bi-speedometer2 me-2 text-primary"></i>My Dashboard</h1>
+        <p class="text-muted mb-0 small">Summary of your active projects and pending items.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-page="/Safety/MyReports" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-clipboard2-check me-1"></i>Safety Reports
+        </a>
+    </div>
+</div>
+
+<div class="p-3">
+
+    @* ── Summary cards ────────────────────────────────────────────────────── *@
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+
+        @* Active Projects *@
+        <a asp-page="/Projects/Index" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                 style="background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #bfdbfe; min-width:130px; cursor:pointer;">
+                <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                     style="width:34px;height:34px;background:linear-gradient(135deg,#3b82f6,#2563eb);">
+                    <i class="bi bi-folder2-open text-white" style="font-size:.85rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold lh-1" style="font-size:1.25rem;color:#1e40af;">@Model.ActiveProjectCount</div>
+                    <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#1d4ed8;letter-spacing:.05em;">Projects</div>
+                </div>
+            </div>
+        </a>
+
+        @* Safety Pending *@
+        <a asp-page="/Safety/MyReports" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                 style="background:linear-gradient(135deg,#fff7ed,#ffedd5); border:1px solid #fed7aa; min-width:130px; cursor:pointer;">
+                <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                     style="width:34px;height:34px;background:linear-gradient(135deg,#f97316,#ea580c);">
+                    <i class="bi bi-clock-history text-white" style="font-size:.85rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold lh-1" style="font-size:1.25rem;color:#9a3412;">@Model.SafetyPendingCount</div>
+                    <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#c2410c;letter-spacing:.05em;">Safety Pending</div>
+                </div>
+            </div>
+        </a>
+
+        @* Safety Missing *@
+        <a asp-page="/Safety/MyReports" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                 style="background:linear-gradient(135deg,#fff1f2,#ffe4e6); border:1px solid #fecdd3; min-width:130px; cursor:pointer;">
+                <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                     style="width:34px;height:34px;background:linear-gradient(135deg,#f43f5e,#e11d48);">
+                    <i class="bi bi-file-earmark-x text-white" style="font-size:.85rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold lh-1" style="font-size:1.25rem;color:#9f1239;">@Model.SafetyMissingCount</div>
+                    <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#be123c;letter-spacing:.05em;">Safety Missing</div>
+                </div>
+            </div>
+        </a>
+
+        @* ── Placeholder cards (future features) ─────────────────────────── *@
+
+        @* RFI *@
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; min-width:130px; opacity:.65;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#9ca3af,#6b7280);">
+                <i class="bi bi-question-circle text-white" style="font-size:.85rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#374151;">@Model.RfiCount</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#6b7280;letter-spacing:.05em;">RFI</div>
+            </div>
+        </div>
+
+        @* C/O *@
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; min-width:130px; opacity:.65;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#9ca3af,#6b7280);">
+                <i class="bi bi-file-diff text-white" style="font-size:.85rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#374151;">@Model.CoCount</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#6b7280;letter-spacing:.05em;">C/O</div>
+            </div>
+        </div>
+
+        @* FWD *@
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; min-width:130px; opacity:.65;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#9ca3af,#6b7280);">
+                <i class="bi bi-send text-white" style="font-size:.85rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#374151;">@Model.FwdCount</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#6b7280;letter-spacing:.05em;">FWD</div>
+            </div>
+        </div>
+
+        @* Daily Reports *@
+        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+             style="background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; min-width:130px; opacity:.65;">
+            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width:34px;height:34px;background:linear-gradient(135deg,#9ca3af,#6b7280);">
+                <i class="bi bi-journal-text text-white" style="font-size:.85rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#374151;">@Model.DailyCount</div>
+                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#6b7280;letter-spacing:.05em;">Daily Reports</div>
+            </div>
+        </div>
+
+    </div>
+
+    @* ── Document action list ─────────────────────────────────────────────── *@
+    <div class="aci-card">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+            <span class="fw-semibold small">
+                <i class="bi bi-list-check me-1 text-primary"></i>Pending &amp; Missing Items
+            </span>
+            <span class="text-muted" style="font-size:.75rem;">Safety Reports — recent 8 weeks</span>
+        </div>
+
+        @if (!Model.SafetyRows.Any())
+        {
+            <div class="p-5 text-center text-muted">
+                <i class="bi bi-check2-circle display-4 d-block mb-3 text-success"></i>
+                <h5>All caught up!</h5>
+                <p class="mb-0 small">No pending or missing items for your projects.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0" style="font-size:.85rem;">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="min-width:90px;">Code</th>
+                            <th style="min-width:160px;">Project Name</th>
+                            <th style="min-width:160px;">Doc Type</th>
+                            <th class="text-center" style="min-width:80px;">Status</th>
+                            <th class="text-center" style="min-width:80px;">Week</th>
+                            <th class="text-center" style="min-width:90px;">Week Start</th>
+                            <th style="min-width:80px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.SafetyRows)
+                        {
+                            var weekStartStr = row.WeekStart.ToString("yyyy-MM-dd");
+                            <tr>
+                                <td class="align-middle fw-semibold">@row.ProjectCode</td>
+                                <td class="align-middle text-truncate" style="max-width:200px;">
+                                    <span title="@row.ProjectName">@row.ProjectName</span>
+                                </td>
+                                <td class="align-middle">
+                                    <i class="bi bi-shield-exclamation me-1 text-warning"></i>@row.DocType
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-@row.StatusClass">@row.StatusLabel</span>
+                                </td>
+                                <td class="text-center align-middle text-nowrap">
+                                    Wk @row.WeekNumber
+                                </td>
+                                <td class="text-center align-middle text-nowrap text-muted">
+                                    @row.WeekStart.ToString("MMM d, yyyy")
+                                </td>
+                                <td class="text-center align-middle">
+                                    @if (row.ReportId.HasValue)
+                                    {
+                                        <a href="/Safety/Report?reportId=@row.ReportId"
+                                           class="btn btn-outline-primary btn-sm py-0 px-2">
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <a href="/Safety/Report?projectId=@row.ProjectId&weekStart=@weekStartStr"
+                                           class="btn btn-outline-danger btn-sm py-0 px-2"
+                                           title="Submit missing report">
+                                            <i class="bi bi-upload"></i>
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+</div>

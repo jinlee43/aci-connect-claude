@@ -195,7 +195,7 @@ public class IndexModel : PageModel
             if (byId != null) return byId;
         }
 
-        // 2. Email fallback
+        // 2. Email 클레임 fallback (ClaimTypes.Email 에 user.Email 저장됨)
         var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
         if (!string.IsNullOrEmpty(email))
         {
@@ -203,7 +203,7 @@ public class IndexModel : PageModel
             if (byEmail != null) return byEmail;
         }
 
-        // 3. Name fallback (ClaimTypes.Name = user.Name, 로그인 시 항상 존재)
+        // 3. Name fallback (ClaimTypes.Name = user.Name = LoginId, 로그인 시 항상 존재)
         var name = User.Identity?.Name;
         if (!string.IsNullOrEmpty(name))
         {

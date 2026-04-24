@@ -25,11 +25,13 @@ public class LoginModel : PageModel
     {
         if (!ModelState.IsValid) return Page();
 
+        var loginId = Input.Username.Trim().ToLower();
+
         var user = await _db.Users
             .Include(u => u.Employee)
             .Include(u => u.UserPrivileges)
                 .ThenInclude(up => up.Privilege)
-            .FirstOrDefaultAsync(u => u.Name == Input.Username && u.IsActive);
+            .FirstOrDefaultAsync(u => u.Name == loginId && u.IsActive);
 
         if (user == null || !BCrypt.Net.BCrypt.Verify(Input.Password, user.PasswordHash))
         {
@@ -66,38 +68,53 @@ public class LoginModel : PageModel
             expandedCodes = PrivilegeExpander.Expand(directCodes);
         }
 
-        // Create claims principal
+        // ── 기본 클레임 ───────────────────────────────────────────────────────
         var claims = new List<Claim>
         {
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new("UserId",                  user.Id.ToString()),   // 커스텀 클레임: 여러 페이지 호환
-            new(ClaimTypes.Name,           user.Name),
-            new(ClaimTypes.Email,          user.Email),
+            new(ClaimTypes.NameIdentifier,  user.Id.ToString()),
+            new(ClaimNames.UserId,          user.Id.ToString()),
+            new(ClaimTypes.Name,            user.Name),
+            new(ClaimTypes.Email,           user.Email),
         };
 
         foreach (var code in expandedCodes)
             claims.Add(new Claim(ClaimTypes.Role, code));
 
+        // ── Employee 연결 정보: OrgUnit + JobPosition 클레임 ─────────────────
+        // 로그인 시점에 활성 EmpRole 전체를 한 번 읽어 클레임으로 저장.
+        // 이후 페이지에서 DB 재조회 없이 User.Claims 에서 직접 꺼낼 수 있음.
         if (user.EmployeeId.HasValue)
         {
-            claims.Add(new Claim("EmployeeId", user.EmployeeId.Value.ToString()));
+            claims.Add(new Claim(ClaimNames.EmployeeId, user.EmployeeId.Value.ToString()));
 
-            // ── HR 파생 롤: JobPosition 코드로 PM / Superintendent 자동 결정 ──
-            // Privilege 테이블이 아닌 EmpRole → JobPosition 에서 읽음
             var today = DateOnly.FromDateTime(DateTime.Today);
-            var jobCodes = await _db.EmpRoles
+            var activeRoles = await _db.EmpRoles
+                .Include(r => r.OrgUnit)
+                .Include(r => r.JobPosition)
                 .Where(r => r.EmployeeId == user.EmployeeId.Value
-                         && r.JobPositionId != null
                          && (r.EndDate == null || r.EndDate >= today))
-                .Select(r => r.JobPosition!.Code)
-                .Distinct()
                 .ToListAsync();
 
-            // PM / SPM / APM → ProjectManager 클레임
+            // OrgUnitId 클레임 (중복 제거)
+            foreach (var orgUnitId in activeRoles.Select(r => r.OrgUnitId).Distinct())
+                claims.Add(new Claim(ClaimNames.OrgUnitId, orgUnitId.ToString()));
+
+            // JobPositionCode 클레임 (중복 제거, null 제외)
+            foreach (var posCode in activeRoles
+                         .Where(r => r.JobPosition != null)
+                         .Select(r => r.JobPosition!.Code)
+                         .Distinct())
+                claims.Add(new Claim(ClaimNames.JobPositionCode, posCode));
+
+            // ── HR 파생 롤: JobPosition 코드 → Role 클레임 자동 결정 ──────────
+            var jobCodes = activeRoles
+                .Where(r => r.JobPosition != null)
+                .Select(r => r.JobPosition!.Code)
+                .ToHashSet();
+
             if (jobCodes.Any(c => c == "PM" || c == "SPM" || c == "APM"))
                 claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.ProjectManager));
 
-            // SUPT / SSUPT / ASUPT → Superintendent 클레임
             if (jobCodes.Any(c => c == "SUPT" || c == "SSUPT" || c == "ASUPT"))
                 claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.Superintendent));
         }

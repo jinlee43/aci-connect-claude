@@ -79,17 +79,14 @@
                                     </option>
                                 }
                             </select>
-                            <small class="text-muted">Linking pre-fills Name & generates login ID.</small>
+                            <small class="text-muted">Linking auto-generates the Login ID.</small>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Display Name</label>
-                            <input asp-for="Create.Name" class="form-control form-control-sm"
-                                   placeholder="required if no employee link" />
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label small fw-semibold">Login ID</label>
-                            <input asp-for="Create.LoginId" class="form-control form-control-sm font-monospace"
+                            <input asp-for="Create.LoginId"
+                                   class="form-control form-control-sm font-monospace"
                                    placeholder="auto-generated if blank" />
+                            <small class="text-muted">Email: <span id="emailPreview" class="font-monospace"></span></small>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-semibold">Initial Password</label>
@@ -139,7 +136,7 @@
             <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-search"></i></span>
                 <input type="text" name="Search" value="@Model.Search"
-                       class="form-control" placeholder="Search name or email..." />
+                       class="form-control" placeholder="Search login ID..." />
             </div>
         </div>
         <div class="col-auto">
@@ -165,8 +162,7 @@
                 <thead class="table-light">
                     <tr>
                         <th style="width:40px" class="text-center">#</th>
-                        <th>Name</th>
-                        <th>Login / Email</th>
+                        <th>Login ID</th>
                         <th>Employee Link</th>
                         <th>Privileges (direct)</th>
                         <th class="text-center" style="width:80px;">Active</th>
@@ -183,17 +179,13 @@
                         if (editing && canEdit)
                         {
                             <tr class="table-warning">
-                                <td colspan="8">
+                                <td colspan="7">
                                     <form method="post" asp-page-handler="Update">
                                         <input type="hidden" asp-for="EditId" />
                                         <div class="row g-2 align-items-end">
-                                            <div class="col-md-3">
-                                                <label class="form-label small mb-0">Display Name</label>
-                                                <input asp-for="EditName" class="form-control form-control-sm" required />
-                                            </div>
-                                            <div class="col-md-3">
-                                                <label class="form-label small mb-0">Login / Email (readonly)</label>
-                                                <input class="form-control form-control-sm font-monospace" value="@u.Email" readonly />
+                                            <div class="col-md-4">
+                                                <label class="form-label small mb-0">Login ID</label>
+                                                <input asp-for="EditName" class="form-control form-control-sm font-monospace" required />
                                             </div>
                                             <div class="col-md-2">
                                                 <label class="form-label small mb-0">Active</label>
@@ -248,8 +240,7 @@
                         {
                             <tr class="@(u.IsActive ? "" : "text-muted")">
                                 <td class="text-center text-muted small">@seq</td>
-                                <td class="fw-semibold">@u.Name</td>
-                                <td class="small font-monospace">@u.Email</td>
+                                <td class="fw-semibold font-monospace">@u.Name</td>
                                 <td class="small">
                                     @if (u.Employee != null)
                                     {
@@ -305,7 +296,7 @@
                                               id="frm-reset-@u.Id">
                                             <button type="button" class="btn btn-outline-warning btn-sm py-0 px-2"
                                                     title="Reset Password"
-                                                    onclick="confirmAction('frm-reset-@u.Id', 'Reset Password', 'Reset password for @u.Email?')">
+                                                    onclick="confirmAction('frm-reset-@u.Id', 'Reset Password', 'Reset password for @u.Name?')">
                                                 <i class="bi bi-key" style="font-size:0.75rem"></i>
                                             </button>
                                         </form>
@@ -316,7 +307,7 @@
                                                   id="frm-deactivate-@u.Id">
                                                 <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
                                                         title="Deactivate"
-                                                        onclick="confirmAction('frm-deactivate-@u.Id', 'Deactivate User', 'Deactivate @u.Email? They will no longer be able to sign in.')">
+                                                        onclick="confirmAction('frm-deactivate-@u.Id', 'Deactivate User', 'Deactivate @u.Name? They will no longer be able to sign in.')">
                                                     <i class="bi bi-slash-circle" style="font-size:0.75rem"></i>
                                                 </button>
                                             </form>
@@ -345,7 +336,7 @@
                     @if (!Model.Users.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="7" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-3 d-block mb-2"></i>
                                 No users found.
                             </td>
@@ -367,41 +358,55 @@
 @section Scripts {
 <script>
 (function () {
-    const empSel  = document.getElementById('Create_EmployeeId');
-    const nameEl  = document.getElementById('Create_Name');
-    const loginEl = document.getElementById('Create_LoginId');
-    const pwEl    = document.getElementById('Create_InitialPassword');
+    const empSel     = document.getElementById('Create_EmployeeId');
+    const loginEl    = document.getElementById('Create_LoginId');
+    const pwEl       = document.getElementById('Create_InitialPassword');
+    const emailPrev  = document.getElementById('emailPreview');
+    const domain     = 'angelescontractor.com';
     if (!empSel) return;
 
-    // ASCII 영문/숫자만 남기고 소문자로
     function sanitize(s) {
         return (s || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
     }
 
-    function genPassword() { return 'aci1234'; }
+    function updateEmailPreview() {
+        if (emailPrev) {
+            const id = (loginEl ? loginEl.value.trim() : '');
+            emailPrev.textContent = id ? id + '@@' + domain : '';
+        }
+    }
+
+    if (loginEl) {
+        loginEl.addEventListener('input', function () {
+            // @@domain 부분 입력 시 자동 제거
+            const atPos = this.value.indexOf('@@');
+            if (atPos >= 0) this.value = this.value.substring(0, atPos);
+            updateEmailPreview();
+        });
+    }
 
     empSel.addEventListener('change', function () {
         const opt = this.selectedOptions[0];
         if (!opt || !opt.value) {
-            // 선택 해제 시 클리어
-            nameEl.value  = '';
-            loginEl.value = '';
-            pwEl.value    = '';
+            if (loginEl) loginEl.value = '';
+            if (pwEl) pwEl.value = '';
+            updateEmailPreview();
             return;
         }
 
-        const display   = opt.dataset.display || '';
-        const workEmail = opt.dataset.email   || '';
+        const workEmail = opt.dataset.email || '';
         const first     = sanitize(opt.dataset.first || '');
         const last      = sanitize(opt.dataset.last  || '');
 
-        nameEl.value  = display;
-        // WorkEmail 있으면 @@ 앞부분, 없으면 lastname+firstname[0] 폴백
-        const atIdx    = workEmail.indexOf('@@');
+        // WorkEmail 있으면 @@앞부분, 없으면 lastname+firstname[0] 폴백
+        const atIdx      = workEmail.indexOf('@@');
         const emailLocal = atIdx > 0 ? workEmail.substring(0, atIdx) : '';
-        loginEl.value = emailLocal || ((last && first) ? last + first[0] : '');
-        pwEl.value    = genPassword();
+        if (loginEl) loginEl.value = emailLocal || ((last && first) ? last + first[0] : '');
+        if (pwEl)    pwEl.value    = 'aci1234';
+        updateEmailPreview();
     });
+
+    updateEmailPreview();
 })();
 </script>
 }

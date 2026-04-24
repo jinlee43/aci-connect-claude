@@ -56,6 +56,26 @@ public static class DbInitializer
             await db.SaveChangesAsync();
         }
 
+        // ── Privilege 정리: HR 파생 롤은 Privilege row 로 존재하면 안 됨 ──────
+        // ProjectManager / Superintendent 은 EmpRole → JobPosition 매핑으로
+        // 로그인 시 자동 부여되므로 수동 Privilege row 가 있으면 삭제한다.
+        var hrDerivedCodes = new[] { PrivilegeCodes.ProjectManager, PrivilegeCodes.Superintendent };
+        var stalePrivs = await db.Privileges
+            .Where(p => hrDerivedCodes.Contains(p.Code))
+            .ToListAsync();
+        if (stalePrivs.Count > 0)
+        {
+            // UserPrivilege FK 먼저 제거
+            var staleIds = stalePrivs.Select(p => p.Id).ToList();
+            var staleUps = await db.UserPrivileges
+                .Where(up => staleIds.Contains(up.PrivilegeId))
+                .ToListAsync();
+            if (staleUps.Count > 0)
+                db.UserPrivileges.RemoveRange(staleUps);
+            db.Privileges.RemoveRange(stalePrivs);
+            await db.SaveChangesAsync();
+        }
+
         // ── Privileges (빌트인) ────────────────────────────────────────────
         // PrivilegeCodes.All 기준으로 누락된 priv 를 idempotent 하게 시드.
         // 이미 존재하는 Code 는 건드리지 않음(관리자가 Name/Description 을 수정했을 수 있음).
@@ -100,8 +120,8 @@ public static class DbInitializer
         {
             var adminUser = new ApplicationUser
             {
-                Name         = "Admin",
-                Email        = "admin@aci-la.com",
+                Name         = "admin",
+                Email        = "admin@angelescontractor.com",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@12345"),
                 IsActive     = true,
             };

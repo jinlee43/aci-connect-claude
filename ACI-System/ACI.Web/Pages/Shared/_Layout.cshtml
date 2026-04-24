@@ -143,6 +143,24 @@
         단, Trades & Subs는 조회가 전체 허용이므로 인증된 모든 사용자에게 노출.
     *@
     @{
+        var isPmOrField     = User.IsInRole("Admin")
+                              || User.IsInRole("ProjectManager")
+                              || User.IsInRole("Superintendent");
+    }
+
+    @* ─── My Workspace (PM / Superintendent / Admin) ──────────────────── *@
+    @if (isPmOrField)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">MY WORKSPACE</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "my-dashboard" ? "active" : "")"
+               asp-page="/MyDashboard/Index">
+                <i class="bi bi-speedometer2"></i><span>My Dashboard</span>
+            </a>
+        </div>
+    }
+
+    @{
         var isAdmin         = User.IsInRole("Admin");
         var isHrAdmin       = isAdmin || User.IsInRole("HrAdmin");            // Admin ⊇ HrAdmin
         var isHr            = isHrAdmin

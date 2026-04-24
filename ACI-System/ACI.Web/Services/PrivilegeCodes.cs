@@ -65,6 +65,12 @@ public static class PrivilegeCodes
     /// </para>
     ///
     /// <para>
+    /// <b>ProjectManager</b> 와 <b>Superintendent</b> 는 HR 파생 롤입니다.
+    /// 직원의 <c>EmpRole → JobPosition.Code</c> 매핑(PM/SPM/APM, SUPT/SSUPT/ASUPT)으로
+    /// 로그인 시 자동 부여되므로, 이 UI에서 수동으로 부여·해제할 수 없습니다.
+    /// </para>
+    ///
+    /// <para>
     /// 이 집합에 포함된 코드는 <c>/Hr/Users</c> 의 권한 체크박스 목록에서 제외되고,
     /// <c>OnPostCreateAsync</c> / <c>OnPostUpdateAsync</c> 의 서버사이드 가드에서도
     /// 거부됩니다.
@@ -72,5 +78,5 @@ public static class PrivilegeCodes
     /// </summary>
     // List 사용 — HashSet은 IReadOnlySet도 구현하므로 EF Core가 번역 실패함
     public static readonly IReadOnlyList<string> UiNonAssignable =
-        new List<string> { Admin };
+        new List<string> { Admin, ProjectManager, Superintendent };
 }

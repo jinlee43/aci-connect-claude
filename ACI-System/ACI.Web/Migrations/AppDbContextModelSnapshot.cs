@@ -35,8 +35,8 @@ namespace ACI.Web.Migrations
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<int?>("EmployeeId")
                         .HasColumnType("integer");
@@ -2941,6 +2941,7 @@ namespace ACI.Web.Migrations
 
             modelBuilder.Entity("ACI.Web.Data.Entities.WorkingTask", b =>
                 {
+       
                     b.Navigation("Changes");
 
                     b.Navigation("Children");

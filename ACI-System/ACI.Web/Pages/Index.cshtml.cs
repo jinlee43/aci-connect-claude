@@ -1,6 +1,8 @@
 using ACI.Web.Data;
 using ACI.Web.Data.Entities;
+using ACI.Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,8 +20,18 @@ public class IndexModel : PageModel
     public decimal TotalContractValue { get; set; }
     public List<ProjectSummaryVm> Projects { get; set; } = [];
 
-    public async Task OnGetAsync()
+    public async Task<IActionResult> OnGetAsync()
     {
+        // Admin / ProjAdmin / PM 이 아닌 사용자는 개인 대시보드로 이동
+        var isPortfolioUser =
+            User.IsInRole(PrivilegeCodes.Admin)       ||
+            User.IsInRole(PrivilegeCodes.LsProjAdmin) ||
+            User.IsInRole(PrivilegeCodes.JocProjAdmin)||
+            User.IsInRole(PrivilegeCodes.ProjectManager);
+
+        if (!isPortfolioUser)
+            return RedirectToPage("/MyDashboard/Index");
+
         var projects  = await _db.Projects.Where(p => p.IsActive).ToListAsync();
         var tasksAll  = await _db.ScheduleTasks.Where(t => t.IsActive).ToListAsync();
         var today     = DateOnly.FromDateTime(DateTime.Today);
@@ -48,6 +60,8 @@ public class IndexModel : PageModel
         .OrderByDescending(p => p.Status == ProjectStatus.Active)
         .ThenBy(p => p.SchdEndDate)
         .ToList();
+
+        return Page();
     }
 }
 

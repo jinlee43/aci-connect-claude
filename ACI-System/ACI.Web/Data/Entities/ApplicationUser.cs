@@ -22,7 +22,11 @@ public class ApplicationUser
     [Required, MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [Required, MaxLength(200)]
+    /// <summary>
+    /// 회사 이메일 주소. 자동 생성: <c>Name@angelescontractor.com</c>.
+    /// 직접 편집 금지 — Name 변경 시 서비스 레이어에서 함께 갱신.
+    /// </summary>
+    [Required, MaxLength(100)]
     public string Email { get; set; } = string.Empty;
 
     /// <summary>BCrypt.Net hashed password.</summary>
