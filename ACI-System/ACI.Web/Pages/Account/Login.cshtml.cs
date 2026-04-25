@@ -115,7 +115,7 @@ public class LoginModel : PageModel
             if (jobCodes.Any(c => c == "PM" || c == "SPM" || c == "APM"))
                 claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.ProjectManager));
 
-            if (jobCodes.Any(c => c == "SUPT" || c == "SSUPT" || c == "ASUPT"))
+            if (jobCodes.Any(c => c == "SP" || c == "SUPT" || c == "SSUPT" || c == "ASUPT"))
                 claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.Superintendent));
         }
 
@@ -132,7 +132,16 @@ public class LoginModel : PageModel
 
         await HttpContext.SignInAsync("AciCookies", principal, authProps);
 
-        return LocalRedirect(returnUrl ?? "/");
+        // Portfolio 사용자(Admin/HrAdmin/HrManager/SafetyAdmin/SafetyManager) → Dashboard(/)
+        // 나머지 사용자 → My Dashboard
+        var isPortfolioUser = principal.IsInRole("Admin")
+                              || principal.IsInRole("HrAdmin")
+                              || principal.IsInRole("HrManager")
+                              || principal.IsInRole("SafetyAdmin")
+                              || principal.IsInRole("SafetyManager");
+        var defaultHome = isPortfolioUser ? "/" : "/MyDashboard/Index";
+
+        return LocalRedirect(returnUrl ?? defaultHome);
     }
 
     public class InputModel

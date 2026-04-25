@@ -68,15 +68,25 @@
 
 <!-- ─── Sidebar ────────────────────────────────────────── -->
 <div id="sidebar" class="aci-sidebar">
-    <div class="sidebar-section">
-        <div class="sidebar-section-title">PORTFOLIO</div>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "dashboard" ? "active" : "")" asp-page="/Index">
-            <i class="bi bi-grid-1x2"></i><span>Dashboard</span>
-        </a>
-        <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")" asp-page="/Projects/Index">
-            <i class="bi bi-folder2"></i><span>Projects</span>
-        </a>
-    </div>
+    @{
+        var isPortfolioUser = User.IsInRole("Admin")
+                              || User.IsInRole("HrAdmin")
+                              || User.IsInRole("HrManager")
+                              || User.IsInRole("SafetyAdmin")
+                              || User.IsInRole("SafetyManager");
+    }
+    @if (isPortfolioUser)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">PORTFOLIO</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "dashboard" ? "active" : "")" asp-page="/Index">
+                <i class="bi bi-grid-1x2"></i><span>Dashboard</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")" asp-page="/Projects/Index">
+                <i class="bi bi-folder2"></i><span>Projects</span>
+            </a>
+        </div>
+    }
 
     @if (ViewData["CurrentProjectId"] != null)
     {
@@ -142,20 +152,22 @@
         메뉴는 정책 체크와 일치해야 하므로, 보유 권한이 있는 사용자에게만 해당 섹션을 노출.
         단, Trades & Subs는 조회가 전체 허용이므로 인증된 모든 사용자에게 노출.
     *@
-    @{
-        var isPmOrField     = User.IsInRole("Admin")
-                              || User.IsInRole("ProjectManager")
-                              || User.IsInRole("Superintendent");
-    }
-
-    @* ─── My Workspace (PM / Superintendent / Admin) ──────────────────── *@
-    @if (isPmOrField)
+    @* ─── My Workspace (비 Portfolio 사용자 전원) ──────────────────────── *@
+    @if (!isPortfolioUser && User.Identity?.IsAuthenticated == true)
     {
         <div class="sidebar-section">
             <div class="sidebar-section-title">MY WORKSPACE</div>
             <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "my-dashboard" ? "active" : "")"
                asp-page="/MyDashboard/Index">
-                <i class="bi bi-speedometer2"></i><span>My Dashboard</span>
+                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")"
+               asp-page="/Projects/Index">
+                <i class="bi bi-folder2"></i><span>Projects</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-mine" ? "active" : "")"
+               asp-page="/Safety/MyReports">
+                <i class="bi bi-clipboard2-check" style="color:#fd7e14;"></i><span>Safety Report</span>
             </a>
         </div>
     }
@@ -243,6 +255,13 @@
                asp-page="/Hr/Users/Index">
                 <i class="bi bi-person-gear"></i><span>Users</span>
             </a>
+            @if (isHrAdmin)
+            {
+                <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "project-assignments" ? "active" : "")"
+                   asp-page="/Hr/ProjectTeams/Index">
+                    <i class="bi bi-people-fill text-danger"></i><span>Project Assignments</span>
+                </a>
+            }
         </div>
     }
 

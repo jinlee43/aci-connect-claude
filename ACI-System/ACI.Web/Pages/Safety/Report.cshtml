@@ -32,7 +32,12 @@
                    && Model.Report?.Status == SafetyWkRepStatus.Staged
                    && Model.Report?.HasFile == true;
 
-    string backUrl = $"/Safety/Reports?from={Model.From}&to={Model.To}";
+    // Safety 스태프는 전체 Reports, PM/Superintendent는 MyReports 로 복귀
+    bool isSafetyStaff = User.IsInRole("Admin")         || User.IsInRole("SafetyAdmin")
+                      || User.IsInRole("SafetyManager") || User.IsInRole("SafetyUser");
+    string backUrl = isSafetyStaff
+        ? $"/Safety/Reports?from={Model.From}&to={Model.To}"
+        : $"/Safety/MyReports?from={Model.From}&to={Model.To}";
 }
 
 <div class="aci-page-header">
@@ -121,17 +126,7 @@
                         @* ── Missing: 신규 파일 업로드 또는 No Work ─────── *@
                         @if (Model.CanUpload)
                         {
-                            <div class="mb-4">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Report Date</label>
-                                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <input type="date" id="u-report-date" class="form-control"
-                                               style="max-width:200px;" value="@defaultDateStr" />
-                                        <span class="text-muted small">
-                                            <i class="bi bi-calendar3 me-1"></i>Default: @defaultDayName of the report week
-                                        </span>
-                                    </div>
-                                </div>
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Upload Report Files</label>
                                 <input type="file" id="u-file" class="form-control" multiple />
                                 <div class="form-text">Max 2,000 MB per file. Multiple files allowed.</div>
@@ -143,6 +138,16 @@
                                     <i class="bi bi-info-circle me-1"></i>
                                     After uploading, click <strong>Submit for Review</strong> to start the review process.
                                 </p>
+                            </div>
+                            <div class="mb-4 pt-3 border-top">
+                                <label class="form-label fw-semibold">Report Date</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <input type="date" id="u-report-date" class="form-control"
+                                           style="max-width:200px;" value="@defaultDateStr" />
+                                    <span class="text-muted small">
+                                        <i class="bi bi-calendar3 me-1"></i>Default: @defaultDayName of the report week
+                                    </span>
+                                </div>
                             </div>
                         }
 
@@ -224,10 +229,33 @@
                     {
                         @* ── Staged / Draft / Reviewed / Approved / Voided ── *@
 
-                        @* 파일 목록 *@
+                        @* ── 1. 파일 추가 업로드 섹션 ────────────────────────── *@
+                        @if (showUploadSection)
+                        {
+                            var sectionLabel = Model.Report.Status == SafetyWkRepStatus.Staged
+                                ? "Add Files" : "Add More Files";
+                            var uploadNote = Model.Report.Status == SafetyWkRepStatus.Voided
+                                ? "Adding a file will reset this report to Staged status and restart the review process."
+                                : "";
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">@sectionLabel</label>
+                                @if (!string.IsNullOrEmpty(uploadNote))
+                                {
+                                    <p class="text-muted small mb-2">@uploadNote</p>
+                                }
+                                <input type="file" id="u-file" class="form-control form-control-sm" multiple />
+                                <div class="form-text">Max 2,000 MB per file.</div>
+                                <div id="u-error" class="alert alert-danger mt-2 d-none"></div>
+                                <button id="u-btn" type="button" class="btn btn-sm btn-outline-primary mt-2">
+                                    <i class="bi bi-upload me-1"></i>Upload
+                                </button>
+                            </div>
+                        }
+
+                        @* ── 2. 파일 목록 ─────────────────────────────────────── *@
                         @if (Model.Report.Files.Any())
                         {
-                            <div class="mb-3">
+                            <div class="mb-3 pt-3 border-top">
                                 <div class="fw-semibold small text-muted mb-2">
                                     @Model.Report.Files.Count file(s) attached
                                 </div>
@@ -272,12 +300,27 @@
                                 }
                             </div>
                         }
-                        else
+                        else if (!showUploadSection)
                         {
                             <p class="text-muted small mb-3">No files attached yet.</p>
                         }
 
-                        @if (Model.Report.ReportDate.HasValue)
+                        @* ── 3. Report Date ───────────────────────────────────── *@
+                        @if (showUploadSection)
+                        {
+                            <div class="mb-3 pt-3 border-top">
+                                <label class="form-label small fw-semibold mb-1">Report Date</label>
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <input type="date" id="u-report-date" class="form-control form-control-sm"
+                                           style="max-width:180px;"
+                                           value="@(Model.Report.ReportDate?.ToString("yyyy-MM-dd") ?? defaultDateStr)" />
+                                    <span class="text-muted small">
+                                        <i class="bi bi-calendar3 me-1"></i>Default: @defaultDayName of the report week
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                        else if (Model.Report.ReportDate.HasValue)
                         {
                             <div class="text-muted small mb-3">
                                 <i class="bi bi-calendar3 me-1"></i>Report Date:
@@ -285,50 +328,11 @@
                             </div>
                         }
 
-                        @* ── 파일 추가 업로드 섹션 ──────────────────────────── *@
-                        @if (showUploadSection)
-                        {
-                            var sectionLabel = Model.Report.Status == SafetyWkRepStatus.Staged
-                                ? "Add Files" : "Add More Files";
-                            var uploadNote = Model.Report.Status == SafetyWkRepStatus.Voided
-                                ? "Adding a file will reset this report to Staged status and restart the review process."
-                                : "";
-                            <div class="mb-3 pt-3 border-top">
-                                <label class="form-label fw-semibold small">@sectionLabel</label>
-                                @if (!string.IsNullOrEmpty(uploadNote))
-                                {
-                                    <p class="text-muted small mb-2">@uploadNote</p>
-                                }
-                                <div class="mb-2">
-                                    <label class="form-label small mb-1">Report Date</label>
-                                    <input type="date" id="u-report-date" class="form-control form-control-sm"
-                                           style="max-width:180px;"
-                                           value="@(Model.Report.ReportDate?.ToString("yyyy-MM-dd") ?? defaultDateStr)" />
-                                </div>
-                                <input type="file" id="u-file" class="form-control form-control-sm" multiple />
-                                <div class="form-text">Max 2,000 MB per file.</div>
-                                <div id="u-error" class="alert alert-danger mt-2 d-none"></div>
-                                <button id="u-btn" type="button" class="btn btn-sm btn-outline-primary mt-2">
-                                    <i class="bi bi-upload me-1"></i>Upload
-                                </button>
-                            </div>
-                        }
-
-                        @* ── Submit / Cancel 버튼 행 ────────────────────────── *@
+                        @* ── 4. Submit / Discard 버튼 행 ─────────────────────── *@
                         @if (showSubmit)
                         {
-                            <div class="mt-3 pt-3 border-top d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <form id="frm-delete-staged" method="post" asp-page-handler="Delete" class="d-inline">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="reportId" value="@Model.Report.Id" />
-                                    <input type="hidden" name="from"     value="@Model.From" />
-                                    <input type="hidden" name="to"       value="@Model.To" />
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                            onclick="confirmAction('frm-delete-staged', 'Discard Report', 'Discard all uploaded files and cancel this report?')">
-                                        <i class="bi bi-x-circle me-1"></i>Discard
-                                    </button>
-                                </form>
-
+                            @* 파일이 있을 땐 Submit만 — Discard는 개별 파일 삭제로 *@
+                            <div class="mt-3 pt-3 border-top d-flex justify-content-end">
                                 <form id="frm-submit" method="post" asp-page-handler="Submit">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="reportId"   value="@Model.Report.Id" />
@@ -342,19 +346,20 @@
                                 </form>
                             </div>
                         }
-                        else if (!isReadOnly && (Model.CanUpload || Model.CanMarkNoWork)
-                                 && Model.Report.Status is SafetyWkRepStatus.Draft)
+                        else if (!isReadOnly && Model.CanUpload
+                                 && Model.Report.Status == SafetyWkRepStatus.Staged
+                                 && !Model.Report.Files.Any())
                         {
-                            @* Draft 상태: 파일만 있고 submit 불필요 → delete 버튼 *@
+                            @* 파일 없는 빈 Staged 보고서 → Discard 허용 *@
                             <div class="mt-3 pt-3 border-top">
-                                <form id="frm-delete-draft" method="post" asp-page-handler="Delete" class="d-inline">
+                                <form id="frm-delete-staged" method="post" asp-page-handler="Delete" class="d-inline">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="reportId" value="@Model.Report.Id" />
                                     <input type="hidden" name="from"     value="@Model.From" />
                                     <input type="hidden" name="to"       value="@Model.To" />
-                                    <button type="button" class="btn btn-outline-danger btn-sm"
-                                            onclick="confirmAction('frm-delete-draft', 'Delete Report', 'Delete this report? The week will return to missing status.')">
-                                        <i class="bi bi-trash me-1"></i>Delete Report
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="confirmAction('frm-delete-staged', 'Discard Report', 'Discard this report and return the week to missing status?')">
+                                        <i class="bi bi-x-circle me-1"></i>Discard
                                     </button>
                                 </form>
                             </div>
@@ -572,6 +577,22 @@ const _pid = @pid, _wk = '@wkStr', _repId = @repId;
 const uBtn = document.getElementById('u-btn');
 const _uploadingModal = new bootstrap.Modal(document.getElementById('uploadingModal'));
 
+// 파일 선택 여부에 따라 Upload 버튼 활성/비활성 + 색상 전환
+const uFile = document.getElementById('u-file');
+if (uBtn && uFile) {
+    const activeClass = [...uBtn.classList]
+        .find(c => /^btn-(primary|outline-primary|success|info|warning|danger)$/.test(c)) ?? 'btn-primary';
+
+    const setUploadState = (hasFile) => {
+        uBtn.disabled = !hasFile;
+        uBtn.classList.toggle('btn-secondary', !hasFile);
+        uBtn.classList.toggle(activeClass, hasFile);
+    };
+
+    setUploadState(false);
+    uFile.addEventListener('change', () => setUploadState(uFile.files.length > 0));
+}
+
 if (uBtn) {
     uBtn.addEventListener('click', async () => {
         const fi = document.getElementById('u-file');
@@ -596,7 +617,7 @@ if (uBtn) {
             if (i === 0) _uploadingModal.show();
 
             const fd = new FormData();
-            fd.append('file',          file);
+            fd.append('files',         file);
             fd.append('projectId',     _pid);
             fd.append('weekStartDate', _wk);
             if (reportDate) fd.append('reportDate', reportDate);

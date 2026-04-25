@@ -55,7 +55,7 @@ public interface ISafetyWkRepService
     Task<SafetyWkRep> AddFileAsync(
         int projectId, DateOnly weekStartDate,
         string fileName, string storedFileName, string extension, long fileSize,
-        int userId, string userName, DateOnly? reportDate = null);
+        int userId, string userName, DateOnly? reportDate = null, string? notes = null);
 
     /// <summary>개별 파일을 삭제합니다. 반환된 StoredFileName 으로 디스크 파일을 삭제하세요.</summary>
     Task<(SafetyWkRepFile File, string StoredFileName)> RemoveFileAsync(int fileId);
@@ -63,7 +63,7 @@ public interface ISafetyWkRepService
     /// <summary>Staged → Draft (제출). 파일이 1개 이상 있어야 합니다.</summary>
     Task<SafetyWkRep> SubmitReportAsync(int reportId, DateOnly? reportDate, int userId, string userName);
 
-    Task<SafetyWkRep> MarkNoWorkAsync(int projectId, DateOnly weekStartDate, int userId, string userName, DateOnly? reportDate = null);
+    Task<SafetyWkRep> MarkNoWorkAsync(int projectId, DateOnly weekStartDate, int userId, string userName, DateOnly? reportDate = null, string? notes = null);
     Task<(SafetyWkRep Report, IReadOnlyList<string> StoredFileNames)> DeleteReportAsync(int reportId);
     Task<SafetyWkRep> ReviewReportAsync(int reportId, string? notes, int userId, string userName);
     Task<SafetyWkRep> UnreviewReportAsync(int reportId, int userId, string userName);
@@ -383,7 +383,7 @@ public class SafetyWkRepService : ISafetyWkRepService
     public async Task<SafetyWkRep> AddFileAsync(
         int projectId, DateOnly weekStartDate,
         string fileName, string storedFileName, string extension, long fileSize,
-        int userId, string userName, DateOnly? reportDate = null)
+        int userId, string userName, DateOnly? reportDate = null, string? notes = null)
     {
         var monday = GetWeekMonday(weekStartDate);
         var existing = await _db.SafetyWkReps
@@ -411,6 +411,8 @@ public class SafetyWkRepService : ISafetyWkRepService
             report.UploadedByName = userName;
             report.UploadedAt     = DateTime.UtcNow;
             report.CreatedById    = userId;
+            if (!string.IsNullOrWhiteSpace(notes))
+                report.Notes = notes.Trim();
             _db.SafetyWkReps.Add(report);
             await _db.SaveChangesAsync(); // ID 확보 후 파일 추가
         }
@@ -425,6 +427,8 @@ public class SafetyWkRepService : ISafetyWkRepService
             existing.UpdatedById    = userId;
             if (reportDate.HasValue)
                 existing.ReportDate = reportDate;
+            if (!string.IsNullOrWhiteSpace(notes))
+                existing.Notes = notes.Trim();
             report = existing;
         }
         else
@@ -435,6 +439,12 @@ public class SafetyWkRepService : ISafetyWkRepService
             {
                 report.ReportDate  = reportDate;
                 report.UpdatedAt   = DateTime.UtcNow;
+                report.UpdatedById = userId;
+            }
+            if (!string.IsNullOrWhiteSpace(notes))
+            {
+                report.Notes      = notes.Trim();
+                report.UpdatedAt  = DateTime.UtcNow;
                 report.UpdatedById = userId;
             }
         }
@@ -506,7 +516,7 @@ public class SafetyWkRepService : ISafetyWkRepService
 
     public async Task<SafetyWkRep> MarkNoWorkAsync(
         int projectId, DateOnly weekStartDate, int userId, string userName,
-        DateOnly? reportDate = null)
+        DateOnly? reportDate = null, string? notes = null)
     {
         var monday = GetWeekMonday(weekStartDate);
         var existing = await _db.SafetyWkReps
@@ -529,6 +539,7 @@ public class SafetyWkRepService : ISafetyWkRepService
             existing.UploadedById   = userId;
             existing.UploadedByName = userName;
             existing.UploadedAt     = DateTime.UtcNow;
+            existing.Notes          = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
             existing.ReviewedById   = null;
             existing.ReviewedByName = null;
             existing.ReviewedAt     = null;
@@ -545,6 +556,7 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.UploadedById   = userId;
         report.UploadedByName = userName;
         report.UploadedAt     = DateTime.UtcNow;
+        report.Notes          = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
         report.CreatedById    = userId;
 
         _db.SafetyWkReps.Add(report);

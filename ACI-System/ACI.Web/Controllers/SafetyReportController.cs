@@ -46,21 +46,24 @@ public class SafetyReportController : ControllerBase
         _logger  = logger;
     }
 
-    // ── Upload file ───────────────────────────────────────────────────────────
+    // ── Upload files ──────────────────────────────────────────────────────────
     // POST /api/safety-reports/upload
-    // 파일을 Staged 보고서에 추가합니다 (없으면 생성).
+    // 파일을 Staged 보고서에 추가합니다 (없으면 생성). 다중 파일 지원.
     [HttpPost("upload")]
     [RequestSizeLimit(2002L * 1024 * 1024)]
     public async Task<IActionResult> Upload(
         [FromForm] int     projectId,
         [FromForm] string  weekStartDate,
         [FromForm] string? reportDate,
-        [FromForm] IFormFile? file)
+        [FromForm] string? notes,
+        [FromForm] List<IFormFile>? files)
     {
-        if (file == null || file.Length == 0)
+        if (files == null || files.Count == 0)
             return BadRequest("No file provided.");
-        if (file.Length > MaxFileSizeBytes)
-            return BadRequest("File exceeds the 2000 MB size limit.");
+
+        var oversized = files.FirstOrDefault(f => f.Length > MaxFileSizeBytes);
+        if (oversized != null)
+            return BadRequest($"'{oversized.FileName}' exceeds the 2000 MB size limit.");
 
         if (!DateOnly.TryParse(weekStartDate, out var weekDate))
             return BadRequest("Invalid week start date.");
@@ -90,33 +93,44 @@ public class SafetyReportController : ControllerBase
                 return BadRequest("Report has already been reviewed or approved.");
         }
 
-        var uploadDir  = GetUploadDir(SafetyWkRepService.GetWeekMonday(weekDate));
+        var uploadDir = GetUploadDir(SafetyWkRepService.GetWeekMonday(weekDate));
         Directory.CreateDirectory(uploadDir);
 
-        var ext        = Path.GetExtension(file.FileName);
-        var storedName = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
-        var storedPath = Path.Combine(uploadDir, storedName);
-
-        await using (var fs = System.IO.File.Create(storedPath))
-            await file.CopyToAsync(fs);
-
+        // notes 는 첫 번째 파일에만 전달 (같은 보고서에 반영)
+        var savedPaths = new List<string>();
+        SafetyWkRep? report = null;
         try
         {
-            var report = await _svc.AddFileAsync(
-                projectId,
-                SafetyWkRepService.GetWeekMonday(weekDate),
-                file.FileName,
-                storedName,
-                ext.TrimStart('.').ToLowerInvariant(),
-                file.Length,
-                userId, userName,
-                parsedReportDate);
+            for (int i = 0; i < files.Count; i++)
+            {
+                var file       = files[i];
+                var ext        = Path.GetExtension(file.FileName);
+                var storedName = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
+                var storedPath = Path.Combine(uploadDir, storedName);
 
-            return Ok(new { reportId = report.Id, status = report.Status.ToString() });
+                await using (var fs = System.IO.File.Create(storedPath))
+                    await file.CopyToAsync(fs);
+                savedPaths.Add(storedPath);
+
+                report = await _svc.AddFileAsync(
+                    projectId,
+                    SafetyWkRepService.GetWeekMonday(weekDate),
+                    file.FileName,
+                    storedName,
+                    ext.TrimStart('.').ToLowerInvariant(),
+                    file.Length,
+                    userId, userName,
+                    parsedReportDate,
+                    i == 0 ? notes : null);   // notes 는 첫 번째 파일에만
+            }
+
+            return Ok(new { reportId = report!.Id, status = report.Status.ToString(), count = files.Count });
         }
         catch (Exception ex)
         {
-            try { System.IO.File.Delete(storedPath); } catch { /* best-effort */ }
+            // 실패 시 이미 저장된 디스크 파일 정리
+            foreach (var p in savedPaths)
+                try { System.IO.File.Delete(p); } catch { /* best-effort */ }
             return BadRequest(ex.Message);
         }
     }
@@ -215,9 +229,10 @@ public class SafetyReportController : ControllerBase
             if (!assigned.Contains(report.ProjectId))
                 return Forbid();
 
-            if (report.Status is SafetyWkRepStatus.Reviewed
+            if (report.Status is SafetyWkRepStatus.Draft
+                              or SafetyWkRepStatus.Reviewed
                               or SafetyWkRepStatus.Approved)
-                return BadRequest("Cannot delete a reviewed or approved report.");
+                return BadRequest("Cannot delete a submitted, reviewed, or approved report.");
         }
 
         try

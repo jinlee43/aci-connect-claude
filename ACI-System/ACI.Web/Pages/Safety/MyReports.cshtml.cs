@@ -12,11 +12,7 @@ namespace ACI.Web.Pages.Safety;
 
 /// <summary>
 /// PM / Superintendent용 주간 보고서 페이지 — 담당 프로젝트 한정.
-///
-/// 권한:
-///   업로드/NoWork/삭제 : 인증된 모든 사용자 (담당 프로젝트, Draft/NoWork/Voided 상태만)
-///   검토(Review)       : PM(ProjectManager) + SafetyManager+  (담당 프로젝트)
-///   검토취소(Unreview) : SafetyManager+
+/// Flat list view: (Project × Week) 행 목록, 컬럼 정렬 지원.
 /// </summary>
 [Authorize]
 public class MyReportsModel : PageModel
@@ -41,18 +37,23 @@ public class MyReportsModel : PageModel
     [BindProperty(SupportsGet = true)] public string? To   { get; set; }
 
     // ── View data ─────────────────────────────────────────────────────────────
-    public List<DateOnly>   Weeks      { get; set; } = [];
-    public List<ProjectRow> Rows       { get; set; } = [];
+    public List<FlatRow> Rows     { get; set; } = [];
+    public bool CanReview         { get; set; }
+    public bool CanUnreview       { get; set; }
 
-    /// <summary>SafetyManager+ 또는 ProjectManager(담당)가 검토 가능.</summary>
-    public bool CanReview     { get; set; }
-    public bool CanUnreview   { get; set; }   // SafetyManager+ 전용
-
-    public record ProjectRow(
-        int     ProjectId,
-        string  ProjectCode,
-        string  ProjectName,
-        Dictionary<DateOnly, SafetyWkRep?> Slots);
+    /// <summary>
+    /// (Project × Week) 단일 행.
+    /// Report == null 이면 아직 제출하지 않은 주.
+    /// </summary>
+    public record FlatRow(
+        int          ProjectId,
+        string       ProjectCode,
+        string       ProjectName,
+        int          WeekNumber,
+        int          Year,
+        DateOnly     WeekStartDate,
+        DateOnly     DueDate,       // Settings.DefaultSubmitDay 기준 계산
+        SafetyWkRep? Report);       // null = 미제출
 
     // ── GET ───────────────────────────────────────────────────────────────────
     public async Task<IActionResult> OnGetAsync()
@@ -69,42 +70,68 @@ public class MyReportsModel : PageModel
         From = from.ToString("yyyy-MM-dd");
         To   = to.ToString("yyyy-MM-dd");
 
-        var cur = GetWeekMonday(from);
-        while (cur <= to) { Weeks.Add(cur); cur = cur.AddDays(7); }
-
         var projectIds = await _svc.GetAssignedProjectIdsAsync(userId);
         if (projectIds.Count == 0) return Page();
-
-        var reports = await _db.SafetyWkReps
-            .Where(r => r.IsActive
-                     && projectIds.Contains(r.ProjectId)
-                     && r.WeekStartDate >= GetWeekMonday(from)
-                     && r.WeekStartDate <= to)
-            .ToListAsync();
 
         var projects = await _db.Projects
             .Where(p => p.IsActive && projectIds.Contains(p.Id))
             .OrderBy(p => p.ProjectCode)
             .ToListAsync();
 
-        var byProject = reports
-            .GroupBy(r => r.ProjectId)
-            .ToDictionary(g => g.Key, g => g.ToDictionary(r => r.WeekStartDate));
+        // 기간 내 기존 보고서 — Files 포함 로드
+        var fromMonday = GetWeekMonday(from);
+        var reports = await _db.SafetyWkReps
+            .Include(r => r.Files)
+            .Where(r => r.IsActive
+                     && projectIds.Contains(r.ProjectId)
+                     && r.WeekStartDate >= fromMonday
+                     && r.WeekStartDate <= to)
+            .ToListAsync();
 
-        Rows = projects.Select(p =>
+        // 프로젝트별 Settings (DefaultSubmitDay)
+        var settings = await _db.SafetyWkRepSettings
+            .Where(s => projectIds.Contains(s.ProjectId))
+            .ToListAsync();
+        var submitDayMap = settings.ToDictionary(
+            s => s.ProjectId,
+            s => s.DefaultSubmitDay);
+
+        // 보고서 인덱스: (ProjectId, WeekStartDate) → SafetyWkRep
+        var repIndex = reports.ToDictionary(r => (r.ProjectId, r.WeekStartDate));
+
+        // 주 목록 생성
+        var weeks = new List<DateOnly>();
+        var cur = fromMonday;
+        while (cur <= to) { weeks.Add(cur); cur = cur.AddDays(7); }
+
+        // Flat rows 생성
+        var rows = new List<FlatRow>();
+        foreach (var p in projects)
         {
-            byProject.TryGetValue(p.Id, out var map);
-            map ??= [];
-            var slots = Weeks.ToDictionary(w => w,
-                w => map.TryGetValue(w, out var r) ? r : null);
-            return new ProjectRow(p.Id, p.ProjectCode, p.Name, slots);
-        }).ToList();
+            var submitDay = submitDayMap.GetValueOrDefault(p.Id, DayOfWeek.Friday);
+            foreach (var week in weeks)
+            {
+                var dueDate = CalcDueDate(week, submitDay);
+                repIndex.TryGetValue((p.Id, week), out var rep);
+                rows.Add(new FlatRow(
+                    p.Id, p.ProjectCode, p.Name,
+                    System.Globalization.ISOWeek.GetWeekOfYear(week.ToDateTime(TimeOnly.MinValue)),
+                    week.Year,
+                    week, dueDate, rep));
+            }
+        }
+
+        // 기본 정렬: Due Date 내림차순 → Project Code
+        Rows = rows
+            .OrderByDescending(r => r.DueDate)
+            .ThenBy(r => r.ProjectCode)
+            .ToList();
 
         return Page();
     }
 
     // ── POST: Mark No Work ────────────────────────────────────────────────────
-    public async Task<IActionResult> OnPostMarkNoWorkAsync(int projectId, string weekStart)
+    public async Task<IActionResult> OnPostMarkNoWorkAsync(int projectId, string weekStart, string? notes)
     {
         if (!DateOnly.TryParse(weekStart, out var weekDate))
         {
@@ -115,12 +142,10 @@ public class MyReportsModel : PageModel
         var (userId, userName) = GetUser();
         if (userId <= 0) return Forbid();
 
-        // 비 Safety 스태프는 담당 프로젝트 + 상태 체크
         if (!IsSafetyStaff())
         {
             var assigned = await _svc.GetAssignedProjectIdsAsync(userId);
-            if (!assigned.Contains(projectId))
-                return Forbid();
+            if (!assigned.Contains(projectId)) return Forbid();
 
             var existing = await _svc.GetReportByWeekAsync(projectId, weekDate);
             if (existing != null &&
@@ -134,7 +159,7 @@ public class MyReportsModel : PageModel
 
         try
         {
-            await _svc.MarkNoWorkAsync(projectId, weekDate, userId, userName);
+            await _svc.MarkNoWorkAsync(projectId, weekDate, userId, userName, notes: notes);
             TempData["Success"] = "Week marked as No Work.";
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
@@ -148,21 +173,19 @@ public class MyReportsModel : PageModel
         var (userId, _) = GetUser();
         if (userId <= 0) return Forbid();
 
-        // 삭제할 보고서 조회
         var report = await _db.SafetyWkReps.FindAsync(reportId);
         if (report == null) return NotFound();
 
-        // 비 Safety 스태프는 담당 프로젝트 + 상태 체크
         if (!IsSafetyStaff())
         {
             var assigned = await _svc.GetAssignedProjectIdsAsync(userId);
-            if (!assigned.Contains(report.ProjectId))
-                return Forbid();
+            if (!assigned.Contains(report.ProjectId)) return Forbid();
 
-            if (report.Status == SafetyWkRepStatus.Reviewed ||
-                report.Status == SafetyWkRepStatus.Approved)
+            if (report.Status is SafetyWkRepStatus.Draft
+                              or SafetyWkRepStatus.Reviewed
+                              or SafetyWkRepStatus.Approved)
             {
-                TempData["Error"] = "Cannot delete a reviewed or approved report.";
+                TempData["Error"] = "Cannot delete a submitted, reviewed, or approved report.";
                 return RedirectToPage(new { from = From, to = To });
             }
         }
@@ -170,16 +193,16 @@ public class MyReportsModel : PageModel
         try
         {
             var (deleted, storedNames) = await _svc.DeleteReportAsync(reportId);
-            var halfYear = deleted.WeekStartDate.Month <= 6 ? "A" : "B";
+            var halfYear  = deleted.WeekStartDate.Month <= 6 ? "A" : "B";
             var uploadDir = Path.Combine(
                 _storage.FileItemRoot, "SafetyMgmt", "SafetyWkRepFiles",
                 $"{deleted.WeekStartDate.Year}{halfYear}");
-            foreach (var storedName in storedNames)
+            foreach (var name in storedNames)
             {
-                var filePath = Path.Combine(uploadDir, storedName);
-                if (System.IO.File.Exists(filePath))
-                    try { System.IO.File.Delete(filePath); }
-                    catch (Exception ex) { _logger.LogWarning(ex, "Could not delete safety file {Path}", filePath); }
+                var path = Path.Combine(uploadDir, name);
+                if (System.IO.File.Exists(path))
+                    try { System.IO.File.Delete(path); }
+                    catch (Exception ex) { _logger.LogWarning(ex, "Could not delete safety file {Path}", path); }
             }
             TempData["Success"] = "Report deleted.";
         }
@@ -188,23 +211,19 @@ public class MyReportsModel : PageModel
         return RedirectToPage(new { from = From, to = To });
     }
 
-    // ── POST: Review (PM + SafetyManager+) ───────────────────────────────────
+    // ── POST: Review ──────────────────────────────────────────────────────────
     public async Task<IActionResult> OnPostReviewAsync(int reportId, string? notes)
     {
-        // PM은 담당 프로젝트만, SafetyManager+는 전체
         var (userId, userName) = GetUser();
         if (userId <= 0) return Forbid();
 
         if (!IsSafetyManager())
         {
-            // PM만 허용
-            if (!IsProjectManager())
-                return Forbid();
+            if (!IsProjectManager()) return Forbid();
             var report   = await _db.SafetyWkReps.FindAsync(reportId);
             if (report == null) return NotFound();
             var assigned = await _svc.GetAssignedProjectIdsAsync(userId);
-            if (!assigned.Contains(report.ProjectId))
-                return Forbid();
+            if (!assigned.Contains(report.ProjectId)) return Forbid();
         }
 
         try
@@ -217,11 +236,10 @@ public class MyReportsModel : PageModel
         return RedirectToPage(new { from = From, to = To });
     }
 
-    // ── POST: Unreview (SafetyManager+ 전용) ─────────────────────────────────
+    // ── POST: Unreview ────────────────────────────────────────────────────────
     public async Task<IActionResult> OnPostUnreviewAsync(int reportId)
     {
         if (!IsSafetyManager()) return Forbid();
-
         var (userId, userName) = GetUser();
         if (userId <= 0) return Forbid();
 
@@ -265,5 +283,12 @@ public class MyReportsModel : PageModel
     {
         int diff = (7 + ((int)date.DayOfWeek - (int)DayOfWeek.Monday)) % 7;
         return date.AddDays(-diff);
+    }
+
+    /// <summary>WeekStartDate(월요일)에서 submitDay 요일까지의 날짜 계산.</summary>
+    private static DateOnly CalcDueDate(DateOnly monday, DayOfWeek submitDay)
+    {
+        int offset = ((int)submitDay - (int)DayOfWeek.Monday + 7) % 7;
+        return monday.AddDays(offset);
     }
 }

@@ -44,6 +44,11 @@
                             <label class="form-label small fw-semibold">Order #</label>
                             <input asp-for="Input.OrdNum" type="number" class="form-control form-control-sm" />
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-semibold">Type</label>
+                            <input asp-for="Input.Type" class="form-control form-control-sm"
+                                   placeholder="e.g. Project" />
+                        </div>
                         <div class="col-auto">
                             <div class="form-check">
                                 <input asp-for="Input.IsActive" class="form-check-input" type="checkbox" checked />
@@ -68,6 +73,7 @@
                         <th style="width:60px" class="text-center">Order</th>
                         <th style="width:100px">Code</th>
                         <th>Name</th>
+                        <th style="width:90px">Type</th>
                         <th class="text-center" style="width:80px">Status</th>
                         <th style="width:100px"></th>
                     </tr>
@@ -79,6 +85,17 @@
                             <td class="text-center small">@pos.OrdNum</td>
                             <td class="small fw-semibold">@pos.Code</td>
                             <td class="small">@pos.Name</td>
+                            <td class="small">
+                                @if (!string.IsNullOrEmpty(pos.Type))
+                                {
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle"
+                                          style="font-size:.7rem;">@pos.Type</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
                             <td class="text-center">
                                 @if (pos.IsActive)
                                 {

@@ -641,6 +641,10 @@ namespace ACI.Web.Migrations
                     b.Property<int>("OrdNum")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Type")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 

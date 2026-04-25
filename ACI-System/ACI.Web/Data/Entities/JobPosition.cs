@@ -20,5 +20,12 @@ public class JobPosition : BaseEntity
     /// <summary>Display ordering — lower = higher rank (CEO = 1, Asst. Super = 999).</summary>
     public int OrdNum { get; set; } = 999;
 
+    /// <summary>
+    /// 포지션 분류 태그. 예: "Project" — Project Staffing 화면 드롭다운 필터 기준.
+    /// null 이면 분류 없음 (회사 조직용 직책 등).
+    /// </summary>
+    [MaxLength(50)]
+    public string? Type { get; set; }
+
     public ICollection<EmpRole> EmpRoles { get; set; } = [];
 }

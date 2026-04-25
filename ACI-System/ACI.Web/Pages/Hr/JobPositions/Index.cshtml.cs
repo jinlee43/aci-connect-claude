@@ -59,6 +59,7 @@ public class IndexModel : PageModel
             existing.Code      = Input.Code;
             existing.Name      = Input.Name;
             existing.OrdNum    = Input.OrdNum;
+            existing.Type      = string.IsNullOrWhiteSpace(Input.Type) ? null : Input.Type.Trim();
             existing.IsActive  = Input.IsActive;
             existing.UpdatedAt = DateTime.UtcNow;
         }

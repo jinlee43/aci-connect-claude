@@ -155,7 +155,8 @@ public class ReportModel : PageModel
         var report = await _svc.GetReportAsync(reportId);
         if (report == null) return NotFound();
 
-        if (report.IsLocked) return Forbid();
+        if (report.IsLocked || report.Status == SafetyWkRepStatus.Draft)
+            return Forbid();
 
         Project = report.Project;
         Week    = report.WeekStartDate;

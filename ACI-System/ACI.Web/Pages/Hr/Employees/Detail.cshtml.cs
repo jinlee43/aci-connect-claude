@@ -74,6 +74,13 @@ public class DetailModel : PageModel
 
         if (Emp.Id == 0)
         {
+            // EmpNum 미입력(0)이면 현재 최대값 + 1 자동 부여 (1001 부터 시작)
+            if (Emp.EmpNum == 0)
+            {
+                var maxNum = await _db.Employees.MaxAsync(e => (int?)e.EmpNum) ?? 1000;
+                Emp.EmpNum = maxNum + 1;
+            }
+
             Emp.CreatedAt = DateTime.UtcNow;
             Emp.UpdatedAt = DateTime.UtcNow;
             _db.Employees.Add(Emp);

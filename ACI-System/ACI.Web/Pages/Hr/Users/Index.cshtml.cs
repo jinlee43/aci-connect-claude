@@ -116,7 +116,6 @@ public class IndexModel : PageModel
         if (!User.IsInRole(PrivilegeCodes.HrAdmin)) return Forbid();
 
         Employee? emp = null;
-        string displayName;
         string localId;
 
         // ── 1) 이름 / 로그인 ID 결정 ───────────────────────────────────

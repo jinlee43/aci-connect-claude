@@ -1,0 +1,313 @@
+@page
+@model ACI.Web.Pages.Hr.ProjectTeams.IndexModel
+@{
+    ViewData["Title"]      = "Project Assignments";
+    ViewData["ActiveMenu"] = "project-assignments";
+}
+
+<div class="p-3">
+
+    <!-- Header -->
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <div>
+            <h5 class="mb-0 fw-bold">
+                <i class="bi bi-people-fill me-2 text-danger"></i>Project Assignments
+            </h5>
+            <small class="text-muted">Assign employees to project teams</small>
+        </div>
+    </div>
+
+    <!-- Alerts -->
+    @if (TempData["Success"] is string ok)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2 small" role="alert">
+            <i class="bi bi-check-circle me-1"></i>@ok
+            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] is string err)
+    {
+        <div class="alert alert-danger alert-dismissible fade show py-2 small" role="alert">
+            <i class="bi bi-exclamation-triangle me-1"></i>@err
+            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Project Selector -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <form method="get" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label small fw-semibold mb-1">Select Project</label>
+                    <select name="projectId" class="form-select form-select-sm"
+                            onchange="this.form.submit()">
+                        <option value="">— Choose a project —</option>
+                        @foreach (var p in Model.AllProjects)
+                        {
+                            if (Model.ProjectId == p.Id)
+                            {
+                                <option value="@p.Id" selected>@p.Name (@p.ProjectCode)</option>
+                            }
+                            else
+                            {
+                                <option value="@p.Id">@p.Name (@p.ProjectCode)</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model.SelectedProject != null)
+    {
+        <div class="row g-3">
+
+            <!-- Current Members -->
+            <div class="col-lg-9">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header py-2 d-flex align-items-center justify-content-between">
+                        <span class="fw-semibold">
+                            <i class="bi bi-people me-1 text-primary"></i>
+                            @Model.SelectedProject.Name — Team Members
+                        </span>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            @Model.Members.Count(m => m.IsActive) active
+                        </span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0 align-middle" style="table-layout:fixed; width:100%;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:74px;">Status</th>
+                                    <th style="width:14%;">Employee</th>
+                                    <th style="width:17%;">Position</th>
+                                    <th style="width:132px;">Start</th>
+                                    <th style="width:132px;">End</th>
+                                    <th>Notes</th>
+                                    <th class="text-end" style="width:72px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var m in Model.Members)
+                                {
+                                    <tr class="@(m.IsActive ? "" : "text-muted opacity-75")">
+                                        <td>
+                                            @if (m.IsActive)
+                                            {
+                                                <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.7rem;">Active</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary-subtle text-muted" style="font-size:.7rem;">Ended</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="fw-semibold small">@m.Employee.DisplayName</div>
+                                        </td>
+                                        <td class="small" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                            <!-- 포지션 표시 (기본) -->
+                                            <span id="pos-label-@m.Id" class="d-inline-flex align-items-center gap-1">
+                                                @if (m.JobPosition != null)
+                                                {
+                                                    @m.JobPosition.Name
+                                                    @if (m.JobPosition.Code == "PM" || m.JobPosition.Code == "SUPT" || m.JobPosition.Code == "SP")
+                                                    {
+                                                        <i class="bi bi-star-fill text-warning flex-shrink-0" style="font-size:.65rem;"
+                                                           title="Unique role — only one per project"></i>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </span>
+                                            <!-- 편집 폼 (숨김) — 버튼은 마지막 셀로, 날짜는 form= 속성으로 연결 -->
+                                            <form method="post" asp-page-handler="UpdateRole"
+                                                  asp-route-roleId="@m.Id"
+                                                  asp-route-projectId="@Model.ProjectId"
+                                                  id="edit-form-@m.Id"
+                                                  class="d-none mt-1">
+                                                <select name="newPositionId" class="form-select form-select-sm">
+                                                    <option value="">— Not specified —</option>
+                                                    @foreach (var jp in Model.JobPositions)
+                                                    {
+                                                        if (m.JobPositionId == jp.Id)
+                                                        {
+                                                            <option value="@jp.Id" selected>@jp.Name (@jp.Code)</option>
+                                                        }
+                                                        else
+                                                        {
+                                                            <option value="@jp.Id">@jp.Name (@jp.Code)</option>
+                                                        }
+                                                    }
+                                                </select>
+                                            </form>
+                                        </td>
+                                        <!-- Start Date -->
+                                        <td class="small">
+                                            <span id="start-display-@m.Id">@(m.StartDate?.ToString("MMM d, yyyy") ?? "—")</span>
+                                            <input type="date" form="edit-form-@m.Id" name="newStartDate"
+                                                   id="start-input-@m.Id"
+                                                   value="@m.StartDate?.ToString("yyyy-MM-dd")"
+                                                   class="form-control form-control-sm d-none" style="min-width:130px;" />
+                                        </td>
+                                        <!-- End Date -->
+                                        <td class="small">
+                                            <span id="end-display-@m.Id">@(m.EndDate?.ToString("MMM d, yyyy") ?? "—")</span>
+                                            <input type="date" form="edit-form-@m.Id" name="newEndDate"
+                                                   id="end-input-@m.Id"
+                                                   value="@m.EndDate?.ToString("yyyy-MM-dd")"
+                                                   class="form-control form-control-sm d-none" style="min-width:130px;" />
+                                        </td>
+                                        <!-- Notes -->
+                                        <td class="small">
+                                            <span id="notes-display-@m.Id" class="text-muted fst-italic">
+                                                @(m.Notes ?? "")
+                                            </span>
+                                            <input type="text" form="edit-form-@m.Id" name="newNotes"
+                                                   id="notes-input-@m.Id"
+                                                   value="@m.Notes"
+                                                   class="form-control form-control-sm d-none"
+                                                   maxlength="200" placeholder="Optional" />
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            <!-- 편집 아이콘 (표시 모드) -->
+                                            <i id="edit-btn-@m.Id"
+                                               class="bi bi-pencil text-secondary me-2"
+                                               style="font-size:.85rem; cursor:pointer;"
+                                               title="Edit"
+                                               onclick="toggleEdit(@m.Id, true)"></i>
+                                            <!-- 저장/취소 아이콘 (편집 모드) -->
+                                            <button type="submit" form="edit-form-@m.Id" id="save-btn-@m.Id"
+                                                    class="btn btn-link p-0 me-2 d-none text-primary"
+                                                    title="Save">
+                                                <i class="bi bi-check-lg" style="font-size:.85rem;"></i>
+                                            </button>
+                                            <i id="cancel-btn-@m.Id"
+                                               class="bi bi-x-lg text-secondary me-2 d-none"
+                                               style="font-size:.85rem; cursor:pointer;"
+                                               title="Cancel"
+                                               onclick="toggleEdit(@m.Id, false)"></i>
+                                            <!-- 삭제 아이콘 -->
+                                            <form method="post" asp-page-handler="RemoveMember"
+                                                  asp-route-roleId="@m.Id"
+                                                  asp-route-projectId="@Model.ProjectId"
+                                                  class="d-inline"
+                                                  id="frm-remove-@m.Id">
+                                                <i class="bi bi-trash3 text-danger"
+                                                   style="font-size:.85rem; cursor:pointer;"
+                                                   title="Remove"
+                                                   onclick="confirmAction('frm-remove-@m.Id','Remove Member','Remove @m.Employee.DisplayName from this project team?')"></i>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                }
+                                @if (!Model.Members.Any())
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted py-4">
+                                            <i class="bi bi-inbox fs-3 d-block mb-1"></i>
+                                            No team members yet.
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Member Form -->
+            <div class="col-lg-3">
+                <div class="card shadow-sm border-success">
+                    <div class="card-header py-2 bg-success-subtle fw-semibold">
+                        <i class="bi bi-person-plus me-1"></i>Add Team Member
+                    </div>
+                    <div class="card-body">
+                        <form method="post" asp-page-handler="AddMember"
+                              asp-route-projectId="@Model.ProjectId"
+                              class="row g-2">
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">Employee <span class="text-danger">*</span></label>
+                                <select asp-for="AddEmployeeId" class="form-select form-select-sm" required>
+                                    <option value="">— Select employee —</option>
+                                    @{
+                                        var currentIds = Model.Members
+                                            .Where(m => m.IsActive)
+                                            .Select(m => m.EmployeeId)
+                                            .ToHashSet();
+                                    }
+                                    @foreach (var e in Model.AvailableEmployees)
+                                    {
+                                        var already = currentIds.Contains(e.Id)
+                                            ? " (already active)" : "";
+                                        <option value="@e.Id">@e.DisplayName@already</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">Position</label>
+                                <select asp-for="AddJobPositionId" class="form-select form-select-sm">
+                                    <option value="">— Not specified —</option>
+                                    @foreach (var jp in Model.JobPositions)
+                                    {
+                                        <option value="@jp.Id">@jp.Name (@jp.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold mb-1">Start Date</label>
+                                <input asp-for="AddStartDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small fw-semibold mb-1">End Date</label>
+                                <input asp-for="AddEndDate" type="date" class="form-control form-control-sm" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label small fw-semibold mb-1">Notes</label>
+                                <textarea asp-for="AddNotes" class="form-control form-control-sm"
+                                          maxlength="200" placeholder="Optional"
+                                          rows="3" style="resize:none;"></textarea>
+                            </div>
+                            <div class="col-12 text-end mt-1">
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Member
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    }
+    else
+    {
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-arrow-up-circle fs-1 d-block mb-2 opacity-25"></i>
+            Select a project above to manage its team members.
+        </div>
+    }
+
+</div>
+
+@section Scripts {
+<script>
+function toggleEdit(id, show) {
+    // 필드 표시/편집 전환
+    document.getElementById('pos-label-'     + id).classList.toggle('d-none', show);
+    document.getElementById('edit-form-'     + id).classList.toggle('d-none', !show);
+    document.getElementById('notes-display-' + id).classList.toggle('d-none', show);
+    document.getElementById('notes-input-'   + id).classList.toggle('d-none', !show);
+    document.getElementById('start-display-' + id).classList.toggle('d-none', show);
+    document.getElementById('start-input-'   + id).classList.toggle('d-none', !show);
+    document.getElementById('end-display-'   + id).classList.toggle('d-none', show);
+    document.getElementById('end-input-'     + id).classList.toggle('d-none', !show);
+    // 액션 버튼 전환 (편집: Save+Cancel 표시, 표시: 편집 버튼 표시)
+    document.getElementById('edit-btn-'      + id).classList.toggle('d-none', show);
+    document.getElementById('save-btn-'      + id).classList.toggle('d-none', !show);
+    document.getElementById('cancel-btn-'    + id).classList.toggle('d-none', !show);
+}
+</script>
+}
