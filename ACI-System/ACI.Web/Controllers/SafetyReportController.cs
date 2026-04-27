@@ -136,9 +136,10 @@ public class SafetyReportController : ControllerBase
     }
 
     // ── Serve individual file ─────────────────────────────────────────────────
-    // GET /api/safety-reports/files/{fileId}?inline=true
-    [HttpGet("files/{fileId:int}")]
-    public async Task<IActionResult> GetFile(int fileId, [FromQuery] bool inline = false)
+    // GET /api/safety-reports/files/{fileId}/{fileName?}?inline=true
+    // fileName 세그먼트는 브라우저 탭 제목용 — 실제 파일 조회는 fileId 기준
+    [HttpGet("files/{fileId:int}/{fileName?}")]
+    public async Task<IActionResult> GetFile(int fileId, string? fileName, [FromQuery] bool inline = false)
     {
         var file = await _svc.GetFileAsync(fileId);
         if (file == null) return NotFound();
@@ -165,12 +166,18 @@ public class SafetyReportController : ControllerBase
 
         var ext         = file.Extension?.ToLowerInvariant() ?? "";
         var contentType = GetContentType(ext);
-        var disposition = inline && IsPreviewable(ext) ? "inline" : "attachment";
 
-        Response.Headers["Content-Disposition"] =
-            $"{disposition}; filename=\"{Uri.EscapeDataString(file.FileName)}\"";
+        if (inline && IsPreviewable(ext))
+        {
+            // 브라우저 인라인 표시 — RFC 5987 인코딩으로 원본 파일명 전달
+            var encoded = Uri.EscapeDataString(file.FileName);
+            Response.Headers["Content-Disposition"] =
+                $"inline; filename=\"{encoded}\"; filename*=UTF-8''{encoded}";
+            return PhysicalFile(fullPath, contentType);
+        }
 
-        return PhysicalFile(fullPath, contentType);
+        // 다운로드 — ASP.NET Core가 Content-Disposition: attachment 를 올바르게 설정
+        return PhysicalFile(fullPath, contentType, file.FileName);
     }
 
     // ── Delete individual file ────────────────────────────────────────────────
@@ -181,12 +188,14 @@ public class SafetyReportController : ControllerBase
         var file = await _svc.GetFileAsync(fileId);
         if (file == null) return NotFound();
 
+        var (curUserId, _) = GetUser();
+        if (curUserId <= 0) return Forbid();
+
         if (!IsSafetyStaff())
         {
             if (!IsFieldUser()) return Forbid();
 
-            var (userId, _) = GetUser();
-            var assigned = await _svc.GetAssignedProjectIdsAsync(userId);
+            var assigned = await _svc.GetAssignedProjectIdsAsync(curUserId);
             if (!assigned.Contains(file.Report.ProjectId))
                 return Forbid();
 
@@ -195,6 +204,15 @@ public class SafetyReportController : ControllerBase
                                    or SafetyWkRepStatus.Approved
                                    or SafetyWkRepStatus.NoWorkApproved)
                 return BadRequest("Cannot remove files from a reviewed or approved report.");
+        }
+
+        // Draft 상태 파일 삭제: 제출자 / Admin / SafetyAdmin 만 허용
+        if (file.Report.Status == SafetyWkRepStatus.Draft)
+        {
+            bool isAdminOverride = User.IsInRole(PrivilegeCodes.Admin)
+                                || User.IsInRole(PrivilegeCodes.SafetyAdmin);
+            if (!isAdminOverride && file.Report.UploadedById != curUserId)
+                return BadRequest("Only the submitter, Admin, or SafetyAdmin can remove files from a submitted report.");
         }
 
         try

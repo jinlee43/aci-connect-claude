@@ -41,6 +41,9 @@ public class MyReportsModel : PageModel
     public bool CanReview         { get; set; }
     public bool CanUnreview       { get; set; }
 
+    /// <summary>UserId → Employee.DisplayName (없으면 User.Name 폴백)</summary>
+    public Dictionary<int, string> UserDisplayNames { get; set; } = [];
+
     /// <summary>
     /// (Project × Week) 단일 행.
     /// Report == null 이면 아직 제출하지 않은 주.
@@ -126,6 +129,22 @@ public class MyReportsModel : PageModel
             .OrderByDescending(r => r.DueDate)
             .ThenBy(r => r.ProjectCode)
             .ToList();
+
+        // Submitter 표시명: UploadedById → Employee.DisplayName (없으면 User.Name)
+        var uploaderIds = reports
+            .Where(r => r.UploadedById.HasValue)
+            .Select(r => r.UploadedById!.Value)
+            .Distinct()
+            .ToList();
+        if (uploaderIds.Count > 0)
+        {
+            UserDisplayNames = await _db.Users
+                .Where(u => uploaderIds.Contains(u.Id))
+                .Include(u => u.Employee)
+                .ToDictionaryAsync(
+                    u => u.Id,
+                    u => u.Employee != null ? u.Employee.DisplayName : u.Name);
+        }
 
         return Page();
     }

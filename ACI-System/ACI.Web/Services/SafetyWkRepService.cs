@@ -67,6 +67,7 @@ public interface ISafetyWkRepService
     Task<(SafetyWkRep Report, IReadOnlyList<string> StoredFileNames)> DeleteReportAsync(int reportId);
     Task<SafetyWkRep> ReviewReportAsync(int reportId, string? notes, int userId, string userName);
     Task<SafetyWkRep> UnreviewReportAsync(int reportId, int userId, string userName);
+    Task<SafetyWkRep> UnsubmitReportAsync(int reportId, int userId, string userName);
     Task<SafetyWkRep> ApproveReportAsync(int reportId, string? notes, int userId, string userName);
     Task<SafetyWkRep> VoidApprovalAsync(int reportId, string? reason, int userId, string userName);
     Task<SafetyWkRep> UnvoidAsync(int reportId, int userId, string userName);
@@ -640,14 +641,13 @@ public class SafetyWkRepService : ISafetyWkRepService
         var report = await _db.SafetyWkReps.FindAsync(reportId)
             ?? throw new KeyNotFoundException($"Report {reportId} not found.");
 
-        if (report.Status is not (SafetyWkRepStatus.Draft
-                               or SafetyWkRepStatus.Reviewed
-                               or SafetyWkRepStatus.NoWork
+        // Reviewed / NoWorkReviewed 상태만 승인 가능 — Review 없이 승인 불가
+        if (report.Status is not (SafetyWkRepStatus.Reviewed
                                or SafetyWkRepStatus.NoWorkReviewed))
             throw new InvalidOperationException(
                 $"The report cannot be approved because {StatusReason(report.Status)}.");
 
-        report.Status = report.Status is SafetyWkRepStatus.NoWork or SafetyWkRepStatus.NoWorkReviewed
+        report.Status = report.Status == SafetyWkRepStatus.NoWorkReviewed
             ? SafetyWkRepStatus.NoWorkApproved
             : SafetyWkRepStatus.Approved;
 
@@ -679,6 +679,24 @@ public class SafetyWkRepService : ISafetyWkRepService
         report.VoidReason   = reason;
         report.UpdatedAt    = DateTime.UtcNow;
         report.UpdatedById  = userId;
+
+        await SaveWithConcurrencyCheckAsync(report);
+        return report;
+    }
+
+    /// <summary>Draft → Staged (제출 취소). 제출자 / Admin / SafetyAdmin 전용.</summary>
+    public async Task<SafetyWkRep> UnsubmitReportAsync(int reportId, int userId, string userName)
+    {
+        var report = await _db.SafetyWkReps.FindAsync(reportId)
+            ?? throw new KeyNotFoundException($"Report {reportId} not found.");
+
+        if (report.Status != SafetyWkRepStatus.Draft)
+            throw new InvalidOperationException(
+                $"The submission cannot be cancelled because {StatusReason(report.Status)}.");
+
+        report.Status      = SafetyWkRepStatus.Staged;
+        report.UpdatedAt   = DateTime.UtcNow;
+        report.UpdatedById = userId;
 
         await SaveWithConcurrencyCheckAsync(report);
         return report;

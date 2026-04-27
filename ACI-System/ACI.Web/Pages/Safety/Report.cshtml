@@ -3,6 +3,10 @@
 @using System.Globalization
 @model ACI.Web.Pages.Safety.ReportModel
 @{
+    Layout = Model.Modal
+        ? "~/Pages/Shared/_ModalLayout.cshtml"
+        : "~/Pages/Shared/_Layout.cshtml";
+
     var isoWeek = ISOWeek.GetWeekOfYear(Model.Week.ToDateTime(TimeOnly.MinValue));
     var weekLabel = $"Week {isoWeek} · {Model.Week:MMM d} – {Model.Week.AddDays(6):MMM d, yyyy}";
     ViewData["Title"] = $"Safety Report — {Model.Project?.ProjectCode} {weekLabel}";
@@ -40,20 +44,23 @@
         : $"/Safety/MyReports?from={Model.From}&to={Model.To}";
 }
 
-<div class="aci-page-header">
-    <div>
-        <h1><i class="bi bi-shield-exclamation me-2 text-warning"></i>Safety Report</h1>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="@backUrl">Weekly Reports</a></li>
-                <li class="breadcrumb-item active">@Model.Project?.ProjectCode · @weekLabel</li>
-            </ol>
-        </nav>
+@if (!Model.Modal)
+{
+    <div class="aci-page-header">
+        <div>
+            <h1><i class="bi bi-shield-exclamation me-2 text-warning"></i>Safety Report</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="@backUrl">Weekly Reports</a></li>
+                    <li class="breadcrumb-item active">@Model.Project?.ProjectCode · @weekLabel</li>
+                </ol>
+            </nav>
+        </div>
+        <a href="@backUrl" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
     </div>
-    <a href="@backUrl" class="btn btn-outline-secondary btn-sm">
-        <i class="bi bi-arrow-left me-1"></i>Back
-    </a>
-</div>
+}
 
 @if (TempData["Success"] != null)
 {
@@ -160,6 +167,7 @@
                                 <input type="hidden" name="weekStart"  value="@Model.WeekStart" />
                                 <input type="hidden" name="from"       value="@Model.From" />
                                 <input type="hidden" name="to"         value="@Model.To" />
+                                <input type="hidden" name="Modal"      value="@Model.Modal" />
                                 <p class="text-muted small mb-2">No construction activity this week?</p>
                                 <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
                                     <div>
@@ -209,7 +217,9 @@
                                 on @Model.Report.UploadedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")
                             </div>
                         }
-                        @if (!Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork) && !showReview)
+                        @if (!Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork)
+                             && !showReview
+                             && (Model.IsSubmitter || Model.IsAdminOverride))
                         {
                             <div class="mt-3">
                                 <form id="frm-cancel-nowork-solo" method="post" asp-page-handler="Delete">
@@ -217,6 +227,7 @@
                                     <input type="hidden" name="reportId" value="@Model.Report.Id" />
                                     <input type="hidden" name="from"     value="@Model.From" />
                                     <input type="hidden" name="to"       value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                     <button type="button" class="btn btn-outline-danger btn-sm"
                                             onclick="confirmAction('frm-cancel-nowork-solo', 'Cancel No Work', 'Cancel this No Work entry? The week will return to missing status.')">
                                         <i class="bi bi-x-circle me-1"></i>Cancel No Work
@@ -276,17 +287,19 @@
                                             </div>
                                         </div>
                                         <div class="d-flex gap-1 flex-shrink-0">
-                                            <a href="/api/safety-reports/files/@f.Id?inline=true"
+                                            <a href="/api/safety-reports/files/@f.Id/@Uri.EscapeDataString(f.FileName)?inline=true"
                                                target="_blank" class="btn btn-outline-secondary btn-sm" title="Preview">
-                                                <i class="bi bi-eye"></i>
+                                                <i class="bi bi-box-arrow-up-right"></i>
                                             </a>
-                                            <a href="/api/safety-reports/files/@f.Id"
+                                            <a href="/api/safety-reports/files/@f.Id/@Uri.EscapeDataString(f.FileName)"
                                                class="btn btn-outline-secondary btn-sm" title="Download">
                                                 <i class="bi bi-download"></i>
                                             </a>
                                             @if (!isReadOnly && Model.CanUpload
                                                  && Model.Report.Status is not SafetyWkRepStatus.Reviewed
-                                                                        and not SafetyWkRepStatus.NoWorkReviewed)
+                                                                        and not SafetyWkRepStatus.NoWorkReviewed
+                                                 && (Model.Report.Status != SafetyWkRepStatus.Draft
+                                                     || Model.IsSubmitter || Model.IsAdminOverride))
                                             {
                                                 <button type="button"
                                                         class="btn btn-outline-danger btn-sm"
@@ -328,7 +341,26 @@
                             </div>
                         }
 
-                        @* ── 4. Submit / Discard 버튼 행 ─────────────────────── *@
+                        @* ── 4. Draft: Cancel Submission (제출 취소) ────────────── *@
+                        @if (Model.Report.Status == SafetyWkRepStatus.Draft
+                             && (Model.IsSubmitter || Model.IsAdminOverride))
+                        {
+                            <div class="mt-3 pt-3 border-top">
+                                <form id="frm-unsubmit" method="post" asp-page-handler="Unsubmit">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="reportId" value="@Model.Report.Id" />
+                                    <input type="hidden" name="from"     value="@Model.From" />
+                                    <input type="hidden" name="to"       value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
+                                    <button type="button" class="btn btn-outline-warning btn-sm"
+                                            onclick="confirmAction('frm-unsubmit', 'Cancel Submission', 'Cancel the submission? The report will return to Staged status and can be edited again.')">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Cancel Submission
+                                    </button>
+                                </form>
+                            </div>
+                        }
+
+                        @* ── 5. Submit / Discard 버튼 행 ─────────────────────── *@
                         @if (showSubmit)
                         {
                             @* 파일이 있을 땐 Submit만 — Discard는 개별 파일 삭제로 *@
@@ -340,6 +372,7 @@
                                            value="@(Model.Report.ReportDate?.ToString("yyyy-MM-dd") ?? defaultDateStr)" />
                                     <input type="hidden" name="from" value="@Model.From" />
                                     <input type="hidden" name="to"   value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                     <button type="submit" class="btn btn-primary">
                                         <i class="bi bi-send me-1"></i>Submit for Review
                                     </button>
@@ -357,6 +390,7 @@
                                     <input type="hidden" name="reportId" value="@Model.Report.Id" />
                                     <input type="hidden" name="from"     value="@Model.From" />
                                     <input type="hidden" name="to"       value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
                                             onclick="confirmAction('frm-delete-staged', 'Discard Report', 'Discard this report and return the week to missing status?')">
                                         <i class="bi bi-x-circle me-1"></i>Discard
@@ -447,23 +481,29 @@
                                 <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                 <input type="hidden" name="from" value="@Model.From" />
                                 <input type="hidden" name="to"   value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                 <label class="form-label fw-semibold">Review Notes <span class="text-muted fw-normal">(optional)</span></label>
                                 <textarea class="form-control mb-3" name="notes" rows="2"
                                           placeholder="Add review notes…"></textarea>
                             </form>
 
-                            @if (Model.Report!.IsNoWork && !Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork))
+                            @if (Model.Report!.IsNoWork && !Model.Report.IsLocked
+                                 && (Model.CanUpload || Model.CanMarkNoWork)
+                                 && (Model.IsSubmitter || Model.IsAdminOverride))
                             {
                                 <form id="frm-cancel-nowork" method="post" asp-page-handler="Delete">
                                     @Html.AntiForgeryToken()
                                     <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                     <input type="hidden" name="from"     value="@Model.From" />
                                     <input type="hidden" name="to"       value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                 </form>
                             }
 
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                @if (Model.Report!.IsNoWork && !Model.Report.IsLocked && (Model.CanUpload || Model.CanMarkNoWork))
+                                @if (Model.Report!.IsNoWork && !Model.Report.IsLocked
+                                     && (Model.CanUpload || Model.CanMarkNoWork)
+                                     && (Model.IsSubmitter || Model.IsAdminOverride))
                                 {
                                     <button type="button"
                                             class="btn btn-outline-danger"
@@ -488,6 +528,7 @@
                                 <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                 <input type="hidden" name="from" value="@Model.From" />
                                 <input type="hidden" name="to"   value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                 <div class="alert alert-warning d-flex gap-2 mb-2 py-2">
                                     <i class="bi bi-lock-fill"></i>
                                     <span>Once approved the report is <strong>locked</strong>.</span>
@@ -508,6 +549,7 @@
                                 <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                 <input type="hidden" name="from" value="@Model.From" />
                                 <input type="hidden" name="to"   value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                                 <label class="form-label fw-semibold">Reason for Voiding <span class="text-danger">*</span></label>
                                 <textarea class="form-control mb-2" name="reason" rows="2"
                                           required placeholder="Reason for voiding this approval…"></textarea>
@@ -524,6 +566,7 @@
                                 <input type="hidden" name="reportId" value="@Model.Report!.Id" />
                                 <input type="hidden" name="from" value="@Model.From" />
                                 <input type="hidden" name="to"   value="@Model.To" />
+                                    <input type="hidden" name="Modal" value="@Model.Modal" />
                             </form>
                             <div class="alert alert-warning d-flex gap-2 py-2 mb-2">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
@@ -573,6 +616,8 @@
     var repId = Model.Report?.Id ?? 0;
 }
 const _pid = @pid, _wk = '@wkStr', _repId = @repId;
+const _isModal = @(Model.Modal ? "true" : "false");
+const _modalSuffix = _isModal ? '&modal=true' : '';
 
 const uBtn = document.getElementById('u-btn');
 const _uploadingModal = new bootstrap.Modal(document.getElementById('uploadingModal'));
@@ -641,7 +686,7 @@ if (uBtn) {
                     showErr(`Failed to upload "${file.name}": ${await res.text()}`);
                     uBtn.disabled = false;
                     if (uploadedCount > 0) {
-                        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
+                        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To${_modalSuffix}`;
                     }
                     return;
                 }
@@ -650,14 +695,14 @@ if (uBtn) {
                 showErr('Network error: ' + e.message);
                 uBtn.disabled = false;
                 if (uploadedCount > 0) {
-                    window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
+                    window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To${_modalSuffix}`;
                 }
                 return;
             }
         }
 
         // 전체 업로드 완료 → 페이지 새로고침
-        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To`;
+        window.location.href = `/Safety/Report?reportId=${currentReportId}&from=@Model.From&to=@Model.To${_modalSuffix}`;
     });
 }
 
@@ -687,6 +732,13 @@ function showErr(msg) {
 
 function getToken() {
     return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+}
+
+// 모달 iframe 모드: 성공 메시지가 렌더링됐으면 부모에게 변경 신호 전송
+if (_isModal && window.parent !== window) {
+    if (document.querySelector('.alert-success')) {
+        window.parent.postMessage({ type: 'aci-safety-changed' }, '*');
+    }
 }
 </script>
 }

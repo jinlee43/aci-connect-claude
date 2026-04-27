@@ -41,8 +41,9 @@ public class ReportModel : PageModel
     [BindProperty(SupportsGet = true)] public int?    ProjectId { get; set; }
     [BindProperty(SupportsGet = true)] public string? WeekStart { get; set; }
 
-    [BindProperty(SupportsGet = true)] public string? From { get; set; }
-    [BindProperty(SupportsGet = true)] public string? To   { get; set; }
+    [BindProperty(SupportsGet = true)] public string? From  { get; set; }
+    [BindProperty(SupportsGet = true)] public string? To    { get; set; }
+    [BindProperty(SupportsGet = true)] public bool    Modal { get; set; }
 
     // ── View data ─────────────────────────────────────────────────────────────
     public SafetyWkRep?         Report   { get; set; }
@@ -52,12 +53,18 @@ public class ReportModel : PageModel
 
     public DateOnly DefaultReportDate { get; set; }
 
-    public bool IsNew         => ReportId is null or 0;
-    public bool CanUpload     { get; set; }
-    public bool CanMarkNoWork { get; set; }
-    public bool CanReview     { get; set; }
-    public bool CanApprove    { get; set; }
-    public bool CanVoid       { get; set; }
+    public bool IsNew           => ReportId is null or 0;
+    public bool CanUpload       { get; set; }
+    public bool CanMarkNoWork   { get; set; }
+    public bool CanReview       { get; set; }
+    public bool CanApprove      { get; set; }
+    public bool CanVoid         { get; set; }
+
+    /// <summary>현재 사용자가 이 보고서의 제출자인지 여부.</summary>
+    public bool IsSubmitter     { get; set; }
+
+    /// <summary>Admin 또는 SafetyAdmin — 제출자 제한 예외 적용.</summary>
+    public bool IsAdminOverride { get; set; }
 
     // ── GET ───────────────────────────────────────────────────────────────────
     public async Task<IActionResult> OnGetAsync()
@@ -74,7 +81,7 @@ public class ReportModel : PageModel
 
             var existing = await _svc.GetReportByWeekAsync(ProjectId.Value, Week);
             if (existing != null)
-                return RedirectToPage(new { reportId = existing.Id, from = From, to = To });
+                return RedirectToPage(new { reportId = existing.Id, from = From, to = To, modal = Modal });
         }
         else
         {
@@ -91,6 +98,11 @@ public class ReportModel : PageModel
             var submitDay = Settings?.DefaultSubmitDay ?? DayOfWeek.Friday;
             DefaultReportDate = ComputeDefaultReportDate(Week, submitDay);
         }
+
+        var (currentUserId, _) = GetUser();
+        IsSubmitter     = currentUserId > 0 && Report?.UploadedById == currentUserId;
+        IsAdminOverride = User.IsInRole(PrivilegeCodes.Admin)
+                       || User.IsInRole(PrivilegeCodes.SafetyAdmin);
 
         await ComputePermissionsAsync();
         return Page();
@@ -113,12 +125,12 @@ public class ReportModel : PageModel
         {
             var report = await _svc.MarkNoWorkAsync(projectId, weekDate, userId, userName, parsedReportDate);
             TempData["Success"] = "Marked as No Work.";
-            return RedirectToPage(new { reportId = report.Id, from = From, to = To });
+            return RedirectToPage(new { reportId = report.Id, from = From, to = To, modal = Modal });
         }
         catch (Exception ex)
         {
             TempData["Error"] = ex.Message;
-            return RedirectToPage(new { projectId, weekStart, from = From, to = To });
+            return RedirectToPage(new { projectId, weekStart, from = From, to = To, modal = Modal });
         }
     }
 
@@ -146,7 +158,7 @@ public class ReportModel : PageModel
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
 
-        return RedirectToPage(new { reportId, from = From, to = To });
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── POST: Delete ──────────────────────────────────────────────────────────
@@ -174,10 +186,33 @@ public class ReportModel : PageModel
         catch (Exception ex)
         {
             TempData["Error"] = ex.Message;
-            return RedirectToPage(new { reportId, from = From, to = To });
+            return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
         }
 
-        return RedirectToPage(new { projectId, weekStart, from = From, to = To });
+        return RedirectToPage(new { projectId, weekStart, from = From, to = To, modal = Modal });
+    }
+
+    // ── POST: Unsubmit (Draft → Staged, 제출 취소) ───────────────────────────
+    public async Task<IActionResult> OnPostUnsubmitAsync(int reportId)
+    {
+        var report = await _svc.GetReportAsync(reportId);
+        if (report == null) return NotFound();
+
+        var (userId, userName) = GetUser();
+        if (userId <= 0) return Forbid();
+
+        bool isAdmin = User.IsInRole(PrivilegeCodes.Admin)
+                    || User.IsInRole(PrivilegeCodes.SafetyAdmin);
+        if (!isAdmin && report.UploadedById != userId) return Forbid();
+
+        try
+        {
+            await _svc.UnsubmitReportAsync(reportId, userId, userName);
+            TempData["Success"] = "Submission cancelled. Report returned to Staged status.";
+        }
+        catch (Exception ex) { TempData["Error"] = ex.Message; }
+
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── POST: Review ──────────────────────────────────────────────────────────
@@ -202,7 +237,7 @@ public class ReportModel : PageModel
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
 
-        return RedirectToPage(new { reportId, from = From, to = To });
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── POST: Approve ─────────────────────────────────────────────────────────
@@ -220,7 +255,7 @@ public class ReportModel : PageModel
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
 
-        return RedirectToPage(new { reportId, from = From, to = To });
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── POST: Void ────────────────────────────────────────────────────────────
@@ -238,7 +273,7 @@ public class ReportModel : PageModel
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
 
-        return RedirectToPage(new { reportId, from = From, to = To });
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── POST: Unvoid ──────────────────────────────────────────────────────────
@@ -256,7 +291,7 @@ public class ReportModel : PageModel
         }
         catch (Exception ex) { TempData["Error"] = ex.Message; }
 
-        return RedirectToPage(new { reportId, from = From, to = To });
+        return RedirectToPage(new { reportId, from = From, to = To, modal = Modal });
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

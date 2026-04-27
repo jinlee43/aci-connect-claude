@@ -73,6 +73,25 @@
     </form>
 </div>
 
+<!-- ─── Report Detail Modal ──────────────────────────────────────────── -->
+<div class="modal fade" id="reportDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" style="max-width:900px;">
+        <div class="modal-content" style="height:90vh;">
+            <div class="modal-header py-2 px-3">
+                <span class="fw-semibold small">
+                    <i class="bi bi-shield-exclamation me-1 text-warning"></i>Safety Report
+                </span>
+                <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" style="overflow:hidden;">
+                <iframe id="reportDetailFrame" src=""
+                        style="width:100%; height:100%; border:none;"
+                        title="Safety Report Detail"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="p-3">
 
     @if (!Model.Rows.Any())
@@ -85,243 +104,130 @@
     }
     else
     {
-        <!-- ─── No Work modal ───────────────────────────────────────────── -->
-        <div class="modal fade" id="noWorkModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="post" asp-page-handler="MarkNoWork" id="nowork-form">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="projectId" id="nw-project-id" />
-                        <input type="hidden" name="weekStart" id="nw-week-start" />
-                        <input type="hidden" name="from"      value="@Model.From" />
-                        <input type="hidden" name="to"        value="@Model.To" />
-                        <div class="modal-header">
-                            <h5 class="modal-title"><i class="bi bi-dash-circle me-2 text-warning"></i>Mark as No Work</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="text-muted small mb-3">
-                                Project: <strong id="nw-project-name"></strong> &nbsp;·&nbsp;
-                                Week of: <strong id="nw-week-label"></strong>
-                            </p>
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold">Notes (optional)</label>
-                                <textarea class="form-control" name="notes" rows="3"
-                                          placeholder="Reason or remarks…" maxlength="500"></textarea>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-warning">
-                                <i class="bi bi-dash-circle me-1"></i>Mark No Work
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- ─── Review modal ─────────────────────────────────────────── -->
-        @if (Model.CanReview)
-        {
-            <div class="modal fade" id="reviewModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form method="post" asp-page-handler="Review">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="reportId" id="review-report-id" />
-                            <input type="hidden" name="from"     value="@Model.From" />
-                            <input type="hidden" name="to"       value="@Model.To" />
-                            <div class="modal-header">
-                                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>Review Report</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label class="form-label fw-semibold">Review Notes (optional)</label>
-                                    <textarea class="form-control" name="notes" rows="3"
-                                              placeholder="Optional notes…"></textarea>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
-                                <button class="btn btn-info text-white" type="submit">
-                                    <i class="bi bi-check2 me-1"></i>Mark Reviewed
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        }
-
         <!-- ─── Flat list table ───────────────────────────────────────── -->
         <div class="card shadow-sm overflow-auto">
             <table id="reportTable" class="table table-sm table-hover mb-0 align-middle"
                    style="table-layout:fixed; width:100%;">
                 <thead class="table-light">
                     <tr>
-                        <th class="sortable" data-col="0" style="width:135px; cursor:pointer;">
+                        <th class="sortable" data-col="0" style="width:130px; cursor:pointer;">
                             Code <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
-                        <th class="sortable text-center" data-col="1" style="width:55px; cursor:pointer;">
+                        <th class="sortable text-center" data-col="1" style="width:65px; cursor:pointer;">
                             Wk <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
                         <th class="sortable" data-col="2" style="width:130px; cursor:pointer;">
                             Status <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
-                        <th class="sortable" data-col="3" style="width:105px; cursor:pointer;">
+                        <th style="width:72px;" class="text-center">Action</th>
+                        <th class="sortable text-center" data-col="4" style="width:130px; cursor:pointer;">
                             Due Date <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
-                        <th class="sortable" data-col="4" style="width:105px; cursor:pointer;">
+                        <th class="sortable text-center" data-col="5" style="width:130px; cursor:pointer;">
                             Upload <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
-                        <th class="sortable" data-col="5" style="width:120px; cursor:pointer;">
+                        <th class="sortable" data-col="6" style="width:115px; cursor:pointer;">
                             Submitter <i class="bi bi-chevron-expand text-muted small"></i>
                         </th>
-                        <th style="width:70px;" class="text-center">File</th>
+                        <th class="text-center" style="width:90px;">File</th>
                         <th>Notes</th>
-                        <th style="width:90px;" class="text-center">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var row in Model.Rows)
                     {
-                        var rep        = row.Report;
-                        var isLocked   = rep?.IsLocked ?? false;
-                        var canEdit    = rep == null ? true
-                                         : Model.CanUnreview ? !isLocked
-                                         : rep.Status != SafetyWkRepStatus.Reviewed && !isLocked;
-                        var wStr       = row.WeekStartDate.ToString("yyyy-MM-dd");
-                        var wLabel     = row.WeekStartDate.ToString("MMM d, yyyy");
-                        var rowMuted   = rep == null ? "text-muted" : "";
+                        var rep      = row.Report;
+                        var wStr     = row.WeekStartDate.ToString("yyyy-MM-dd");
+                        var rowMuted = rep == null ? "text-muted" : "";
 
                         <tr class="@rowMuted">
-                            <!-- Code -->
+                            <!-- Code (col 0) -->
                             <td class="small fw-semibold" data-val="@row.ProjectCode"
                                 style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
                                 title="@row.ProjectName">
                                 @row.ProjectCode
                             </td>
-                            <!-- Wk -->
+                            <!-- Wk (col 1) -->
                             <td class="small text-center" data-val="@row.WeekNumber.ToString("D2")">
                                 @row.WeekNumber
                             </td>
-                            <!-- Status -->
+                            <!-- Status (col 2) -->
                             <td data-val="@(rep == null ? "zz" : rep.Status.ToString())">
                                 @if (rep != null)
                                 {
                                     var (css, icon, label) = StatusBadge(rep.Status);
                                     <span class="badge @css"
-                                          style="font-size:.7rem; display:inline-block; width:115px; text-align:center;">
+                                          style="font-size:.7rem; display:inline-block; width:115px; text-align:center; cursor:pointer;"
+                                          onclick="openReport('/Safety/Report?reportId=@rep.Id&from=@Model.From&to=@Model.To&modal=true')">
                                         <i class="bi @icon me-1"></i>@label
                                     </span>
                                 }
                                 else
                                 {
-                                    <span class="text-muted small">—</span>
+                                    <span class="text-muted small"
+                                          style="cursor:pointer;"
+                                          onclick="openReport('/Safety/Report?projectId=@row.ProjectId&weekStart=@wStr&from=@Model.From&to=@Model.To&modal=true')">—</span>
                                 }
                             </td>
-                            <!-- Due Date -->
-                            <td class="small" data-val="@row.DueDate.ToString("yyyy-MM-dd")">
+                            <!-- Action (col 3, no sort) -->
+                            <td class="text-center">
+                                @if (rep == null)
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm btn-link text-secondary py-0 px-1"
+                                            title="Open"
+                                            onclick="openReport('/Safety/Report?projectId=@row.ProjectId&weekStart=@wStr&from=@Model.From&to=@Model.To&modal=true')">
+                                        <i class="bi bi-clipboard-check" style="font-size:.8rem;"></i>
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button type="button"
+                                            class="btn btn-sm btn-link text-secondary py-0 px-1"
+                                            title="Open"
+                                            onclick="openReport('/Safety/Report?reportId=@rep.Id&from=@Model.From&to=@Model.To&modal=true')">
+                                        <i class="bi bi-clipboard-check" style="font-size:.8rem;"></i>
+                                    </button>
+                                }
+                            </td>
+                            <!-- Due Date (col 4) -->
+                            <td class="small text-center" data-val="@row.DueDate.ToString("yyyy-MM-dd")">
                                 @row.DueDate.ToString("MM/dd/yyyy")
                             </td>
-                            <!-- Upload Date -->
-                            <td class="small" data-val="@(rep?.UploadedAt?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
+                            <!-- Upload Date (col 5) -->
+                            <td class="small text-center" data-val="@(rep?.UploadedAt?.ToString("yyyy-MM-ddTHH:mm") ?? "")">
                                 @(rep?.UploadedAt?.ToString("MM/dd/yyyy") ?? "—")
                             </td>
-                            <!-- Submitter -->
-                            <td class="small" data-val="@(rep?.UploadedByName ?? "")"
+                            <!-- Submitter (col 6) — Employee DisplayName -->
+                            @{
+                                var submitterName = rep?.UploadedById.HasValue == true
+                                    && Model.UserDisplayNames.TryGetValue(rep.UploadedById!.Value, out var dn)
+                                    ? dn : (rep?.UploadedByName ?? "—");
+                            }
+                            <td class="small" data-val="@submitterName"
                                 style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                @(rep?.UploadedByName ?? "—")
+                                @submitterName
                             </td>
-                            <!-- File -->
-                            <td class="text-center">
-                                @if (rep?.HasFile == true)
+                            <!-- File (col 7, no sort) — 파일마다 눈 아이콘 하나씩 -->
+                            <td class="text-center" style="white-space:nowrap;">
+                                @if (rep?.Files != null)
                                 {
-                                    <a href="/api/safety-reports/@rep.Id/file?inline=true"
-                                       target="_blank"
-                                       class="btn btn-outline-secondary btn-sm py-0 px-1"
-                                       title="Preview">
-                                        <i class="bi bi-eye" style="font-size:.8rem;"></i>
-                                    </a>
-                                    <a href="/api/safety-reports/@rep.Id/file"
-                                       class="btn btn-outline-secondary btn-sm py-0 px-1"
-                                       title="Download">
-                                        <i class="bi bi-download" style="font-size:.8rem;"></i>
-                                    </a>
+                                    foreach (var f in rep.Files.OrderBy(f => f.UploadedAt))
+                                    {
+                                        <a href="/api/safety-reports/files/@f.Id/@Uri.EscapeDataString(f.FileName)?inline=true"
+                                           target="_blank"
+                                           class="btn btn-sm btn-link text-secondary py-0 px-1 me-1"
+                                           title="@f.FileName">
+                                            <i class="bi bi-box-arrow-up-right" style="font-size:.8rem;"></i>
+                                        </a>
+                                    }
                                 }
                             </td>
-                            <!-- Notes -->
+                            <!-- Notes (col 8, no sort) -->
                             <td class="small text-muted"
                                 style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
                                 title="@rep?.Notes">
                                 @(rep?.Notes ?? "")
-                            </td>
-                            <!-- Actions -->
-                            <td class="text-center text-nowrap">
-                                @if (rep == null)
-                                {
-                                    <!-- 업로드 → Report 페이지로 이동 -->
-                                    <a href="/Safety/Report?projectId=@row.ProjectId&weekStart=@wStr&from=@Model.From&to=@Model.To"
-                                       class="text-primary me-1" title="Upload Report">
-                                        <i class="bi bi-upload" style="font-size:.85rem;"></i>
-                                    </a>
-                                    <!-- No Work -->
-                                    <i class="bi bi-dash-circle text-warning"
-                                       style="font-size:.85rem; cursor:pointer;"
-                                       title="Mark as No Work"
-                                       onclick="openNoWork(@row.ProjectId, '@row.ProjectCode — @row.ProjectName', '@wStr', '@wLabel')"></i>
-                                }
-                                else
-                                {
-                                    <!-- 파일 추가/수정 → Report 페이지로 이동 -->
-                                    @if (canEdit)
-                                    {
-                                        <a href="/Safety/Report?reportId=@rep.Id&from=@Model.From&to=@Model.To"
-                                           class="text-primary me-1" title="Add / Replace Files">
-                                            <i class="bi bi-arrow-repeat" style="font-size:.85rem;"></i>
-                                        </a>
-                                    }
-                                    <!-- Review -->
-                                    @if (Model.CanReview && rep.Status == SafetyWkRepStatus.Draft)
-                                    {
-                                        <i class="bi bi-eye-fill text-info me-1"
-                                           style="font-size:.85rem; cursor:pointer;"
-                                           title="Mark Reviewed"
-                                           onclick="openReview(@rep.Id)"></i>
-                                    }
-                                    <!-- Unreview -->
-                                    @if (Model.CanUnreview && rep.Status == SafetyWkRepStatus.Reviewed)
-                                    {
-                                        <form method="post" asp-page-handler="Unreview"
-                                              id="frm-unrev-@rep.Id" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="reportId" value="@rep.Id" />
-                                            <input type="hidden" name="from" value="@Model.From" />
-                                            <input type="hidden" name="to"   value="@Model.To" />
-                                            <i class="bi bi-arrow-counterclockwise text-secondary me-1"
-                                               style="font-size:.85rem; cursor:pointer;"
-                                               title="Clear Review"
-                                               onclick="confirmAction('frm-unrev-@rep.Id','Clear Review','Clear the review status?')"></i>
-                                        </form>
-                                    }
-                                    <!-- Delete -->
-                                    @if (canEdit && rep.Status != SafetyWkRepStatus.Approved)
-                                    {
-                                        <form method="post" asp-page-handler="Delete"
-                                              id="frm-del-@rep.Id" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="reportId" value="@rep.Id" />
-                                            <input type="hidden" name="from" value="@Model.From" />
-                                            <input type="hidden" name="to"   value="@Model.To" />
-                                            <i class="bi bi-trash3 text-danger"
-                                               style="font-size:.85rem; cursor:pointer;"
-                                               title="Delete"
-                                               onclick="confirmAction('frm-del-@rep.Id','Delete Report','Delete this report?')"></i>
-                                        </form>
-                                    }
-                                }
                             </td>
                         </tr>
                     }
@@ -356,40 +262,12 @@ function setWeeks(weeks) {
     document.getElementById('filterForm').submit();
 }
 
-// ── No Work modal ────────────────────────────────────────────────────────
-const noWorkModal = new bootstrap.Modal(document.getElementById('noWorkModal'));
-function openNoWork(projectId, projectName, weekStart, weekLabel) {
-    document.getElementById('nw-project-id').value   = projectId;
-    document.getElementById('nw-week-start').value   = weekStart;
-    document.getElementById('nw-project-name').textContent = projectName;
-    document.getElementById('nw-week-label').textContent   = weekLabel;
-    // notes textarea 초기화
-    document.querySelector('#nowork-form textarea[name="notes"]').value = '';
-    noWorkModal.show();
-}
-
-
-@if (Model.CanReview)
-{
-    <text>
-// ── Review modal ──────────────────────────────────────────────────────────
-const reviewModal = new bootstrap.Modal(document.getElementById('reviewModal'));
-function openReview(reportId) {
-    document.getElementById('review-report-id').value = reportId;
-    reviewModal.show();
-}
-    </text>
-}
-
-function getAntiForgeryToken() {
-    return document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
-}
 
 // ── Column sort ───────────────────────────────────────────────────────────
 (function () {
     const table  = document.getElementById('reportTable');
     const tbody  = table.querySelector('tbody');
-    let sortCol  = 3;    // Due Date 기본 정렬
+    let sortCol  = 4;    // Due Date 기본 정렬
     let sortAsc  = false;
 
     function sortRows(col, asc) {
@@ -428,5 +306,30 @@ function getAntiForgeryToken() {
         });
     });
 })();
+
+
+// ── Report Detail Modal ───────────────────────────────────────────────────
+const _detailModal = new bootstrap.Modal(document.getElementById('reportDetailModal'));
+const _detailFrame = document.getElementById('reportDetailFrame');
+let   _reportChanged = false;
+
+function openReport(url) {
+    _reportChanged = false;
+    _detailFrame.src = url;
+    _detailModal.show();
+}
+
+// 모달 닫힐 때 iframe 비우고, 변경사항 있으면 목록 새로고침
+document.getElementById('reportDetailModal').addEventListener('hidden.bs.modal', function () {
+    _detailFrame.src = '';
+    if (_reportChanged) window.location.reload();
+});
+
+// iframe 내부에서 변경 완료 신호를 수신
+window.addEventListener('message', function (e) {
+    if (e.data?.type === 'aci-safety-changed') {
+        _reportChanged = true;
+    }
+});
 </script>
 }
