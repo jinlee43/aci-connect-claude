@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
+using System.Security.Claims;
 
 namespace ACI.Web.Pages.MyDashboard;
 
@@ -16,13 +17,15 @@ namespace ACI.Web.Pages.MyDashboard;
 [Authorize]
 public class IndexModel : PageModel
 {
-    private readonly ISafetyWkRepService _svc;
-    private readonly AppDbContext        _db;
+    private readonly ISafetyWkRepService  _svc;
+    private readonly IDailyReportService  _dailySvc;
+    private readonly AppDbContext         _db;
 
-    public IndexModel(ISafetyWkRepService svc, AppDbContext db)
+    public IndexModel(ISafetyWkRepService svc, IDailyReportService dailySvc, AppDbContext db)
     {
-        _svc = svc;
-        _db  = db;
+        _svc      = svc;
+        _dailySvc = dailySvc;
+        _db       = db;
     }
 
     // ── Summary card counts ───────────────────────────────────────────────────
@@ -73,6 +76,23 @@ public class IndexModel : PageModel
 
         SafetyPendingCount = pendingReports.Count;
 
+        // ── Submitter DisplayName 일괄 조회 ──────────────────────────────────
+        var uploaderIds = pendingReports
+            .Where(r => r.UploadedById.HasValue)
+            .Select(r => r.UploadedById!.Value)
+            .Distinct().ToList();
+
+        var userDisplayNames = new Dictionary<int, string>();
+        if (uploaderIds.Count > 0)
+        {
+            userDisplayNames = await _db.Users
+                .Where(u => uploaderIds.Contains(u.Id))
+                .Include(u => u.Employee)
+                .ToDictionaryAsync(
+                    u => u.Id,
+                    u => u.Employee != null ? u.Employee.DisplayName : u.Name);
+        }
+
         // ── Safety: missing reports (past weeks) ──────────────────────────────
         var today    = DateOnly.FromDateTime(DateTime.Today);
         var thisWeek = GetWeekMonday(today);
@@ -112,16 +132,18 @@ public class IndexModel : PageModel
                     if (week >= recentCutoff && projectDict.TryGetValue(s.ProjectId, out var proj))
                     {
                         missingRows.Add(new SafetyDocRow(
-                            ProjectId:   s.ProjectId,
-                            ProjectCode: proj.ProjectCode,
-                            ProjectName: proj.Name,
-                            DocType:     "Weekly Safety Report",
-                            StatusLabel: "Missing",
-                            StatusClass: "danger",
-                            WeekStart:   week,
-                            WeekNumber:  ISOWeek.GetWeekOfYear(week.ToDateTime(TimeOnly.MinValue)),
-                            Year:        week.Year,
-                            ReportId:    null
+                            ProjectId:     s.ProjectId,
+                            ProjectCode:   proj.ProjectCode,
+                            ProjectName:   proj.Name,
+                            DocType:       "Weekly Safety Report",
+                            StatusLabel:   "Missing",
+                            StatusClass:   "danger",
+                            WeekStart:     week,
+                            WeekNumber:    ISOWeek.GetWeekOfYear(week.ToDateTime(TimeOnly.MinValue)),
+                            Year:          week.Year,
+                            ReportId:      null,
+                            Notes:         null,
+                            SubmitterName: null
                         ));
                     }
                 }
@@ -131,16 +153,19 @@ public class IndexModel : PageModel
 
         // ── Build final row list: pending first, then missing ─────────────────
         var pendingRows = pendingReports.Select(r => new SafetyDocRow(
-            ProjectId:   r.ProjectId,
-            ProjectCode: r.Project.ProjectCode,
-            ProjectName: r.Project.Name,
-            DocType:     "Weekly Safety Report",
-            StatusLabel: StatusToLabel(r.Status),
-            StatusClass: StatusToCss(r.Status),
-            WeekStart:   r.WeekStartDate,
-            WeekNumber:  r.WeekNumber,
-            Year:        r.Year,
-            ReportId:    r.Id
+            ProjectId:     r.ProjectId,
+            ProjectCode:   r.Project.ProjectCode,
+            ProjectName:   r.Project.Name,
+            DocType:       "Weekly Safety Report",
+            StatusLabel:   StatusToLabel(r.Status),
+            StatusClass:   StatusToCss(r.Status),
+            WeekStart:     r.WeekStartDate,
+            WeekNumber:    r.WeekNumber,
+            Year:          r.Year,
+            ReportId:      r.Id,
+            Notes:         r.Notes,
+            SubmitterName: r.UploadedById.HasValue && userDisplayNames.TryGetValue(r.UploadedById.Value, out var dn)
+                               ? dn : r.UploadedByName
         ));
 
         SafetyRows = pendingRows
@@ -148,6 +173,12 @@ public class IndexModel : PageModel
             .OrderByDescending(r => r.WeekStart)
             .ThenBy(r => r.ProjectCode)
             .ToList();
+
+        // ── Daily Report: 미제출(Draft) 건수 ─────────────────────────────────
+        DailyCount = await _db.DailyReports
+            .CountAsync(r => r.IsActive
+                          && assignedIds.Contains(r.ProjectId)
+                          && r.Status == DailyReportStatus.Draft);
 
         return Page();
     }
@@ -205,5 +236,7 @@ public record SafetyDocRow(
     DateOnly WeekStart,
     int      WeekNumber,
     int      Year,
-    int?     ReportId
+    int?     ReportId,
+    string?  Notes,
+    string?  SubmitterName
 );

@@ -58,6 +58,8 @@ public class DetailModel : PageModel
             City           = project.City,
             ZipCode        = project.ZipCode,
             State          = project.State,
+            Latitude       = project.Latitude,
+            Longitude      = project.Longitude,
             OwnerName      = project.OwnerName,
             OwnerContact   = project.OwnerContact,
             OwnerEmail     = project.OwnerEmail,
@@ -98,6 +100,8 @@ public class DetailModel : PageModel
                 City            = Input.City,
                 ZipCode         = Input.ZipCode,
                 State           = Input.State,
+                Latitude        = Input.Latitude,
+                Longitude       = Input.Longitude,
                 OwnerName       = Input.OwnerName,
                 OwnerContact    = Input.OwnerContact,
                 OwnerEmail      = Input.OwnerEmail,
@@ -132,6 +136,8 @@ public class DetailModel : PageModel
             project.City            = Input.City;
             project.ZipCode         = Input.ZipCode;
             project.State           = Input.State;
+            project.Latitude        = Input.Latitude;
+            project.Longitude       = Input.Longitude;
             project.OwnerName       = Input.OwnerName;
             project.OwnerContact    = Input.OwnerContact;
             project.OwnerEmail      = Input.OwnerEmail;
@@ -164,6 +170,8 @@ public class DetailModel : PageModel
         public string?      City           { get; set; }
         public string?      ZipCode        { get; set; }
         public string?      State          { get; set; }
+        public double?      Latitude       { get; set; }
+        public double?      Longitude      { get; set; }
         public string?      OwnerName      { get; set; }
         public string?      OwnerContact   { get; set; }
         public string?      OwnerEmail     { get; set; }

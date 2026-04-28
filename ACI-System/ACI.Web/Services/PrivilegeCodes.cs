@@ -38,10 +38,12 @@ public static class PrivilegeCodes
 
     // ── HR 파생 롤 (Privilege 테이블에 없음, 로그인 시 JobPosition으로 자동 결정) ──
     // Employee → EmpRole → JobPosition.Code 매핑:
-    //   ProjectManager : PM / SPM / APM
-    //   Superintendent : SUPT / SSUPT / ASUPT
-    public const string ProjectManager = "ProjectManager";
-    public const string Superintendent = "Superintendent";
+    //   ProjectManager    : PM / SPM / APM
+    //   Superintendent    : SP / SUPT / SSUPT / ASUPT
+    //   ProjectEngineer   : PE / APE
+    public const string ProjectManager  = "ProjectManager";
+    public const string Superintendent  = "Superintendent";
+    public const string ProjectEngineer = "ProjectEngineer";
 
     /// <summary>빌트인 priv 전체 목록(Seed 및 관리 UI 참조용).</summary>
     public static readonly IReadOnlyList<string> All = new[]

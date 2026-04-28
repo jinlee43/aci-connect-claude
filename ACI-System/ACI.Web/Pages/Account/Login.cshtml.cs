@@ -117,6 +117,9 @@ public class LoginModel : PageModel
 
             if (jobCodes.Any(c => c == "SP" || c == "SUPT" || c == "SSUPT" || c == "ASUPT"))
                 claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.Superintendent));
+
+            if (jobCodes.Any(c => c == "PE" || c == "APE"))
+                claims.Add(new Claim(ClaimTypes.Role, PrivilegeCodes.ProjectEngineer));
         }
 
         var identity  = new ClaimsIdentity(claims, "AciCookies");

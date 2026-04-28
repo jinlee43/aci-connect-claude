@@ -110,17 +110,19 @@
         </div>
 
         @* Daily Reports *@
-        <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
-             style="background:linear-gradient(135deg,#f9fafb,#f3f4f6); border:1px solid #e5e7eb; min-width:130px; opacity:.65;">
-            <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                 style="width:34px;height:34px;background:linear-gradient(135deg,#9ca3af,#6b7280);">
-                <i class="bi bi-journal-text text-white" style="font-size:.85rem;"></i>
+        <a asp-page="/Daily/Index" class="text-decoration-none">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3"
+                 style="background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #bfdbfe; min-width:130px; cursor:pointer;">
+                <div class="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                     style="width:34px;height:34px;background:linear-gradient(135deg,#3b82f6,#2563eb);">
+                    <i class="bi bi-journal-text text-white" style="font-size:.85rem;"></i>
+                </div>
+                <div>
+                    <div class="fw-bold lh-1" style="font-size:1.25rem;color:#1e40af;">@Model.DailyCount</div>
+                    <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#1d4ed8;letter-spacing:.05em;">Daily Reports</div>
+                </div>
             </div>
-            <div>
-                <div class="fw-bold lh-1" style="font-size:1.25rem;color:#374151;">@Model.DailyCount</div>
-                <div class="text-uppercase lh-1 mt-1" style="font-size:.65rem;color:#6b7280;letter-spacing:.05em;">Daily Reports</div>
-            </div>
-        </div>
+        </a>
 
     </div>
 
@@ -143,17 +145,20 @@
         }
         else
         {
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0" style="font-size:.85rem;">
+            <div class="overflow-auto">
+                <table class="table table-sm table-hover mb-0 align-middle"
+                       style="font-size:.85rem; table-layout:fixed; width:100%;">
                     <thead class="table-light">
                         <tr>
-                            <th style="min-width:90px;">Code</th>
-                            <th style="min-width:160px;">Project Name</th>
-                            <th style="min-width:160px;">Doc Type</th>
-                            <th class="text-center" style="min-width:80px;">Status</th>
-                            <th class="text-center" style="min-width:80px;">Week</th>
-                            <th class="text-center" style="min-width:90px;">Week Start</th>
-                            <th style="min-width:80px;"></th>
+                            <th style="width:120px;">Code</th>
+                            <th style="max-width:350px;">Project Name</th>
+                            <th style="width:200px;">Type</th>
+                            <th style="width:120px;">Submitter</th>
+                            <th class="text-center" style="width:120px;">Status</th>
+                            <th class="text-center" style="width:80px;">Week</th>
+                            <th class="text-center" style="width:150px;">Week Start</th>
+                            <th style="width:60px;"></th>
+                            <th>Remarks</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -161,23 +166,29 @@
                         {
                             var weekStartStr = row.WeekStart.ToString("yyyy-MM-dd");
                             <tr>
-                                <td class="align-middle fw-semibold">@row.ProjectCode</td>
-                                <td class="align-middle text-truncate" style="max-width:200px;">
-                                    <span title="@row.ProjectName">@row.ProjectName</span>
-                                </td>
-                                <td class="align-middle">
+                                <td class="fw-semibold"
+                                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                                    title="@row.ProjectCode">@row.ProjectCode</td>
+                                <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:350px;"
+                                    title="@row.ProjectName">@row.ProjectName</td>
+                                <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
                                     <i class="bi bi-shield-exclamation me-1 text-warning"></i>@row.DocType
                                 </td>
-                                <td class="text-center align-middle">
-                                    <span class="badge bg-@row.StatusClass">@row.StatusLabel</span>
+                                <td style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                                    title="@row.SubmitterName">
+                                    @(row.SubmitterName ?? "—")
                                 </td>
-                                <td class="text-center align-middle text-nowrap">
-                                    Wk @row.WeekNumber
+                                <td class="text-center">
+                                    <span class="badge bg-@row.StatusClass"
+                                          style="font-size:.7rem; display:inline-block; width:100px; text-align:center;">
+                                        @row.StatusLabel
+                                    </span>
                                 </td>
-                                <td class="text-center align-middle text-nowrap text-muted">
+                                <td class="text-center text-nowrap">Wk @row.WeekNumber</td>
+                                <td class="text-center text-nowrap text-muted">
                                     @row.WeekStart.ToString("MMM d, yyyy")
                                 </td>
-                                <td class="text-center align-middle">
+                                <td class="text-center">
                                     @if (row.ReportId.HasValue)
                                     {
                                         <a href="/Safety/Report?reportId=@row.ReportId"
@@ -193,6 +204,11 @@
                                             <i class="bi bi-upload"></i>
                                         </a>
                                     }
+                                </td>
+                                <td class="text-muted small"
+                                    style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                                    title="@row.Notes">
+                                    @(row.Notes ?? "")
                                 </td>
                             </tr>
                         }

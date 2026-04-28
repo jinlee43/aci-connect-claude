@@ -78,20 +78,50 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                     <label class="form-label fw-semibold">Address</label>
-                                    <input asp-for="Input.SiteAddress" class="form-control" />
+                                    <input asp-for="Input.SiteAddress" class="form-control" id="siteAddress" />
                                 </div>
                                 <div class="col-md-5">
                                     <label class="form-label fw-semibold">City</label>
-                                    <input asp-for="Input.City" class="form-control" />
+                                    <input asp-for="Input.City" class="form-control" id="siteCity" />
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label fw-semibold">Zip Code</label>
-                                    <input asp-for="Input.ZipCode" class="form-control" />
+                                    <input asp-for="Input.ZipCode" class="form-control" id="siteZip" />
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label fw-semibold">State</label>
-                                    <input asp-for="Input.State" class="form-control" placeholder="CA" />
+                                    <input asp-for="Input.State" class="form-control" placeholder="CA" id="siteState" />
                                 </div>
+                                <div class="col-12">
+                                    <hr class="my-1" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">
+                                        Latitude
+                                        <span class="text-muted fw-normal small ms-1">(for weather)</span>
+                                    </label>
+                                    <input asp-for="Input.Latitude" type="number" step="0.000001"
+                                           class="form-control" id="siteLatitude"
+                                           placeholder="e.g. 34.052235" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-semibold">Longitude</label>
+                                    <input asp-for="Input.Longitude" type="number" step="0.000001"
+                                           class="form-control" id="siteLongitude"
+                                           placeholder="e.g. -118.243683" />
+                                </div>
+                                @if (Model.CanEdit)
+                                {
+                                    <div class="col-md-4 d-flex align-items-end">
+                                        <div>
+                                            <button type="button" class="btn btn-outline-secondary"
+                                                    id="geocodeBtn" onclick="geocodeAddress()">
+                                                <i class="bi bi-geo-alt me-1"></i>Get Coordinates
+                                            </button>
+                                            <div id="geocodeStatus" class="small mt-1 text-muted"></div>
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         </div>
                     </div>
@@ -177,3 +207,54 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+async function geocodeAddress() {
+    const parts = [
+        document.getElementById('siteAddress')?.value  ?? '',
+        document.getElementById('siteCity')?.value     ?? '',
+        document.getElementById('siteState')?.value    ?? '',
+        document.getElementById('siteZip')?.value      ?? '',
+    ].map(s => s.trim()).filter(Boolean);
+
+    if (!parts.length) {
+        document.getElementById('geocodeStatus').textContent = 'Please enter an address first.';
+        return;
+    }
+
+    const btn    = document.getElementById('geocodeBtn');
+    const status = document.getElementById('geocodeStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Searching…';
+    status.textContent = '';
+
+    try {
+        const res  = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(parts.join(', '))}&format=json&limit=1`,
+            { headers: { 'Accept': 'application/json' } }
+        );
+        const data = await res.json();
+
+        if (!data.length) {
+            status.innerHTML = '<span class="text-danger">Address not found. Check and try again.</span>';
+            return;
+        }
+
+        const lat = parseFloat(data[0].lat).toFixed(6);
+        const lon = parseFloat(data[0].lon).toFixed(6);
+        document.getElementById('siteLatitude').value  = lat;
+        document.getElementById('siteLongitude').value = lon;
+
+        status.innerHTML =
+            `<span class="text-success"><i class="bi bi-check-circle me-1"></i>` +
+            `${lat}, ${lon} — ${data[0].display_name.substring(0, 60)}…</span>`;
+    } catch (e) {
+        status.innerHTML = '<span class="text-danger">Geocoding failed. Please try again.</span>';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-geo-alt me-1"></i>Get Coordinates';
+    }
+}
+</script>
+}

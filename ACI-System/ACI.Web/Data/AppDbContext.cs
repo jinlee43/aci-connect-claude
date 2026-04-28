@@ -62,6 +62,15 @@ public class AppDbContext : DbContext
     public DbSet<SafetyWkRep>          SafetyWkReps         => Set<SafetyWkRep>();
     public DbSet<SafetyWkRepFile>      SafetyWkRepFiles     => Set<SafetyWkRepFile>();
 
+    // ─── Daily Report ─────────────────────────────────────────────────────
+    public DbSet<DailyReport>              DailyReports          => Set<DailyReport>();
+    public DbSet<DailyReportCrewEntry>     DailyReportCrewEntries => Set<DailyReportCrewEntry>();
+    public DbSet<DailyReportWorkItem>      DailyReportWorkItems   => Set<DailyReportWorkItem>();
+    public DbSet<DailyReportTaskProgress>  DailyReportTaskProgress => Set<DailyReportTaskProgress>();
+    public DbSet<DailyReportEquipment>     DailyReportEquipment   => Set<DailyReportEquipment>();
+    public DbSet<DailyReportFile>          DailyReportFiles       => Set<DailyReportFile>();
+    public DbSet<WeatherCache>             WeatherCache           => Set<WeatherCache>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -612,6 +621,143 @@ public class AppDbContext : DbContext
              .OnDelete(DeleteBehavior.SetNull);
 
             e.HasIndex(f => f.ReportId);
+        });
+
+        // ── DailyReport ───────────────────────────────────────────────────────
+        builder.Entity<DailyReport>(e =>
+        {
+            e.HasKey(r => r.Id);
+
+            // 프로젝트별 날짜 unique (하루에 보고서 1건)
+            e.HasIndex(r => new { r.ProjectId, r.ReportDate }).IsUnique();
+            e.HasIndex(r => new { r.ProjectId, r.ReportNumber }).IsUnique();
+
+            e.HasOne(r => r.Project)
+             .WithMany()
+             .HasForeignKey(r => r.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasOne(r => r.AuthoredBy)
+             .WithMany()
+             .HasForeignKey(r => r.AuthoredById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.ReviewedBy)
+             .WithMany()
+             .HasForeignKey(r => r.ReviewedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.ApprovedBy)
+             .WithMany()
+             .HasForeignKey(r => r.ApprovedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasOne(r => r.VoidedBy)
+             .WithMany()
+             .HasForeignKey(r => r.VoidedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasMany(r => r.CrewEntries)
+             .WithOne(c => c.DailyReport)
+             .HasForeignKey(c => c.DailyReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(r => r.WorkItems)
+             .WithOne(w => w.DailyReport)
+             .HasForeignKey(w => w.DailyReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(r => r.TaskProgress)
+             .WithOne(t => t.DailyReport)
+             .HasForeignKey(t => t.DailyReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(r => r.Equipment)
+             .WithOne(q => q.DailyReport)
+             .HasForeignKey(q => q.DailyReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(r => r.Files)
+             .WithOne(f => f.DailyReport)
+             .HasForeignKey(f => f.DailyReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(r => r.ProjectId);
+            e.HasIndex(r => r.ReportDate);
+        });
+
+        // ── DailyReportCrewEntry ──────────────────────────────────────────────
+        builder.Entity<DailyReportCrewEntry>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.Property(c => c.HoursWorked).HasPrecision(5, 2);
+
+            e.HasOne(c => c.Trade)
+             .WithMany()
+             .HasForeignKey(c => c.TradeId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── DailyReportWorkItem ───────────────────────────────────────────────
+        builder.Entity<DailyReportWorkItem>(e =>
+        {
+            e.HasKey(w => w.Id);
+
+            e.HasOne(w => w.Trade)
+             .WithMany()
+             .HasForeignKey(w => w.TradeId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ── DailyReportTaskProgress ───────────────────────────────────────────
+        builder.Entity<DailyReportTaskProgress>(e =>
+        {
+            e.HasKey(t => t.Id);
+
+            e.HasOne(t => t.WorkingTask)
+             .WithMany()
+             .HasForeignKey(t => t.WorkingTaskId)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(t => t.DailyReportId);
+        });
+
+        // ── DailyReportEquipment ──────────────────────────────────────────────
+        builder.Entity<DailyReportEquipment>(e =>
+        {
+            e.HasKey(q => q.Id);
+            e.Property(q => q.HoursUsed).HasPrecision(5, 2);
+        });
+
+        // ── DailyReportFile ───────────────────────────────────────────────────
+        builder.Entity<DailyReportFile>(e =>
+        {
+            e.HasKey(f => f.Id);
+
+            e.HasOne(f => f.UploadedBy)
+             .WithMany()
+             .HasForeignKey(f => f.UploadedById)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(f => f.DailyReportId);
+        });
+
+        // ── WeatherCache ──────────────────────────────────────────────────────
+        builder.Entity<WeatherCache>(e =>
+        {
+            e.HasKey(w => w.Id);
+
+            // ProjectId + Date 조합 unique
+            e.HasIndex(w => new { w.ProjectId, w.Date }).IsUnique();
+
+            e.HasOne(w => w.Project)
+             .WithMany()
+             .HasForeignKey(w => w.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            e.Property(w => w.Address).HasMaxLength(500);
+            e.Property(w => w.Condition).HasMaxLength(50);
+            e.Property(w => w.Source).HasMaxLength(50);
         });
     }
 }

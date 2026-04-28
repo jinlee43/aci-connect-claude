@@ -148,6 +148,7 @@ builder.Services.AddScoped<IProgressScheduleService, ProgressScheduleService>();
 builder.Services.AddScoped<IBaselineService, BaselineService>();
 builder.Services.AddScoped<ISimulationService, SimulationService>();
 builder.Services.AddScoped<ISafetyWkRepService, SafetyWkRepService>();
+builder.Services.AddScoped<IDailyReportService, DailyReportService>();
 builder.Services.AddScoped<IUserIdGenerator, UserIdGenerator>();
 
 // ─── HTTP Context Accessor (for auth helper) ──────────────────────────────

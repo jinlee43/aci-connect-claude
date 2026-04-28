@@ -51,6 +51,11 @@ public class Project : BaseEntity
     [MaxLength(50)]
     public string? State { get; set; }
 
+    /// <summary>GPS 위도 — Nominatim 지오코딩으로 한 번만 저장, 날씨 조회에 사용.</summary>
+    public double? Latitude  { get; set; }
+    /// <summary>GPS 경도.</summary>
+    public double? Longitude { get; set; }
+
     // Owner / Customer
     [MaxLength(200)]
     public string? OwnerName { get; set; }

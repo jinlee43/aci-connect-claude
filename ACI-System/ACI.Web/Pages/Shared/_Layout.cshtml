@@ -85,6 +85,40 @@
             <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")" asp-page="/Projects/Index">
                 <i class="bi bi-folder2"></i><span>Projects</span>
             </a>
+            @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+            {
+                <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "daily-reports" ? "active" : "")"
+                   asp-page="/Daily/Index">
+                    <i class="bi bi-journal-text" style="color:#0d6efd;"></i><span>Daily Reports</span>
+                </a>
+            }
+        </div>
+    }
+
+    @* ─── My Workspace (비 Portfolio 사용자 전원) — 항상 최상단 ────────── *@
+    @if (!isPortfolioUser && User.Identity?.IsAuthenticated == true)
+    {
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">MY WORKSPACE</div>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "my-dashboard" ? "active" : "")"
+               asp-page="/MyDashboard/Index">
+                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")"
+               asp-page="/Projects/Index">
+                <i class="bi bi-folder2"></i><span>Projects</span>
+            </a>
+            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-mine" ? "active" : "")"
+               asp-page="/Safety/MyReports">
+                <i class="bi bi-clipboard2-check" style="color:#fd7e14;"></i><span>Safety Report</span>
+            </a>
+            @if (User.IsInRole("Superintendent") || User.IsInRole("ProjectEngineer") || User.IsInRole("ProjectManager") || User.IsInRole("HrAdmin") || User.IsInRole("Admin"))
+            {
+                <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "daily-reports" ? "active" : "")"
+                   asp-page="/Daily/Index">
+                    <i class="bi bi-journal-text" style="color:#0d6efd;"></i><span>Daily Reports</span>
+                </a>
+            }
         </div>
     }
 
@@ -152,26 +186,6 @@
         메뉴는 정책 체크와 일치해야 하므로, 보유 권한이 있는 사용자에게만 해당 섹션을 노출.
         단, Trades & Subs는 조회가 전체 허용이므로 인증된 모든 사용자에게 노출.
     *@
-    @* ─── My Workspace (비 Portfolio 사용자 전원) ──────────────────────── *@
-    @if (!isPortfolioUser && User.Identity?.IsAuthenticated == true)
-    {
-        <div class="sidebar-section">
-            <div class="sidebar-section-title">MY WORKSPACE</div>
-            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "my-dashboard" ? "active" : "")"
-               asp-page="/MyDashboard/Index">
-                <i class="bi bi-speedometer2"></i><span>Dashboard</span>
-            </a>
-            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "projects" ? "active" : "")"
-               asp-page="/Projects/Index">
-                <i class="bi bi-folder2"></i><span>Projects</span>
-            </a>
-            <a class="sidebar-link @(ViewData["ActiveMenu"]?.ToString() == "safety-mine" ? "active" : "")"
-               asp-page="/Safety/MyReports">
-                <i class="bi bi-clipboard2-check" style="color:#fd7e14;"></i><span>Safety Report</span>
-            </a>
-        </div>
-    }
-
     @{
         var isAdmin         = User.IsInRole("Admin");
         var isHrAdmin       = isAdmin || User.IsInRole("HrAdmin");            // Admin ⊇ HrAdmin
