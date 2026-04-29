@@ -157,12 +157,20 @@
     <div class="row g-3 mt-0">
         <div class="col-lg-7">
             <form id="save-form" method="post" asp-page-handler="Save" asp-route-id="@Model.Emp.Id">
+                <!-- Show Values를 눌렀을 때만 true → 민감 필드 저장 허용 -->
+                <input type="hidden" id="sensitiveLoadedFlag" name="SensitiveLoaded" value="false" />
 
                 <!-- Status & Private ID Card -->
                 <div class="card shadow-sm border-danger">
-                    <div class="card-header py-2 fw-semibold bg-danger bg-opacity-10">
-                        <i class="bi bi-person-vcard me-2 text-danger"></i>Status &amp; Private Identification
-                        <span class="badge bg-danger ms-2" style="font-size:0.65rem">ENCRYPTED</span>
+                    <div class="card-header py-2 fw-semibold bg-danger bg-opacity-10 d-flex align-items-center">
+                        <span>
+                            <i class="bi bi-person-vcard me-2 text-danger"></i>Status &amp; Private Identification
+                            <span class="badge bg-danger ms-2" style="font-size:0.65rem">ENCRYPTED</span>
+                        </span>
+                        <button type="button" class="btn btn-sm btn-outline-primary ms-auto fw-bold" onclick="toggleSensitive()">
+                            <i class="bi bi-eye" id="sensitiveIcon"></i>
+                            <span id="sensitiveLabel">Show Values (Click to reveal)</span>
+                        </button>
                     </div>
                     <div class="card-body" style="display:grid; grid-template-columns:0.4fr 1fr; gap:0.5rem 2rem;">
 
@@ -195,50 +203,42 @@
                             </p>
                             <div class="d-flex flex-column gap-2">
 
+                                <!-- Date of Birth -->
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">Date of Birth</label>
+                                    <!-- form 전송용 hidden (초기값 없음 — AJAX 로드 후 채워짐) -->
+                                    <input type="hidden" id="birthDateValue" name="BirthDatePlain" value="" />
+                                    <!-- 마스크 표시 (기본 보임) -->
+                                    <input type="text" id="birthDateMask" readonly
+                                           value="@(Model.Emp.BirthDateEncrypted != null ? "**/**/****" : "")"
+                                           placeholder="@(Model.Emp.BirthDateEncrypted != null ? "**/**/****" : "Not set")"
+                                           class="form-control form-control-sm font-monospace"
+                                           style="width:120px;flex:none" tabindex="-1" />
+                                    <!-- 날짜 피커 (기본 숨김) -->
+                                    <input type="date" id="birthDatePicker" value=""
+                                           class="form-control form-control-sm d-none"
+                                           style="width:150px;flex:none"
+                                           oninput="document.getElementById('birthDateValue').value = this.value; document.getElementById('birthDateMask').placeholder = this.value ? '**/**/****' : 'Not set';" />
+                                </div>
+
+                                <hr class="my-1" />
+
                                 <!-- SSN -->
                                 <div class="d-flex align-items-center gap-2">
                                     <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">SSN</label>
-                                    <input type="password" name="SsnPlain"
-                                           value="@(string.IsNullOrEmpty(Model.SsnPlain) ? "" : Model.SsnPlain)"
+                                    <input type="password" name="SsnPlain" value=""
                                            class="form-control form-control-sm font-monospace sensitive-field"
                                            placeholder="@(Model.Emp.SsnEncrypted != null ? "••••••••• (stored)" : "Not set")"
                                            style="width:200px;flex:none" autocomplete="off" />
-                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleSensitive()">
-                                        <i class="bi bi-eye" id="sensitiveIcon"></i>
-                                        <span id="sensitiveLabel">Show Values (Click to reveal)</span>
-                                    </button>
-                                    @if (Model.Emp.SsnEncrypted != null)
-                                    {
-                                        <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
-                                              class="d-inline" id="frm-clear-ssn">
-                                            <input type="hidden" name="field" value="ssn" />
-                                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                    onclick="confirmAction('frm-clear-ssn', 'Clear SSN', 'Clear SSN?')">
-                                                <i class="bi bi-trash" style="font-size:0.75rem"></i>
-                                            </button>
-                                        </form>
-                                    }
                                 </div>
 
                                 <!-- TIN -->
                                 <div class="d-flex align-items-center gap-2">
                                     <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">TIN</label>
-                                    <input type="password" name="TinPlain"
-                                           value="@(string.IsNullOrEmpty(Model.TinPlain) ? "" : Model.TinPlain)"
+                                    <input type="password" name="TinPlain" value=""
                                            class="form-control form-control-sm font-monospace sensitive-field"
                                            placeholder="@(Model.Emp.TinEncrypted != null ? "••••••••• (stored)" : "Not set")"
                                            style="width:200px;flex:none" autocomplete="off" />
-                                    @if (Model.Emp.TinEncrypted != null)
-                                    {
-                                        <form method="post" asp-page-handler="ClearField" asp-route-id="@Model.Emp.Id"
-                                              class="d-inline" id="frm-clear-tin">
-                                            <input type="hidden" name="field" value="tin" />
-                                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2"
-                                                    onclick="confirmAction('frm-clear-tin', 'Clear TIN', 'Clear TIN?')">
-                                                <i class="bi bi-trash" style="font-size:0.75rem"></i>
-                                            </button>
-                                        </form>
-                                    }
                                 </div>
 
                                 <hr class="my-1" />
@@ -246,8 +246,7 @@
                                 <!-- Driver's License -->
                                 <div class="d-flex align-items-center gap-2">
                                     <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">Driver's Lic #</label>
-                                    <input type="password" name="DriversLicPlain"
-                                           value="@(string.IsNullOrEmpty(Model.DriversLicPlain) ? "" : Model.DriversLicPlain)"
+                                    <input type="password" name="DriversLicPlain" value=""
                                            class="form-control form-control-sm font-monospace sensitive-field"
                                            placeholder="@(Model.Emp.DriversLicNumEncrypted != null ? "••••••••• (stored)" : "Not set")"
                                            autocomplete="off" />
@@ -260,8 +259,7 @@
                                 <!-- Alien Number -->
                                 <div class="d-flex align-items-center gap-2">
                                     <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">Alien # (A-#)</label>
-                                    <input type="password" name="AlienNumPlain"
-                                           value="@(string.IsNullOrEmpty(Model.AlienNumPlain) ? "" : Model.AlienNumPlain)"
+                                    <input type="password" name="AlienNumPlain" value=""
                                            class="form-control form-control-sm font-monospace sensitive-field"
                                            placeholder="@(Model.Emp.AlienNumberEncrypted != null ? "••••••••• (stored)" : "Not set")"
                                            autocomplete="off" />
@@ -274,8 +272,7 @@
                                 <!-- Passport -->
                                 <div class="d-flex align-items-center gap-2">
                                     <label class="form-label small fw-semibold mb-0 text-nowrap text-end" style="min-width:6.5rem">Passport #</label>
-                                    <input type="password" name="PassportNumPlain"
-                                           value="@(string.IsNullOrEmpty(Model.PassportNumPlain) ? "" : Model.PassportNumPlain)"
+                                    <input type="password" name="PassportNumPlain" value=""
                                            class="form-control form-control-sm font-monospace sensitive-field"
                                            placeholder="@(Model.Emp.PassportNumberEncrypted != null ? "••••••••• (stored)" : "Not set")"
                                            autocomplete="off" />
@@ -440,13 +437,74 @@ function toggleOldHireDate(chk) {
     if (grp) grp.classList.toggle('d-none', !chk.checked);
 }
 
-function toggleSensitive() {
-    const fields = document.querySelectorAll('.sensitive-field');
-    const icon   = document.getElementById('sensitiveIcon');
-    const label  = document.getElementById('sensitiveLabel');
-    const isHidden = fields[0]?.type === 'password';
-    fields.forEach(f => f.type = isHidden ? 'text' : 'password');
-    icon.className  = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
-    label.textContent = isHidden ? 'Hide Values' : 'Show Values (Click to reveal)';
+async function toggleSensitive() {
+    const fields   = document.querySelectorAll('.sensitive-field');
+    const icon     = document.getElementById('sensitiveIcon');
+    const label    = document.getElementById('sensitiveLabel');
+    const btn      = icon.closest('button');
+    const isHidden = fields[0]?.type === 'password'; // true = 현재 숨김 → 공개로 전환
+
+    if (isHidden) {
+        // ── 공개: DB에서 복호화값 로드 ──────────────────────────────────────
+        btn.disabled = true;
+        try {
+            const resp = await fetch(window.location.pathname + '?handler=SensitiveFields', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!resp.ok) throw new Error('Load failed');
+            const d = await resp.json();
+
+            // BirthDate
+            document.getElementById('birthDateValue').value = d.birthDate ?? '';
+            const picker = document.getElementById('birthDatePicker');
+            if (picker) picker.value = d.birthDate ?? '';
+            const mask = document.getElementById('birthDateMask');
+            if (mask)   { mask.classList.add('d-none'); picker?.classList.remove('d-none'); }
+
+            // 나머지 민감 필드
+            document.querySelector('[name="SsnPlain"]').value         = d.ssn         ?? '';
+            document.querySelector('[name="TinPlain"]').value         = d.tin         ?? '';
+            document.querySelector('[name="DriversLicPlain"]').value  = d.driversLic  ?? '';
+            document.querySelector('[name="AlienNumPlain"]').value    = d.alienNum    ?? '';
+            document.querySelector('[name="PassportNumPlain"]').value = d.passportNum ?? '';
+
+            fields.forEach(f => f.type = 'text');
+
+            // 값 지울 때 placeholder 실시간 업데이트 (지우면 "Not set"으로 변경)
+            fields.forEach(f => {
+                if (!f._placeholderListenerAdded) {
+                    f.addEventListener('input', () => {
+                        f.placeholder = f.value.trim() ? '••••••••• (stored)' : 'Not set';
+                    });
+                    f._placeholderListenerAdded = true;
+                }
+            });
+
+            // SensitiveLoaded 플래그 활성화
+            document.getElementById('sensitiveLoadedFlag').value = 'true';
+
+            icon.className    = 'bi bi-eye-slash';
+            label.textContent = 'Hide Values';
+        } catch (e) {
+            alert('Failed to load sensitive fields. Please try again.');
+        } finally {
+            btn.disabled = false;
+        }
+    } else {
+        // ── 숨기기: type만 password로 (값은 유지, 다음 Show 시 DB에서 재로드) ──
+        fields.forEach(f => f.type = 'password');
+
+        const mask   = document.getElementById('birthDateMask');
+        const picker = document.getElementById('birthDatePicker');
+        if (mask && picker) {
+            const val = document.getElementById('birthDateValue')?.value;
+            mask.value = val ? '**/**/****' : '';
+            mask.classList.remove('d-none');
+            picker.classList.add('d-none');
+        }
+
+        icon.className    = 'bi bi-eye';
+        label.textContent = 'Show Values (Click to reveal)';
+    }
 }
 </script>

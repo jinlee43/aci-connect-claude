@@ -178,6 +178,9 @@ public class Employee : BaseEntity
     public DateOnly? PassportIssedDate { get; set; }
     public DateOnly? PassportExpiredDate { get; set; }
 
+    /// <summary>Date of birth — AES-256-GCM encrypted (stored as "yyyy-MM-dd" string).</summary>
+    public string? BirthDateEncrypted { get; set; }
+
     // ── Navigation ────────────────────────────────────────────────────────────
     public ApplicationUser? UserAccount { get; set; }
     public ICollection<EmpRole> EmpRoles { get; set; } = [];

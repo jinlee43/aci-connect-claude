@@ -79,18 +79,15 @@
         try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch (e) {}
     }
 
-    const EDIT_COL_W = 40; // 편집 아이콘 컬럼 고정 폭(px)
+    const EDIT_COL_W = 80; // 편집 컬럼 기본 폭(px) — 리사이즈 가능
 
     if (table.style.tableLayout === 'fixed') {
-        // 인라인 스크립트에서 이미 저장된 폭 적용됨.
-        // 편집 컬럼은 저장값과 무관하게 항상 고정폭으로 강제 적용 후 저장.
-        cols[colCount - 1].style.width = EDIT_COL_W + 'px';
+        // 인라인 스크립트에서 이미 저장된 폭 적용됨 (편집 컬럼도 저장값 그대로 사용)
         const totalW = Array.from(cols).reduce((s, c) => s + (parseInt(c.style.width) || 0), 0);
         table.style.width = totalW + 'px';
         saveWidths();
     } else {
-        // 저장된 폭 없음 → 콘텐츠 기준 자동 계산
-        // 마지막 편집 컬럼은 고정 폭, 나머지만 측정
+        // 저장된 폭 없음 → 콘텐츠 기준 자동 계산 (편집 컬럼 포함)
         table.style.tableLayout = '';
         table.style.width = 'auto';
 
@@ -98,7 +95,7 @@
         widths[colCount - 1] = EDIT_COL_W;
         table.querySelectorAll('tr').forEach(row => {
             Array.from(row.cells).forEach((cell, i) => {
-                if (i < colCount - 1) widths[i] = Math.max(widths[i], cell.scrollWidth);
+                widths[i] = Math.max(widths[i], cell.scrollWidth);
             });
         });
 
@@ -149,9 +146,8 @@
         });
     })();
 
-    // 드래그 리사이즈 핸들 부착 — 마지막 편집 컬럼 제외, 드래그 완료 시 localStorage에 저장
+    // 드래그 리사이즈 핸들 부착 — 모든 컬럼(편집 컬럼 포함), 드래그 완료 시 localStorage에 저장
     ths.forEach((th, i) => {
-        if (i === colCount - 1) return; // 편집 컬럼은 고정 폭, 핸들 없음
         const handle = document.createElement('div');
         handle.className = 'col-resize-handle';
         th.appendChild(handle);
@@ -369,9 +365,16 @@
                             <td class="small">@emp.HomeAddressCity</td>
                             <td class="text-center">
                                 <a asp-page="Detail" asp-route-id="@emp.Id"
-                                   class="text-primary" style="font-size:1rem;">
+                                   class="text-primary" style="font-size:1rem;" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                @if (User.IsInRole("Admin") || User.IsInRole("HrAdmin"))
+                                {
+                                    <a asp-page="AdminDetail" asp-route-id="@emp.Id"
+                                       class="text-danger ms-2" style="font-size:1rem;" title="HR Admin">
+                                        <i class="bi bi-shield-lock"></i>
+                                    </a>
+                                }
                             </td>
                         </tr>
                     }
