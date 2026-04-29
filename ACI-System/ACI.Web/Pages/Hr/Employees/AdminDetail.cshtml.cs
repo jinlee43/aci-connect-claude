@@ -28,11 +28,16 @@ public class AdminDetailModel : PageModel
     public Employee Emp { get; set; } = new();
 
     // ── 복호화된 민감 필드 (화면 바인딩용) ──────────────────────────────────
+    [BindProperty] public string? BirthDatePlain   { get; set; }
     [BindProperty] public string? SsnPlain         { get; set; }
     [BindProperty] public string? TinPlain         { get; set; }
     [BindProperty] public string? DriversLicPlain  { get; set; }
     [BindProperty] public string? AlienNumPlain    { get; set; }
     [BindProperty] public string? PassportNumPlain { get; set; }
+
+    /// <summary>Show Values 버튼을 눌러 민감 필드를 로드한 경우에만 true.
+    /// false이면 Save 시 민감 필드를 갱신하지 않아 실수로 NULL이 되는 것을 방지.</summary>
+    [BindProperty] public bool SensitiveLoaded { get; set; }
 
     // ── EmpRole 관리용 (HrAdmin 전용) ───────────────────────────────────────
     [BindProperty] public int       NewRoleOrgUnitId     { get; set; }
@@ -61,12 +66,7 @@ public class AdminDetailModel : PageModel
         Emp             = emp;
         EmpDisplayName  = emp.DisplayName;
 
-        // 복호화
-        SsnPlain        = _enc.Decrypt(emp.SsnEncrypted);
-        TinPlain        = _enc.Decrypt(emp.TinEncrypted);
-        DriversLicPlain = _enc.Decrypt(emp.DriversLicNumEncrypted);
-        AlienNumPlain   = _enc.Decrypt(emp.AlienNumberEncrypted);
-        PassportNumPlain= _enc.Decrypt(emp.PassportNumberEncrypted);
+        // 민감 필드는 페이지 로드 시 복호화하지 않음 — Show Values(AJAX) 클릭 시에만 로드
 
         Roles = emp.EmpRoles
             .OrderByDescending(r => r.IsPrimary)
@@ -112,12 +112,18 @@ public class AdminDetailModel : PageModel
         emp.PassportIssedDate      = Emp.PassportIssedDate;
         emp.PassportExpiredDate    = Emp.PassportExpiredDate;
 
-        // ── 암호화 저장 (입력값이 있을 때만 갱신, 빈칸이면 기존값 유지) ──────
-        if (SsnPlain        != null) emp.SsnEncrypted          = _enc.Encrypt(SsnPlain.Trim())        ?? emp.SsnEncrypted;
-        if (TinPlain        != null) emp.TinEncrypted          = _enc.Encrypt(TinPlain.Trim())        ?? emp.TinEncrypted;
-        if (DriversLicPlain != null) emp.DriversLicNumEncrypted= _enc.Encrypt(DriversLicPlain.Trim()) ?? emp.DriversLicNumEncrypted;
-        if (AlienNumPlain   != null) emp.AlienNumberEncrypted  = _enc.Encrypt(AlienNumPlain.Trim())   ?? emp.AlienNumberEncrypted;
-        if (PassportNumPlain!= null) emp.PassportNumberEncrypted= _enc.Encrypt(PassportNumPlain.Trim())?? emp.PassportNumberEncrypted;
+        // ── 암호화 저장 (Show Values를 클릭한 경우에만 갱신) ─────────────────
+        // SensitiveLoaded = false 이면 사용자가 Show Values를 누르지 않은 것이므로
+        // 민감 필드를 건드리지 않아 실수로 NULL이 되는 것을 방지.
+        if (SensitiveLoaded)
+        {
+            emp.BirthDateEncrypted      = string.IsNullOrWhiteSpace(BirthDatePlain)   ? null : _enc.Encrypt(BirthDatePlain.Trim());
+            emp.SsnEncrypted            = string.IsNullOrWhiteSpace(SsnPlain)         ? null : _enc.Encrypt(SsnPlain.Trim());
+            emp.TinEncrypted            = string.IsNullOrWhiteSpace(TinPlain)         ? null : _enc.Encrypt(TinPlain.Trim());
+            emp.DriversLicNumEncrypted  = string.IsNullOrWhiteSpace(DriversLicPlain)  ? null : _enc.Encrypt(DriversLicPlain.Trim());
+            emp.AlienNumberEncrypted    = string.IsNullOrWhiteSpace(AlienNumPlain)    ? null : _enc.Encrypt(AlienNumPlain.Trim());
+            emp.PassportNumberEncrypted = string.IsNullOrWhiteSpace(PassportNumPlain) ? null : _enc.Encrypt(PassportNumPlain.Trim());
+        }
 
         emp.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -126,25 +132,21 @@ public class AdminDetailModel : PageModel
         return RedirectToPage("AdminDetail", new { id });
     }
 
-    /// <summary>민감 필드 값을 지웁니다 (개별 필드 삭제용).</summary>
-    public async Task<IActionResult> OnPostClearFieldAsync(int id, string field)
+    /// <summary>민감 필드 복호화값을 JSON으로 반환 — Show Values AJAX 전용.</summary>
+    public async Task<IActionResult> OnGetSensitiveFieldsAsync(int id)
     {
         var emp = await _db.Employees.FindAsync(id);
         if (emp == null) return NotFound();
 
-        switch (field)
+        return new JsonResult(new
         {
-            case "ssn":      emp.SsnEncrypted            = null; break;
-            case "tin":      emp.TinEncrypted            = null; break;
-            case "drvlic":   emp.DriversLicNumEncrypted  = null; break;
-            case "alien":    emp.AlienNumberEncrypted    = null; break;
-            case "passport": emp.PassportNumberEncrypted = null; break;
-        }
-        emp.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        TempData["Success"] = "Field cleared.";
-        return RedirectToPage("AdminDetail", new { id });
+            birthDate   = _enc.Decrypt(emp.BirthDateEncrypted)      ?? "",
+            ssn         = _enc.Decrypt(emp.SsnEncrypted)            ?? "",
+            tin         = _enc.Decrypt(emp.TinEncrypted)            ?? "",
+            driversLic  = _enc.Decrypt(emp.DriversLicNumEncrypted)  ?? "",
+            alienNum    = _enc.Decrypt(emp.AlienNumberEncrypted)    ?? "",
+            passportNum = _enc.Decrypt(emp.PassportNumberEncrypted) ?? "",
+        });
     }
 
     // ────────────────────────────────────────────────────────────────────────

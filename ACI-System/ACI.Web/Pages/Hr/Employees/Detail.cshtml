@@ -30,14 +30,7 @@
                         <!-- Row 1: Emp# + First + Middle + Last + Suffix -->
                         <div class="d-flex align-items-center gap-2">
                             <label class="form-label small fw-semibold mb-0 text-nowrap">Emp #</label>
-                            @if (Model.IsHrAdmin)
-                            {
-                                <input asp-for="Emp.EmpNum" class="form-control form-control-sm" style="flex:0.7" placeholder="Auto" />
-                            }
-                            else
-                            {
-                                <input asp-for="Emp.EmpNum" class="form-control form-control-sm bg-light" style="flex:0.7" readonly placeholder="Auto" />
-                            }
+                            <input asp-for="Emp.EmpNum" class="form-control form-control-sm bg-light" style="flex:0.7" readonly placeholder="Auto" />
                             <label class="form-label small fw-semibold mb-0 text-nowrap">First Name <span class="text-danger">*</span></label>
                             <div style="flex:1.5">
                                 <input asp-for="Emp.FirstName" class="form-control form-control-sm" />
