@@ -173,105 +173,92 @@
         <input type="hidden" name="Modal"     value="@Model.Modal" />
         @Html.AntiForgeryToken()
 
-        @* ── Top Row: Report Info (left) + Task Progress (right) ──────────── *@
-        <div class="d-flex gap-3 align-items-start flex-wrap mb-0">
-
-        @* ── Section 1: Report Info ─────────────────────────────────────────── *@
-        <div class="aci-card mb-3" style="max-width:640px; background:#f5f8ff;">
+        @* ── Section 1: Report Info + Task Progress (merged) ───────────────── *@
+        <div class="aci-card mb-3" style="border-left:3px solid #0d6efd; background:#eef2ff;">
             <div class="card-header-aci d-flex align-items-center gap-2 px-3 py-2 border-bottom">
                 <i class="bi bi-info-circle text-primary"></i>
-                <span class="fw-semibold small">Report Info</span>
+                <span class="fw-semibold small">Report Info &amp; Task Progress</span>
+                <span class="badge bg-primary ms-1" style="font-size:.65rem;">Required</span>
                 @if (r != null)
                 {
                     <span class="text-muted small ms-auto">Report #@r.ReportNumber</span>
                 }
             </div>
-            <div class="px-3 py-3">
-                <div class="d-flex flex-column gap-2">
 
-                    @* Date *@
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="form-label small fw-semibold mb-0 text-end" style="width:90px; min-width:90px;">Date</label>
-                        <input type="date" id="reportDate" name="Date"
-                               class="form-control form-control-sm"
-                               value="@dateStr"
-                               data-original="@dateStr"
-                               style="max-width:160px;"
+            @* ── 상단: Date / Location / Weather 한 행 ── *@
+            <div class="d-flex align-items-center gap-3 flex-wrap px-3 py-2 border-bottom" style="background:#f0f4ff;">
+
+                @* Date *@
+                <div class="d-flex align-items-center gap-1">
+                    <label class="form-label small fw-semibold mb-0 text-muted" style="white-space:nowrap;">Date</label>
+                    <input type="date" id="reportDate" name="Date"
+                           class="form-control form-control-sm"
+                           value="@dateStr"
+                           data-original="@dateStr"
+                           style="width:140px;"
+                           @(isLocked ? "readonly" : "") />
+                </div>
+
+                <div class="vr" style="height:24px;"></div>
+
+                @* Location / Area *@
+                <div class="d-flex align-items-center gap-1" style="flex:1; min-width:180px;">
+                    <label class="form-label small fw-semibold mb-0 text-muted" style="white-space:nowrap;">Location</label>
+                    <input type="text" name="Location" class="form-control form-control-sm"
+                           value="@(r?.Location ?? (isNew ? Model.DefaultLocation : ""))"
+                           placeholder="e.g. Building A – Level 3"
+                           @(isLocked ? "readonly" : "") maxlength="200" />
+                </div>
+
+                <div class="vr" style="height:24px;"></div>
+
+                @* Weather *@
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <label class="form-label small fw-semibold mb-0 text-muted">Weather</label>
+                    <select name="WeatherCondition" class="form-select form-select-sm"
+                            style="width:130px; flex:none;"
+                            @(isLocked ? "disabled" : "")>
+                        <option value="">— Condition —</option>
+                        @foreach (var wc in new[]{"Clear","Partly Cloudy","Cloudy","Rain","Heavy Rain","Snow","Fog","Windy"})
+                        {
+                            <option value="@wc" selected="@(r?.WeatherCondition == wc)">@wc</option>
+                        }
+                    </select>
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">Lo</span>
+                        <input type="number" name="TempLow" class="form-control form-control-sm text-center"
+                               value="@(r?.TempLow?.ToString() ?? "")" style="width:54px;"
                                @(isLocked ? "readonly" : "") />
+                        <span class="small text-muted">°F</span>
                     </div>
-
-                    @* Location / Area *@
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="form-label small fw-semibold mb-0 text-end" style="width:90px; min-width:90px;">Location / Area</label>
-                        <input type="text" name="Location" class="form-control form-control-sm"
-                               value="@(r?.Location ?? (isNew ? Model.DefaultLocation : ""))"
-                               placeholder="e.g. Building A – Level 3"
-                               @(isLocked ? "readonly" : "") maxlength="200" />
+                    <div class="d-flex align-items-center gap-1">
+                        <span class="small text-muted">Hi</span>
+                        <input type="number" name="TempHigh" class="form-control form-control-sm text-center"
+                               value="@(r?.TempHigh?.ToString() ?? "")" style="width:54px;"
+                               @(isLocked ? "readonly" : "") />
+                        <span class="small text-muted">°F</span>
                     </div>
-
-                    @* Weather *@
-                    <div class="d-flex align-items-center gap-2">
-                        <label class="form-label small fw-semibold mb-0 text-end" style="width:90px; min-width:90px;">Weather</label>
-                        <div class="d-flex gap-2 align-items-center flex-wrap" style="flex:1;">
-                            <select name="WeatherCondition" class="form-select form-select-sm"
-                                    style="width:130px; max-width:130px; flex:none;"
-                                    @(isLocked ? "disabled" : "")>
-                                <option value="">— Condition —</option>
-                                @foreach (var wc in new[]{"Clear","Partly Cloudy","Cloudy","Rain","Heavy Rain","Snow","Fog","Windy"})
-                                {
-                                    <option value="@wc" selected="@(r?.WeatherCondition == wc)">@wc</option>
-                                }
-                            </select>
-                            <div class="d-flex align-items-center gap-1">
-                                <span class="small text-muted" style="white-space:nowrap;">Hi °F</span>
-                                <input type="number" name="TempHigh" class="form-control form-control-sm text-center"
-                                       value="@(r?.TempHigh?.ToString() ?? "")"
-                                       style="width:58px;"
-                                       @(isLocked ? "readonly" : "") />
-                            </div>
-                            <div class="d-flex align-items-center gap-1">
-                                <span class="small text-muted" style="white-space:nowrap;">Lo °F</span>
-                                <input type="number" name="TempLow" class="form-control form-control-sm text-center"
-                                       value="@(r?.TempLow?.ToString() ?? "")"
-                                       style="width:58px;"
-                                       @(isLocked ? "readonly" : "") />
-                            </div>
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" name="IsWindy" value="true"
-                                       id="chkWindy" @(r?.IsWindy == true ? "checked" : "") @(isLocked ? "disabled" : "") />
-                                <label class="form-check-label small" for="chkWindy"><i class="bi bi-wind me-1"></i>Windy</label>
-                            </div>
-                            <div class="form-check mb-0">
-                                <input class="form-check-input" type="checkbox" name="IsRainy" value="true"
-                                       id="chkRainy" @(r?.IsRainy == true ? "checked" : "") @(isLocked ? "disabled" : "") />
-                                <label class="form-check-label small" for="chkRainy"><i class="bi bi-cloud-rain me-1"></i>Rainy</label>
-                            </div>
-                        </div>
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="IsWindy" value="true"
+                               id="chkWindy" @(r?.IsWindy == true ? "checked" : "") @(isLocked ? "disabled" : "") />
+                        <label class="form-check-label small" for="chkWindy"><i class="bi bi-wind me-1"></i>Windy</label>
                     </div>
-
-                    @* Weather status — 바로 아래 행에 바짝 붙여 표시 *@
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="IsRainy" value="true"
+                               id="chkRainy" @(r?.IsRainy == true ? "checked" : "") @(isLocked ? "disabled" : "") />
+                        <label class="form-check-label small" for="chkRainy"><i class="bi bi-cloud-rain me-1"></i>Rainy</label>
+                    </div>
                     @if (isNew && !isLocked && (Model.SiteLat.HasValue || !string.IsNullOrEmpty(Model.WeatherAddress)))
                     {
-                        <div class="d-flex align-items-center gap-2" style="margin-top:-4px;">
-                            <div style="width:90px; min-width:90px;"></div>
-                            <span id="weatherStatus" class="text-muted"
-                                  style="font-size:.72rem; font-style:italic;">
-                                <i class="bi bi-cloud-download me-1"></i>Loading weather…
-                            </span>
-                        </div>
+                        <span id="weatherStatus" class="text-muted" style="font-size:.72rem; font-style:italic;">
+                            <i class="bi bi-cloud-download me-1"></i>Loading weather…
+                        </span>
                     }
-
                 </div>
-            </div>
-        </div>
 
-        @* ── Task Progress (Report Info 오른쪽) ─────────────────────────────── *@
-        <div class="aci-card mb-3" style="flex:1; min-width:320px; border-left:3px solid #0d6efd; background:#eef2ff;">
-            <div class="card-header-aci d-flex align-items-center gap-2 px-3 py-2 border-bottom">
-                <i class="bi bi-bar-chart-line text-primary"></i>
-                <span class="fw-semibold small">Task Progress</span>
-                <span class="badge bg-primary ms-1" style="font-size:.65rem;">Required</span>
             </div>
+
+            @* ── 하단: Task Progress 테이블 ── *@
             <div class="px-3 py-2">
                 <table class="table table-sm mb-0" id="taskTable" style="font-size:.82rem; --bs-table-bg:#eef2ff;">
                     <thead style="background:#dce4ff;">
@@ -286,7 +273,6 @@
                     <tbody id="taskBody">
                         @if (isLocked && r?.TaskProgress.Any() == true)
                         {
-                            @* 잠금: 저장된 진행률만 표시 *@
                             @foreach (var tp in r.TaskProgress.OrderBy(x => x.SortOrder))
                             {
                                 <tr>
@@ -295,9 +281,7 @@
                                         @if (tp.WorkingTask?.WbsCode != null) { <span class="text-muted me-1">@tp.WorkingTask.WbsCode</span> }
                                         @(tp.TaskText ?? tp.WorkingTask?.Text ?? "")
                                     </td>
-                                    <td class="text-center small text-muted">
-                                        @(tp.WorkingTask?.EndDate.ToString("MM/dd") ?? "—")
-                                    </td>
+                                    <td class="text-center small text-muted">@(tp.WorkingTask?.EndDate.ToString("MM/dd") ?? "—")</td>
                                     <td class="text-center small">@tp.ProgressBeforePercent%</td>
                                     <td class="text-center small fw-semibold">@tp.ProgressAfterPercent%</td>
                                     <td class="small text-muted">@tp.Notes</td>
@@ -306,13 +290,11 @@
                         }
                         else if (Model.ActiveTasks.Any())
                         {
-                            @* 편집: 스케줄 Task 전체 + 기존 저장값 병합 *@
                             @foreach (var t in Model.ActiveTasks)
                             {
-                                var saved     = Model.TaskProgressMap.GetValueOrDefault(t.Id);
-                                var priorPct  = saved?.ProgressBeforePercent ?? t.ProgressPercent;
-                                var todayPct  = saved?.ProgressAfterPercent  ?? t.ProgressPercent;
-                                var delta     = todayPct - priorPct;
+                                var saved    = Model.TaskProgressMap.GetValueOrDefault(t.Id);
+                                var priorPct = saved?.ProgressBeforePercent ?? t.ProgressPercent;
+                                var todayPct = saved?.ProgressAfterPercent  ?? t.ProgressPercent;
                                 <tr>
                                     <td class="small">
                                         <input type="hidden" name="tp_taskId" value="@t.Id" />
@@ -320,23 +302,10 @@
                                         @if (t.WbsCode != null) { <span class="text-muted me-1">@t.WbsCode</span> }
                                         @t.Text
                                     </td>
-                                    <td class="text-center small text-muted">
-                                        @t.EndDate.ToString("MM/dd")
-                                    </td>
-                                    <td>
-                                        <input type="number" name="tp_before" value="@priorPct"
-                                               class="form-control form-control-sm text-center" min="0" max="100"
-                                                />
-                                    </td>
-                                    <td>
-                                        <input type="number" name="tp_after" value="@todayPct"
-                                               class="form-control form-control-sm text-center tp-after" min="0" max="100"
-                                                />
-                                    </td>
-                                    <td>
-                                        <input type="text" name="tp_notes" value="@(saved?.Notes??"")"
-                                               class="form-control form-control-sm" maxlength="500" />
-                                    </td>
+                                    <td class="text-center small text-muted">@t.EndDate.ToString("MM/dd")</td>
+                                    <td><input type="number" name="tp_before" value="@priorPct" class="form-control form-control-sm text-center" min="0" max="100" /></td>
+                                    <td><input type="number" name="tp_after"  value="@todayPct" class="form-control form-control-sm text-center tp-after" min="0" max="100" /></td>
+                                    <td><input type="text"   name="tp_notes"  value="@(saved?.Notes??"")" class="form-control form-control-sm" maxlength="500" /></td>
                                 </tr>
                             }
                         }
@@ -352,8 +321,6 @@
                 </table>
             </div>
         </div>
-
-        </div>@* ── /Top Row flex wrapper ────────────────────────────────────────── *@
 
         @* ── Section 2: Work Performed ─────────────────────────────────────── *@
         <div class="aci-card mb-3" style="background:#fffdf5;">
