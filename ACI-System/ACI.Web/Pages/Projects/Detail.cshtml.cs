@@ -55,18 +55,29 @@ public class DetailModel : PageModel
             Type           = project.Type,
             Status         = project.Status,
             SiteAddress    = project.SiteAddress,
+            SiteAddress2   = project.SiteAddress2,
             City           = project.City,
             ZipCode        = project.ZipCode,
             State          = project.State,
             Latitude       = project.Latitude,
             Longitude      = project.Longitude,
-            OwnerName      = project.OwnerName,
-            OwnerContact   = project.OwnerContact,
-            OwnerEmail     = project.OwnerEmail,
-            OwnerAddress   = project.OwnerAddress,
-            OwnerCity      = project.OwnerCity,
-            OwnerZipCode   = project.OwnerZipCode,
-            OwnerState     = project.OwnerState,
+            OwnerName          = project.OwnerName,
+            OwnerPhone         = project.OwnerPhone,
+            OwnerAddress       = project.OwnerAddress,
+            OwnerAddress2      = project.OwnerAddress2,
+            OwnerCity          = project.OwnerCity,
+            OwnerZipCode       = project.OwnerZipCode,
+            OwnerState         = project.OwnerState,
+            OwnerContact1Name  = project.OwnerContact1Name,
+            OwnerContact1Title = project.OwnerContact1Title,
+            OwnerContact1Phone = project.OwnerContact1Phone,
+            OwnerContact1Cell  = project.OwnerContact1Cell,
+            OwnerContact1Email = project.OwnerContact1Email,
+            OwnerContact2Name  = project.OwnerContact2Name,
+            OwnerContact2Title = project.OwnerContact2Title,
+            OwnerContact2Phone = project.OwnerContact2Phone,
+            OwnerContact2Cell  = project.OwnerContact2Cell,
+            OwnerContact2Email = project.OwnerContact2Email,
             ContractAmount = project.ContractAmount,
             SchdStartDate  = project.SchdStartDate,
             SchdEndDate    = project.SchdEndDate,
@@ -97,18 +108,29 @@ public class DetailModel : PageModel
                 Type            = Input.Type,
                 Status          = Input.Status,
                 SiteAddress     = Input.SiteAddress,
+                SiteAddress2    = Input.SiteAddress2,
                 City            = Input.City,
                 ZipCode         = Input.ZipCode,
                 State           = Input.State,
                 Latitude        = Input.Latitude,
                 Longitude       = Input.Longitude,
-                OwnerName       = Input.OwnerName,
-                OwnerContact    = Input.OwnerContact,
-                OwnerEmail      = Input.OwnerEmail,
-                OwnerAddress    = Input.OwnerAddress,
-                OwnerCity       = Input.OwnerCity,
-                OwnerZipCode    = Input.OwnerZipCode,
-                OwnerState      = Input.OwnerState,
+                OwnerName          = Input.OwnerName,
+                OwnerPhone         = Input.OwnerPhone,
+                OwnerAddress       = Input.OwnerAddress,
+                OwnerAddress2      = Input.OwnerAddress2,
+                OwnerCity          = Input.OwnerCity,
+                OwnerZipCode       = Input.OwnerZipCode,
+                OwnerState         = Input.OwnerState,
+                OwnerContact1Name  = Input.OwnerContact1Name,
+                OwnerContact1Title = Input.OwnerContact1Title,
+                OwnerContact1Phone = Input.OwnerContact1Phone,
+                OwnerContact1Cell  = Input.OwnerContact1Cell,
+                OwnerContact1Email = Input.OwnerContact1Email,
+                OwnerContact2Name  = Input.OwnerContact2Name,
+                OwnerContact2Title = Input.OwnerContact2Title,
+                OwnerContact2Phone = Input.OwnerContact2Phone,
+                OwnerContact2Cell  = Input.OwnerContact2Cell,
+                OwnerContact2Email = Input.OwnerContact2Email,
                 ContractAmount  = Input.ContractAmount,
                 SchdStartDate   = Input.SchdStartDate,
                 SchdEndDate     = Input.SchdEndDate,
@@ -133,18 +155,29 @@ public class DetailModel : PageModel
             project.Type            = Input.Type;
             project.Status          = Input.Status;
             project.SiteAddress     = Input.SiteAddress;
+            project.SiteAddress2    = Input.SiteAddress2;
             project.City            = Input.City;
             project.ZipCode         = Input.ZipCode;
             project.State           = Input.State;
             project.Latitude        = Input.Latitude;
             project.Longitude       = Input.Longitude;
-            project.OwnerName       = Input.OwnerName;
-            project.OwnerContact    = Input.OwnerContact;
-            project.OwnerEmail      = Input.OwnerEmail;
-            project.OwnerAddress    = Input.OwnerAddress;
-            project.OwnerCity       = Input.OwnerCity;
-            project.OwnerZipCode    = Input.OwnerZipCode;
-            project.OwnerState      = Input.OwnerState;
+            project.OwnerName          = Input.OwnerName;
+            project.OwnerPhone         = Input.OwnerPhone;
+            project.OwnerAddress       = Input.OwnerAddress;
+            project.OwnerAddress2      = Input.OwnerAddress2;
+            project.OwnerCity          = Input.OwnerCity;
+            project.OwnerZipCode       = Input.OwnerZipCode;
+            project.OwnerState         = Input.OwnerState;
+            project.OwnerContact1Name  = Input.OwnerContact1Name;
+            project.OwnerContact1Title = Input.OwnerContact1Title;
+            project.OwnerContact1Phone = Input.OwnerContact1Phone;
+            project.OwnerContact1Cell  = Input.OwnerContact1Cell;
+            project.OwnerContact1Email = Input.OwnerContact1Email;
+            project.OwnerContact2Name  = Input.OwnerContact2Name;
+            project.OwnerContact2Title = Input.OwnerContact2Title;
+            project.OwnerContact2Phone = Input.OwnerContact2Phone;
+            project.OwnerContact2Cell  = Input.OwnerContact2Cell;
+            project.OwnerContact2Email = Input.OwnerContact2Email;
             project.ContractAmount  = Input.ContractAmount;
             project.SchdStartDate   = Input.SchdStartDate;
             project.SchdEndDate     = Input.SchdEndDate;
@@ -164,21 +197,32 @@ public class DetailModel : PageModel
         [Required, MaxLength(30)]  public string  ProjectCode     { get; set; } = string.Empty;
         [Required, MaxLength(200)] public string  Name            { get; set; } = string.Empty;
         public string?      Description    { get; set; }
-        public ProjectType  Type           { get; set; } = ProjectType.LumpSum;
-        public ProjectStatus Status        { get; set; } = ProjectStatus.Planning;
+        public ProjectType  Type           { get; set; } = ProjectType.JOC;
+        public ProjectStatus Status        { get; set; } = ProjectStatus.Active;
         public string?      SiteAddress    { get; set; }
+        public string?      SiteAddress2   { get; set; }
         public string?      City           { get; set; }
         public string?      ZipCode        { get; set; }
         public string?      State          { get; set; }
         public double?      Latitude       { get; set; }
         public double?      Longitude      { get; set; }
-        public string?      OwnerName      { get; set; }
-        public string?      OwnerContact   { get; set; }
-        public string?      OwnerEmail     { get; set; }
-        public string?      OwnerAddress   { get; set; }
-        public string?      OwnerCity      { get; set; }
-        public string?      OwnerZipCode   { get; set; }
-        public string?      OwnerState     { get; set; }
+        public string?      OwnerName          { get; set; }
+        public string?      OwnerPhone         { get; set; }
+        public string?      OwnerAddress       { get; set; }
+        public string?      OwnerAddress2      { get; set; }
+        public string?      OwnerCity          { get; set; }
+        public string?      OwnerZipCode       { get; set; }
+        public string?      OwnerState         { get; set; }
+        public string?      OwnerContact1Name  { get; set; }
+        public string?      OwnerContact1Title { get; set; }
+        public string?      OwnerContact1Phone { get; set; }
+        public string?      OwnerContact1Cell  { get; set; }
+        public string?      OwnerContact1Email { get; set; }
+        public string?      OwnerContact2Name  { get; set; }
+        public string?      OwnerContact2Title { get; set; }
+        public string?      OwnerContact2Phone { get; set; }
+        public string?      OwnerContact2Cell  { get; set; }
+        public string?      OwnerContact2Email { get; set; }
 
         [Range(0, double.MaxValue)]
         public decimal      ContractAmount { get; set; }

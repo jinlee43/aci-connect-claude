@@ -18,15 +18,32 @@ if [ "$BRANCH" != "dev" ]; then
   exit 1
 fi
 
-# Check for uncommitted changes
-STATUS=$(git status --porcelain)
-if [ -n "$STATUS" ]; then
-  log "ERROR: Uncommitted changes detected. Commit or stash before merging."
-  git status --short
-  exit 1
+log "Current branch: dev ✓"
+
+# ACI-System/ 및 루트 설정 파일 자동 스테이징
+git add ACI-System/ CLAUDE.md .gitignore 2>/dev/null || true
+
+# 스테이징된 변경사항이 있으면 커밋
+if ! git diff --cached --quiet; then
+  # 커밋 메시지: 인자로 전달하거나 직접 입력
+  if [ -n "$1" ]; then
+    COMMIT_MSG="$1"
+  else
+    echo -n "Commit message: "
+    read COMMIT_MSG
+    if [ -z "$COMMIT_MSG" ]; then
+      COMMIT_MSG="deploy: $(date '+%Y-%m-%d')"
+    fi
+  fi
+  log "Committing: $COMMIT_MSG"
+  git commit -m "$COMMIT_MSG"
+else
+  log "Nothing to commit."
 fi
 
-log "Current branch: dev ✓"
+# dev → origin push
+log "Pushing dev to GitHub..."
+git push origin dev
 
 # Switch to main and merge
 log "Switching to main..."

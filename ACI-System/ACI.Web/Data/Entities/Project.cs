@@ -42,6 +42,9 @@ public class Project : BaseEntity
     [MaxLength(300)]
     public string? SiteAddress { get; set; }
 
+    [MaxLength(300)]
+    public string? SiteAddress2 { get; set; }
+
     [MaxLength(100)]
     public string? City { get; set; }
 
@@ -56,18 +59,18 @@ public class Project : BaseEntity
     /// <summary>GPS 경도.</summary>
     public double? Longitude { get; set; }
 
-    // Owner / Customer
+    // Owner / Customer — organization
     [MaxLength(200)]
     public string? OwnerName { get; set; }
 
-    [MaxLength(200)]
-    public string? OwnerContact { get; set; }
-
-    [MaxLength(200)]
-    public string? OwnerEmail { get; set; }
+    [MaxLength(50)]
+    public string? OwnerPhone { get; set; }
 
     [MaxLength(300)]
     public string? OwnerAddress { get; set; }
+
+    [MaxLength(300)]
+    public string? OwnerAddress2 { get; set; }
 
     [MaxLength(100)]
     public string? OwnerCity { get; set; }
@@ -77,6 +80,38 @@ public class Project : BaseEntity
 
     [MaxLength(50)]
     public string? OwnerState { get; set; }
+
+    // Owner — primary contact
+    [MaxLength(200)]
+    public string? OwnerContact1Name { get; set; }
+
+    [MaxLength(100)]
+    public string? OwnerContact1Title { get; set; }
+
+    [MaxLength(50)]
+    public string? OwnerContact1Phone { get; set; }
+
+    [MaxLength(50)]
+    public string? OwnerContact1Cell { get; set; }
+
+    [MaxLength(200)]
+    public string? OwnerContact1Email { get; set; }
+
+    // Owner — secondary contact
+    [MaxLength(200)]
+    public string? OwnerContact2Name { get; set; }
+
+    [MaxLength(100)]
+    public string? OwnerContact2Title { get; set; }
+
+    [MaxLength(50)]
+    public string? OwnerContact2Phone { get; set; }
+
+    [MaxLength(50)]
+    public string? OwnerContact2Cell { get; set; }
+
+    [MaxLength(200)]
+    public string? OwnerContact2Email { get; set; }
 
     // Contract
     public decimal ContractAmount { get; set; } = 0;

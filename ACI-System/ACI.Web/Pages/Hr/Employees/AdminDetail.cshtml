@@ -431,6 +431,7 @@
 
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/inputmask/5.0.8/inputmask.min.js"></script>
 <script>
 function toggleOldHireDate(chk) {
     const grp = document.getElementById('oldHireDateGroup');
@@ -470,6 +471,12 @@ async function toggleSensitive() {
 
             fields.forEach(f => f.type = 'text');
 
+            // SSN / TIN 입력 마스크 적용 (999-99-9999)
+            const ssnEl = document.querySelector('[name="SsnPlain"]');
+            const tinEl = document.querySelector('[name="TinPlain"]');
+            Inputmask('999-99-9999').mask(ssnEl);
+            Inputmask('999-99-9999').mask(tinEl);
+
             // 값 지울 때 placeholder 실시간 업데이트 (지우면 "Not set"으로 변경)
             fields.forEach(f => {
                 if (!f._placeholderListenerAdded) {
@@ -492,6 +499,9 @@ async function toggleSensitive() {
         }
     } else {
         // ── 숨기기: type만 password로 (값은 유지, 다음 Show 시 DB에서 재로드) ──
+        // SSN / TIN 마스크 제거 (password type과 충돌 방지)
+        Inputmask.remove(document.querySelector('[name="SsnPlain"]'));
+        Inputmask.remove(document.querySelector('[name="TinPlain"]'));
         fields.forEach(f => f.type = 'password');
 
         const mask   = document.getElementById('birthDateMask');

@@ -28,169 +28,344 @@
 
 <div class="p-3">
     <div class="row justify-content-center">
-        <div class="col-lg-9">
+        <div class="col-12">
             <form method="post">
                 @Html.AntiForgeryToken()
                 <fieldset disabled="@(!Model.CanEdit)">
 
-                    @* ── 기본 정보 ─────────────────────────────────────── *@
-                    <div class="aci-card mb-3">
-                        <div class="card-body p-4">
-                            <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Project Info</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Project Number <span class="text-danger">*</span></label>
-                                    <input asp-for="Input.ProjectCode" class="form-control" placeholder="ACI-2025-001" />
-                                    <span asp-validation-for="Input.ProjectCode" class="text-danger small"></span>
-                                </div>
-                                <div class="col-md-8">
-                                    <label class="form-label fw-semibold">Project Name <span class="text-danger">*</span></label>
-                                    <input asp-for="Input.Name" class="form-control" placeholder="City Hall Renovation" />
-                                    <span asp-validation-for="Input.Name" class="text-danger small"></span>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Contract Type</label>
-                                    <select asp-for="Input.Type" class="form-select"
-                                            asp-items="Html.GetEnumSelectList<ProjectType>()"></select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Status</label>
-                                    <select asp-for="Input.Status" class="form-select"
-                                            asp-items="Html.GetEnumSelectList<ProjectStatus>()"></select>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Contract Amount ($)</label>
-                                    <input asp-for="Input.ContractAmount" type="number" class="form-control"
-                                           step="0.01" min="0" />
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Description</label>
-                                    <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @* ── Project Info + Owner — side by side ──────────── *@
+                    <div class="d-flex align-items-stretch gap-3 mb-3">
 
-                    @* ── 현장 주소 ─────────────────────────────────────── *@
-                    <div class="aci-card mb-3">
-                        <div class="card-body p-4">
-                            <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Site Location</h6>
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Address</label>
-                                    <input asp-for="Input.SiteAddress" class="form-control" id="siteAddress" />
+                        @* Project Info card *@
+                        <div class="aci-card" style="flex:1 1 0; min-width:0">
+                            <div class="card-body p-4">
+                                <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Project Info</h6>
+
+                                @* Row 1: Code (left) | spacer | Type (center) | spacer | Status (right) *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Code <span class="text-danger">*</span></label>
+                                    </div>
+                                    <div class="col-auto" style="width:10.5rem">
+                                        <input asp-for="Input.ProjectCode" class="form-control form-control-sm" />
+                                        <span asp-validation-for="Input.ProjectCode" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Type</label>
+                                    </div>
+                                    <div class="col-auto" style="width:10.5rem">
+                                        <select asp-for="Input.Type" class="form-select form-select-sm">
+                                            <option value="0">Lump Sum</option>
+                                            <option value="1">JOC</option>
+                                        </select>
+                                    </div>
+                                    <div class="col"></div>
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Status</label>
+                                    </div>
+                                    <div class="col-auto" style="width:7rem">
+                                        <select asp-for="Input.Status" class="form-select form-select-sm"
+                                                asp-items="Html.GetEnumSelectList<ProjectStatus>()"></select>
+                                    </div>
                                 </div>
-                                <div class="col-md-5">
-                                    <label class="form-label fw-semibold">City</label>
-                                    <input asp-for="Input.City" class="form-control" id="siteCity" />
+
+                                @* Row 2: Name | Amount *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Name <span class="text-danger">*</span></label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.Name" class="form-control form-control-sm" />
+                                        <span asp-validation-for="Input.Name" class="text-danger small"></span>
+                                    </div>
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Amount ($)</label>
+                                    </div>
+                                    <div class="col-auto" style="width:7rem">
+                                        <input asp-for="Input.ContractAmount" type="text" inputmode="numeric"
+                                               class="form-control form-control-sm" id="contractAmount" />
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label fw-semibold">Zip Code</label>
-                                    <input asp-for="Input.ZipCode" class="form-control" id="siteZip" />
+
+                                @* Row 3: Description *@
+                                <div class="row g-3 align-items-start mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Description</label>
+                                    </div>
+                                    <div class="col">
+                                        <textarea asp-for="Input.Description" class="form-control form-control-sm" rows="2"></textarea>
+                                    </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">State</label>
-                                    <input asp-for="Input.State" class="form-control" placeholder="CA" id="siteState" />
+
+                                @* Row 4: Address | Latitude *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Address</label>
+                                    </div>
+                                    <div class="col-auto" style="width:26rem">
+                                        <input asp-for="Input.SiteAddress" class="form-control form-control-sm" id="siteAddress" />
+                                    </div>
+                                    <div class="col-auto text-end ms-auto" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Latitude</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.Latitude" type="number" step="0.000001"
+                                               class="form-control form-control-sm" id="siteLatitude" />
+                                    </div>
                                 </div>
-                                <div class="col-12">
-                                    <hr class="my-1" />
+
+                                @* Row 5: Address 2 | Longitude *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Address 2</label>
+                                    </div>
+                                    <div class="col-auto" style="width:26rem">
+                                        <input asp-for="Input.SiteAddress2" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end ms-auto" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">Longitude</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.Longitude" type="number" step="0.000001"
+                                               class="form-control form-control-sm" id="siteLongitude" />
+                                    </div>
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">
-                                        Latitude
-                                        <span class="text-muted fw-normal small ms-1">(for weather)</span>
-                                    </label>
-                                    <input asp-for="Input.Latitude" type="number" step="0.000001"
-                                           class="form-control" id="siteLatitude"
-                                           placeholder="e.g. 34.052235" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Longitude</label>
-                                    <input asp-for="Input.Longitude" type="number" step="0.000001"
-                                           class="form-control" id="siteLongitude"
-                                           placeholder="e.g. -118.243683" />
-                                </div>
-                                @if (Model.CanEdit)
-                                {
-                                    <div class="col-md-4 d-flex align-items-end">
-                                        <div>
-                                            <button type="button" class="btn btn-outline-secondary"
+
+                                @* Row 6: City | Zip | State | Get Coordinates *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:7rem">
+                                        <label class="col-form-label fw-semibold">City</label>
+                                    </div>
+                                    <div class="col-auto" style="width:10rem">
+                                        <input asp-for="Input.City" class="form-control form-control-sm" id="siteCity" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:3.5rem">
+                                        <label class="col-form-label fw-semibold">Zip</label>
+                                    </div>
+                                    <div class="col-auto" style="width:5rem">
+                                        <input asp-for="Input.ZipCode" class="form-control form-control-sm" id="siteZip" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:3.5rem">
+                                        <label class="col-form-label fw-semibold">State</label>
+                                    </div>
+                                    <div class="col-auto" style="width:4rem">
+                                        <input asp-for="Input.State" class="form-control form-control-sm"
+                                               list="usStateList" autocomplete="off" placeholder="CA" id="siteState" />
+                                    </div>
+                                    @if (Model.CanEdit)
+                                    {
+                                        <div class="col-auto ms-auto">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
                                                     id="geocodeBtn" onclick="geocodeAddress()">
                                                 <i class="bi bi-geo-alt me-1"></i>Get Coordinates
                                             </button>
                                             <div id="geocodeStatus" class="small mt-1 text-muted"></div>
                                         </div>
+                                    }
+                                </div>
+
+                                @* ── Schedule ─── *@
+                                <p class="text-muted small fw-semibold text-uppercase mb-2 mt-3" style="font-size:0.7rem; letter-spacing:.05em">Schedule</p>
+
+                                @* 3-column date layout: Start | Planned End + Actual End | Completed *@
+                                <div class="d-flex align-items-start gap-4 mb-2">
+
+                                    @* Col 1: Start *@
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="col-form-label fw-semibold text-end" style="width:4rem">Start</label>
+                                        <input asp-for="Input.ActualStartDate" type="date" class="form-control form-control-sm" style="width:9rem" />
                                     </div>
-                                }
+
+                                    @* Col 2: Planned End (top) + Actual End (bottom) *@
+                                    <div class="d-flex flex-column gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label class="col-form-label fw-semibold text-end" style="width:7rem">Planned End</label>
+                                            <input asp-for="Input.SchdEndDate" type="date" class="form-control form-control-sm" style="width:9rem" />
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label class="col-form-label fw-semibold text-end" style="width:7rem">Actual End</label>
+                                            <input asp-for="Input.ActualEndDate" type="date" class="form-control form-control-sm" style="width:9rem" />
+                                        </div>
+                                    </div>
+
+                                    @* Col 3: Completed *@
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="col-form-label fw-semibold text-end" style="width:6rem">Completed</label>
+                                        <input asp-for="Input.CompletedDate" type="date" class="form-control form-control-sm" style="width:9rem" />
+                                    </div>
+
+                                </div>
+
                             </div>
                         </div>
+
+                        @* Owner / Client card *@
+                        <div class="aci-card" style="flex:1 1 0; min-width:0">
+                            <div class="card-body p-4">
+                                <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Owner / Client</h6>
+
+                                @* ── Organization ─── *@
+                                <p class="text-muted small fw-semibold text-uppercase mb-2" style="font-size:0.7rem; letter-spacing:.05em">Organization</p>
+
+                                @* Name | Phone *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Name</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerName" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:5rem">
+                                        <label class="col-form-label fw-semibold">Phone</label>
+                                    </div>
+                                    <div class="col-auto" style="width:11rem">
+                                        <input asp-for="Input.OwnerPhone" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                                @* Address | Address 2 *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Address</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerAddress" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:5rem">
+                                        <label class="col-form-label fw-semibold">Addr 2</label>
+                                    </div>
+                                    <div class="col-auto" style="width:15rem">
+                                        <input asp-for="Input.OwnerAddress2" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                                @* City | Zip | State *@
+                                <div class="row g-3 align-items-center mb-3">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">City</label>
+                                    </div>
+                                    <div class="col-auto" style="width:15rem">
+                                        <input asp-for="Input.OwnerCity" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:3rem">
+                                        <label class="col-form-label fw-semibold">Zip</label>
+                                    </div>
+                                    <div class="col-auto" style="width:5rem">
+                                        <input asp-for="Input.OwnerZipCode" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:3.5rem">
+                                        <label class="col-form-label fw-semibold">State</label>
+                                    </div>
+                                    <div class="col-auto" style="width:4rem">
+                                        <input asp-for="Input.OwnerState" class="form-control form-control-sm"
+                                               list="usStateList" autocomplete="off" placeholder="CA" />
+                                    </div>
+                                </div>
+
+                                @* ── Primary Contact ─── *@
+                                <p class="text-muted small fw-semibold text-uppercase mb-2" style="font-size:0.7rem; letter-spacing:.05em">Primary Contact</p>
+
+                                @* Name | Title *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Name</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerContact1Name" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:5rem">
+                                        <label class="col-form-label fw-semibold">Title</label>
+                                    </div>
+                                    <div class="col-auto" style="width:20rem">
+                                        <input asp-for="Input.OwnerContact1Title" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                                @* Phone | Cell | Email *@
+                                <div class="row g-3 align-items-center mb-3">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Phone</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.OwnerContact1Phone" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:4rem">
+                                        <label class="col-form-label fw-semibold">Cell</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.OwnerContact1Cell" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:4rem">
+                                        <label class="col-form-label fw-semibold">Email</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerContact1Email" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                                @* ── Secondary Contact ─── *@
+                                <p class="text-muted small fw-semibold text-uppercase mb-2" style="font-size:0.7rem; letter-spacing:.05em">Secondary Contact</p>
+
+                                @* Name | Title *@
+                                <div class="row g-3 align-items-center mb-2">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Name</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerContact2Name" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:5rem">
+                                        <label class="col-form-label fw-semibold">Title</label>
+                                    </div>
+                                    <div class="col-auto" style="width:20rem">
+                                        <input asp-for="Input.OwnerContact2Title" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                                @* Phone | Cell | Email *@
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-auto text-end" style="width:6rem">
+                                        <label class="col-form-label fw-semibold">Phone</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.OwnerContact2Phone" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:4rem">
+                                        <label class="col-form-label fw-semibold">Cell</label>
+                                    </div>
+                                    <div class="col-auto" style="width:8rem">
+                                        <input asp-for="Input.OwnerContact2Cell" class="form-control form-control-sm" />
+                                    </div>
+                                    <div class="col-auto text-end" style="width:4rem">
+                                        <label class="col-form-label fw-semibold">Email</label>
+                                    </div>
+                                    <div class="col">
+                                        <input asp-for="Input.OwnerContact2Email" class="form-control form-control-sm" />
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
                     </div>
 
-                    @* ── Owner ─────────────────────────────────────────── *@
-                    <div class="aci-card mb-3">
-                        <div class="card-body p-4">
-                            <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Owner / Client</h6>
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Owner Name</label>
-                                    <input asp-for="Input.OwnerName" class="form-control" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Contact</label>
-                                    <input asp-for="Input.OwnerContact" class="form-control" placeholder="phone" />
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label fw-semibold">Email</label>
-                                    <input asp-for="Input.OwnerEmail" class="form-control" />
-                                </div>
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">Address</label>
-                                    <input asp-for="Input.OwnerAddress" class="form-control" />
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label fw-semibold">City</label>
-                                    <input asp-for="Input.OwnerCity" class="form-control" />
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label fw-semibold">Zip Code</label>
-                                    <input asp-for="Input.OwnerZipCode" class="form-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">State</label>
-                                    <input asp-for="Input.OwnerState" class="form-control" placeholder="CA" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    @* ── US State datalist (shared by Site + Owner state inputs) *@
+                    <datalist id="usStateList">
+                        <option value="AL" /><option value="AK" /><option value="AZ" /><option value="AR" />
+                        <option value="CA" /><option value="CO" /><option value="CT" /><option value="DE" />
+                        <option value="FL" /><option value="GA" /><option value="HI" /><option value="ID" />
+                        <option value="IL" /><option value="IN" /><option value="IA" /><option value="KS" />
+                        <option value="KY" /><option value="LA" /><option value="ME" /><option value="MD" />
+                        <option value="MA" /><option value="MI" /><option value="MN" /><option value="MS" />
+                        <option value="MO" /><option value="MT" /><option value="NE" /><option value="NV" />
+                        <option value="NH" /><option value="NJ" /><option value="NM" /><option value="NY" />
+                        <option value="NC" /><option value="ND" /><option value="OH" /><option value="OK" />
+                        <option value="OR" /><option value="PA" /><option value="RI" /><option value="SC" />
+                        <option value="SD" /><option value="TN" /><option value="TX" /><option value="UT" />
+                        <option value="VT" /><option value="VA" /><option value="WA" /><option value="WV" />
+                        <option value="WI" /><option value="WY" />
+                    </datalist>
 
-                    @* ── 일정 ──────────────────────────────────────────── *@
-                    <div class="aci-card mb-3">
-                        <div class="card-body p-4">
-                            <h6 class="fw-semibold mb-3 text-muted text-uppercase small">Schedule</h6>
-                            <div class="row g-3">
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Planned Start</label>
-                                    <input asp-for="Input.SchdStartDate" type="date" class="form-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Planned End</label>
-                                    <input asp-for="Input.SchdEndDate" type="date" class="form-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Actual Start</label>
-                                    <input asp-for="Input.ActualStartDate" type="date" class="form-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Actual End</label>
-                                    <input asp-for="Input.ActualEndDate" type="date" class="form-control" />
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label fw-semibold">Completed Date</label>
-                                    <input asp-for="Input.CompletedDate" type="date" class="form-control" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
                 </fieldset>
 
@@ -209,6 +384,39 @@
 </div>
 
 @section Scripts {
+<script>
+// Contract Amount — 달러 정수 (쉼표 포맷, 센트 없음)
+document.addEventListener('DOMContentLoaded', function () {
+    const el = document.getElementById('contractAmount');
+    if (!el) return;
+
+    function fmt(raw) {
+        const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+        return isNaN(n) ? '' : n.toLocaleString('en-US');
+    }
+
+    // 기존 값 포맷 (편집 시 raw decimal → 1,250,000)
+    if (el.value) el.value = fmt(el.value);
+
+    el.addEventListener('input', function () {
+        const pos = this.selectionStart;
+        const before = (this.value.substring(0, pos).match(/[0-9]/g) || []).length;
+        this.value = fmt(this.value);
+        // 커서 위치 복원
+        let cnt = 0, i = 0;
+        while (i < this.value.length && cnt < before) {
+            if (/[0-9]/.test(this.value[i])) cnt++;
+            i++;
+        }
+        this.setSelectionRange(i, i);
+    });
+
+    // 제출 전 쉼표 제거 → 서버 decimal 바인딩
+    el.form?.addEventListener('submit', function () {
+        el.value = el.value.replace(/[^0-9]/g, '') || '0';
+    });
+});
+</script>
 <script>
 async function geocodeAddress() {
     const parts = [
